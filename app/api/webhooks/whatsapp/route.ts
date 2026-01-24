@@ -20,8 +20,15 @@ export async function POST(req: NextRequest) {
       console.log('WEBHOOK_V2_DEBUG Start');
       console.log('Webhook Body:', JSON.stringify(body, null, 2));
 
-      // Handle both potential structures (Evolution API variations)
-      const message = data?.message || data; 
+      // Evolution API variations handling
+      let message;
+      if (data?.key) {
+        // v2 structure where data IS the message object containing key
+        message = data;
+      } else {
+        // v1 structure or wrapper where message is nested
+        message = data?.message || data;
+      }
       
       const key = message?.key;
       const from = key?.remoteJid;

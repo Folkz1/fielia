@@ -1,4 +1,8 @@
-// import { generateCorinthiansResponse } from '@/lib/openrouter'; // Removed top-level import
+import { prisma } from '@/lib/prisma';
+import { getLatestNews, formatNewsMessage } from './services/news.service';
+import { getTopUsers, formatRankingMessage } from './services/ranking.service';
+import { getUserProfile, formatProfileMessage } from './services/user.service';
+import { startQuiz, processQuizAnswer } from './services/quiz.service';
 
 export interface BotResponse {
   content: string;
@@ -6,17 +10,31 @@ export interface BotResponse {
   options?: any;
 }
 
-// Handler Stubs
-async function handleNews(userId: string): Promise<BotResponse> {
+// Handlers
+async function handleNews(): Promise<BotResponse> {
+  const news = await getLatestNews(3);
   return {
-    content: "📰 *Notícias do Timão*\n\nFuncionalidade de Notícias em breve! Aqui você verá as últimas do Coringão.",
+    content: formatNewsMessage(news),
     type: 'text'
   };
 }
 
 async function handleQuiz(userId: string): Promise<BotResponse> {
+  return startQuiz(userId);
+}
+
+async function handleRanking(): Promise<BotResponse> {
+  const users = await getTopUsers(10);
   return {
-    content: "❓ *Quiz do Timão*\n\nFuncionalidade de Quiz em breve! Teste seus conhecimentos sobre o Todo Poderoso.",
+    content: formatRankingMessage(users),
+    type: 'text'
+  };
+}
+
+async function handleProfile(userId: string): Promise<BotResponse> {
+  const user = await getUserProfile(userId);
+  return {
+    content: formatProfileMessage(user),
     type: 'text'
   };
 }
@@ -24,13 +42,6 @@ async function handleQuiz(userId: string): Promise<BotResponse> {
 async function handleGame(userId: string): Promise<BotResponse> {
   return {
     content: "🎮 *Game Fiel*\n\nFuncionalidade de Jogo em breve! Jogue e ganhe pontos.",
-    type: 'text'
-  };
-}
-
-async function handleRanking(userId: string): Promise<BotResponse> {
-  return {
-    content: "🏆 *Ranking Fiel*\n\nFuncionalidade de Ranking em breve! Veja quem são os maiores torcedores.",
     type: 'text'
   };
 }
@@ -48,23 +59,46 @@ async function handleChat(userId: string, message: string): Promise<BotResponse>
 export async function routeMessage(userId: string, message: string): Promise<BotResponse> {
   const lowerMsg = message.trim().toLowerCase();
 
-  // Keyword Matching
+  // 1. Check User State (Active Actions like Quiz)
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { currentAction: true }
+  });
+
+  if (user?.currentAction?.startsWith('quiz:')) {
+    // If it's a command to exit the quiz
+    if (lowerMsg === 'sair' || lowerMsg === 'parar' || lowerMsg === 'cancelar') {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { currentAction: null }
+      });
+      return { content: "🚫 *Quiz cancelado.* O que deseja fazer agora? Digite /menu.", type: 'text' };
+    }
+    
+    return processQuizAnswer(userId, user.currentAction, message.trim());
+  }
+
+  // 2. Keyword Matching (Menu Options)
   if (lowerMsg.includes('notícias') || lowerMsg.includes('noticias') || lowerMsg === '1') {
-    return handleNews(userId);
+    return handleNews();
   }
 
   if (lowerMsg.includes('quiz') || lowerMsg === '2') {
     return handleQuiz(userId);
   }
 
+  if (lowerMsg.includes('ranking') || lowerMsg === '4') {
+    return handleRanking();
+  }
+
+  if (lowerMsg.includes('perfil') || lowerMsg === '5') {
+      return handleProfile(userId);
+  }
+
   if (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3') {
     return handleGame(userId);
   }
 
-  if (lowerMsg.includes('ranking') || lowerMsg === '4') {
-    return handleRanking(userId);
-  }
-
-  // Fallback to LLM
+  // 3. Fallback to LLM
   return handleChat(userId, message);
 }

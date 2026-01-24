@@ -17,19 +17,22 @@ export async function POST(req: NextRequest) {
 
     // Handle different event types
     if (event === 'messages.upsert') {
+      console.log('WEBHOOK_V2_DEBUG Start');
       console.log('Webhook Body:', JSON.stringify(body, null, 2));
 
       // Handle both potential structures (Evolution API variations)
-      const message = data.message || data; 
+      const message = data?.message || data; 
       
-      if (!message || !message.key) {
-        console.error('Invalid message structure:', message);
-        return NextResponse.json({ status: 'ignored', reason: 'invalid_structure' });
+      const key = message?.key;
+      const from = key?.remoteJid;
+
+      if (!from) {
+        console.error('Invalid message structure - Missing remoteJid. Message:', JSON.stringify(message, null, 2));
+        return NextResponse.json({ status: 'ignored', reason: 'invalid_structure_no_from' });
       }
 
-      const from = message.key.remoteJid;
-      const messageText = message.message?.conversation || 
-                         message.message?.extendedTextMessage?.text || '';
+      const messageText = message?.message?.conversation || 
+                         message?.message?.extendedTextMessage?.text || '';
 
       if (!messageText) {
         return NextResponse.json({ status: 'ignored' });

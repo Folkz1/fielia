@@ -1,4 +1,4 @@
-import OpenRouter from '@openrouter/sdk';
+import { OpenRouter } from '@openrouter/sdk';
 
 const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -26,16 +26,31 @@ export async function sendChatCompletion(
   } = options;
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await client.chat.send({
       model,
-      messages,
+      messages: messages as any,
       temperature,
-      max_tokens: maxTokens,
+      maxTokens: maxTokens,
     });
 
+    // Handle OpenRouter's flexible content format (string or array of parts)
+    const choice = response.choices[0];
+    let content = '';
+    
+    if (choice?.message?.content) {
+      if (typeof choice.message.content === 'string') {
+        content = choice.message.content;
+      } else if (Array.isArray(choice.message.content)) {
+        content = choice.message.content
+          .filter((c: any) => c.type === 'output_text')
+          .map((c: any) => c.text)
+          .join('');
+      }
+    }
+
     return {
-      content: response.choices[0]?.message?.content || '',
-      tokensUsed: response.usage?.total_tokens || 0,
+      content,
+      tokensUsed: response.usage?.totalTokens || 0,
       model: response.model,
     };
   } catch (error) {

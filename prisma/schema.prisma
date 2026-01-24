@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  password      String
+  phone         String?  @unique
+  whatsappId    String?  @unique
+  
+  // Stats
+  totalPoints   Int      @default(0)
+  currentStreak Int      @default(0)
+  maxStreak     Int      @default(0)
+  lastActive    DateTime @default(now())
+  
+  // Rate Limiting
+  dailyMessageCount Int      @default(0)
+  lastMessageDate   DateTime @default(now())
+  
+  // Subscription
+  isPremium     Boolean  @default(false)
+  subscriptionEnd DateTime?
+  asaasCustomerId String? @unique
+  asaasSubscriptionId String? @unique
+  cpfCnpj       String?  @unique
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  quizAttempts  QuizAttempt[]
+  aiChats       AIChat[]
+  
+  @@map("users")
+}
+
+model Quiz {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  difficulty  String   @default("medium") // easy, medium, hard
+  category    String   @default("general") // history, players, titles, general
+  
+  isActive    Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  questions   QuizQuestion[]
+  attempts    QuizAttempt[]
+  
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  question      String
+  options       String[] // JSON array of options
+  correctAnswer String
+  points        Int      @default(100)
+  
+  order         Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  answers       QuizAnswer[]
+  
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId      String
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  score       Int      @default(0)
+  totalPoints Int      @default(0)
+  accuracy    Float    @default(0)
+  
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  answers     QuizAnswer[]
+  
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id          String   @id @default(cuid())
+  attemptId   String
+  attempt     QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  answer      String
+  isCorrect   Boolean
+  timeTaken   Int      // seconds
+  pointsEarned Int     @default(0)
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("quiz_answers")
+}
+
+model News {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String
+  content     String   @db.Text
+  category    String   // jogos, transferencias, bastidores, torcida
+  
+  imageUrl    String?
+  sourceUrl   String?
+  
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("news")
+}
+
+model AIChat {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  platform    String   // whatsapp, web
+  sessionId   String
+  
+  messages    AIMessage[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("ai_chats")
+}
+
+model AIMessage {
+  id          String   @id @default(cuid())
+  chatId      String
+  chat        AIChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  role        String   // user, assistant, system
+  content     String   @db.Text
+  
+  // Metadata
+  tokensUsed  Int?
+  model       String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("ai_messages")
+}
+
+model CorinthiansKnowledge {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  category    String   // history, players, titles, stadium, torcida
+  
+  // For RAG
+  embedding   Float[]  // Vector embedding for semantic search
+  
+  source      String?
+  sourceUrl   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("corinthians_knowledge")
+}

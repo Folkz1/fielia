@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 7); // 7 days trial
 
+
+
+    if (!asaasCustomerId) {
+      throw new Error('Failed to resolve Asaas Customer ID');
+    }
+
     const subscription = await asaasClient.createSubscription({
       customer: asaasCustomerId,
       billingType: 'CREDIT_CARD',

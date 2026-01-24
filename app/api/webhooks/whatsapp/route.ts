@@ -17,7 +17,16 @@ export async function POST(req: NextRequest) {
 
     // Handle different event types
     if (event === 'messages.upsert') {
-      const message = data.message;
+      console.log('Webhook Body:', JSON.stringify(body, null, 2));
+
+      // Handle both potential structures (Evolution API variations)
+      const message = data.message || data; 
+      
+      if (!message || !message.key) {
+        console.error('Invalid message structure:', message);
+        return NextResponse.json({ status: 'ignored', reason: 'invalid_structure' });
+      }
+
       const from = message.key.remoteJid;
       const messageText = message.message?.conversation || 
                          message.message?.extendedTextMessage?.text || '';

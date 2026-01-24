@@ -20,9 +20,9 @@ async function main() {
       email: 'torcedor@fiel.ia',
       name: 'Torcedor Fiel',
       password: 'mock-password', // In real app this would be hashed
-      role: 'USER',
+      // role: 'USER', // Removed from schema
       totalPoints: 1250,
-      streak: 7,
+      currentStreak: 7,
     },
   });
   console.log('Mock User verified:', user.id);
@@ -35,14 +35,14 @@ async function main() {
       id: 'quiz-semana-1',
       title: 'Quiz Semanal #1',
       description: 'Teste seus conhecimentos sobre o Timão',
-      week: 1,
-      year: 2025,
-      active: true,
+      isActive: true,
+      startDate: new Date(),
+      endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
       questions: {
         create: [
           {
             id: 'q1',
-            text: 'Em que ano o Corinthians foi fundado?',
+            question: 'Em que ano o Corinthians foi fundado?',
             options: ['1910', '1912', '1915', '1920'],
             correctAnswer: '1910',
             points: 100,
@@ -50,7 +50,7 @@ async function main() {
           },
           {
             id: 'q2',
-            text: 'Quantos títulos mundiais o Corinthians possui?',
+            question: 'Quantos títulos mundiais o Corinthians possui?',
             options: ['1', '2', '3', '4'],
             correctAnswer: '2',
             points: 100,
@@ -58,7 +58,7 @@ async function main() {
           },
           {
             id: 'q3',
-            text: 'Qual é o apelido do estádio do Corinthians?',
+            question: 'Qual é o apelido do estádio do Corinthians?',
             options: ['Itaquerão', 'Pacaembu', 'Morumbi', 'Allianz'],
             correctAnswer: 'Itaquerão',
             points: 100,

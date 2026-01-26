@@ -7,6 +7,7 @@ import { startQuiz, processQuizAnswer } from './services/quiz.service';
 export interface BotResponse {
   content: string;
   type: 'text' | 'image' | 'video' | 'interactive';
+  mediaUrl?: string;
   options?: any;
 }
 
@@ -60,6 +61,11 @@ async function handleGame(userId: string): Promise<BotResponse> {
   };
 }
 
+async function handleMeme(userId: string, message: string): Promise<BotResponse> {
+  const { generateMeme } = await import('@/lib/bot/services/meme.service');
+  return generateMeme(userId, message);
+}
+
 async function handleChat(userId: string, message: string): Promise<BotResponse> {
   try {
     // Dynamic import to avoid loading OpenRouter SDK on cold paths.
@@ -80,6 +86,7 @@ async function handleChat(userId: string, message: string): Promise<BotResponse>
       `Posso te ajudar com:\n` +
       `1) Notícias\n` +
       `2) Quiz\n` +
+      `3) Meme\n` +
       `4) Ranking\n\n` +
       `Digite */menu* para ver as opções.`,
     type: 'text',
@@ -143,6 +150,10 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
     lowerMsg.includes('premium')
   ) {
     return handleSubscribe();
+  }
+
+  if (lowerMsg.includes('meme') || lowerMsg.includes('imagem') || lowerMsg.includes('figura')) {
+    return handleMeme(userId, message);
   }
 
   if (lowerMsg.includes('ranking') || lowerMsg === '4') {

@@ -179,10 +179,18 @@ export async function POST(req: NextRequest) {
       });
 
       // Send response via WhatsApp
-      await evolutionAPI.sendTextMessage({
-        number: fromNumber,
-        text: botResponse.content,
-      });
+      if (botResponse.type === 'image' && botResponse.mediaUrl) {
+        await evolutionAPI.sendMediaMessage({
+          number: fromNumber,
+          mediaUrl: botResponse.mediaUrl,
+          caption: botResponse.content,
+        });
+      } else {
+        await evolutionAPI.sendTextMessage({
+          number: fromNumber,
+          text: botResponse.content,
+        });
+      }
 
       // Update user activity
       await prisma.user.update({

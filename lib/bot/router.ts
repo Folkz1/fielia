@@ -39,6 +39,20 @@ async function handleProfile(userId: string): Promise<BotResponse> {
   };
 }
 
+async function handleSubscribe(): Promise<BotResponse> {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const settingsUrl = appUrl ? `${appUrl}/dashboard/settings` : '';
+
+  return {
+    content:
+      `*Fiel Premium*\n\n` +
+      `Para assinar e liberar recursos premium:\n` +
+      (settingsUrl ? `Acesse: ${settingsUrl}\n\n` : '') +
+      `Digite */menu* para ver as opções.`,
+    type: 'text',
+  };
+}
+
 async function handleGame(userId: string): Promise<BotResponse> {
   return {
     content: "🎮 *Game Fiel*\n\nFuncionalidade de Jogo em breve! Jogue e ganhe pontos.",
@@ -47,12 +61,28 @@ async function handleGame(userId: string): Promise<BotResponse> {
 }
 
 async function handleChat(userId: string, message: string): Promise<BotResponse> {
-  // Dynamic import to avoid loading OpenRouter SDK text match
-  const { generateCorinthiansResponse } = await import('@/lib/openrouter');
-  const response = await generateCorinthiansResponse(message);
+  try {
+    // Dynamic import to avoid loading OpenRouter SDK on cold paths.
+    const { generateCorinthiansResponse } = await import('@/lib/openrouter');
+    const response = await generateCorinthiansResponse(message);
+    const content = response.content?.trim();
+
+    if (content) {
+      return { content, type: 'text' };
+    }
+  } catch (error) {
+    console.error('Bot chat error:', error);
+  }
+
   return {
-    content: response.content,
-    type: 'text'
+    content:
+      `Estou com a IA temporariamente indisponível (limite/instabilidade).\n\n` +
+      `Posso te ajudar com:\n` +
+      `1) Notícias\n` +
+      `2) Quiz\n` +
+      `4) Ranking\n\n` +
+      `Digite */menu* para ver as opções.`,
+    type: 'text',
   };
 }
 
@@ -78,6 +108,21 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
     return processQuizAnswer(userId, user.currentAction, message.trim());
   }
 
+  // Quick greetings (avoid unnecessary LLM calls)
+  if (
+    lowerMsg === 'oi' ||
+    lowerMsg === 'olá' ||
+    lowerMsg === 'ola' ||
+    lowerMsg === 'bom dia' ||
+    lowerMsg === 'boa tarde' ||
+    lowerMsg === 'boa noite'
+  ) {
+    return {
+      content: `Fala, Fiel! ⚽\n\nDigite */menu* para ver as opções e começar.`,
+      type: 'text',
+    };
+  }
+
   // 2. Keyword Matching (Menu Options)
   if (
     lowerMsg === 'news' ||
@@ -90,6 +135,14 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
 
   if (lowerMsg === 'quiz' || lowerMsg.includes('quiz') || lowerMsg === '2') {
     return handleQuiz(userId);
+  }
+
+  if (
+    lowerMsg === 'subscribe' ||
+    lowerMsg.includes('assinar') ||
+    lowerMsg.includes('premium')
+  ) {
+    return handleSubscribe();
   }
 
   if (lowerMsg.includes('ranking') || lowerMsg === '4') {

@@ -1,9 +1,19 @@
 const https = require('https');
+require('dotenv').config();
 
-const API_URL = "https://apps-evolution-api.klx2s6.easypanel.host";
-const API_KEY = "94844982814C-49AB-8CEE-F6E840AA3DF5";
-const INSTANCE = "teste";
-const WEBHOOK_URL = "https://apps-fielia.klx2s6.easypanel.host/api/webhooks/whatsapp";
+const API_URL = process.env.EVOLUTION_API_URL;
+const API_KEY = process.env.EVOLUTION_API_KEY;
+const INSTANCE = process.env.EVOLUTION_INSTANCE_NAME;
+const WEBHOOK_URL =
+  process.env.WHATSAPP_WEBHOOK_URL ||
+  (process.env.NEXT_PUBLIC_APP_URL
+    ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/api/webhooks/whatsapp`
+    : null);
+
+if (!API_URL || !API_KEY || !INSTANCE || !WEBHOOK_URL) {
+  console.error('Missing env vars. Required: EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME and WHATSAPP_WEBHOOK_URL (or NEXT_PUBLIC_APP_URL).');
+  process.exit(1);
+}
 
 function request(endpoint, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {

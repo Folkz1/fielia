@@ -4,6 +4,32 @@ import { evolutionAPI } from '@/lib/evolution-api';
 import { routeMessage } from '@/lib/bot/router';
 import { WELCOME_MESSAGE, MAIN_MENU } from '@/lib/bot/templates';
 
+function getWebhookDebugPayload(body: any) {
+  const data = body?.data;
+  const message = data?.key ? data : data?.message || data;
+  const key = message?.key;
+
+  return {
+    event: body?.event,
+    instance: body?.instance,
+    destination: body?.destination,
+    data: {
+      key: {
+        remoteJid: key?.remoteJid,
+        fromMe: key?.fromMe,
+        id: key?.id,
+      },
+      pushName: message?.pushName,
+      messageType: message?.messageType,
+      text:
+        message?.message?.conversation ||
+        message?.message?.extendedTextMessage?.text ||
+        message?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        null,
+    },
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -18,8 +44,9 @@ export async function POST(req: NextRequest) {
     // Handle different event types
     const normalizedEvent = String(event).toLowerCase();
     if (normalizedEvent === 'messages.upsert' || normalizedEvent === 'messages_upsert') {
-      console.log('WEBHOOK_V2_DEBUG Start');
-      console.log('Webhook Body:', JSON.stringify(body, null, 2));
+      if (process.env.WHATSAPP_WEBHOOK_DEBUG === 'true') {
+        console.log('WEBHOOK_DEBUG', JSON.stringify(getWebhookDebugPayload(body), null, 2));
+      }
 
       // Evolution API variations handling
       let message;

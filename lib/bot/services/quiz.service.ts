@@ -1,6 +1,11 @@
 import { prisma } from '@/lib/prisma';
 
-export async function startQuiz(userId: string) {
+type BotTextResponse = {
+  content: string;
+  type: 'text';
+};
+
+export async function startQuiz(userId: string): Promise<BotTextResponse> {
   try {
     // 1. Get User
     const user = await prisma.user.findUnique({
@@ -46,7 +51,11 @@ export async function startQuiz(userId: string) {
   }
 }
 
-export async function processQuizAnswer(userId: string, userAction: string, answer: string) {
+export async function processQuizAnswer(
+  userId: string,
+  userAction: string,
+  answer: string
+): Promise<BotTextResponse> {
   try {
     const [_, quizId, attemptId] = userAction.split(':');
     
@@ -149,7 +158,7 @@ export async function processQuizAnswer(userId: string, userAction: string, answ
   }
 }
 
-function formatQuestionMessage(question: any, index: number, total: number) {
+function formatQuestionMessage(question: any, index: number, total: number): BotTextResponse {
   let content = `❓ *Pergunta ${index}/${total}*\n\n${question.question}\n\n`;
   question.options.forEach((opt: string, i: number) => {
     content += `${i + 1}. ${opt}\n`;

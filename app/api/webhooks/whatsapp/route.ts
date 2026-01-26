@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
           data: {
             userId: user.id,
             platform: 'whatsapp',
-            sessionId: `whatsapp-${from}-${Date.now()}`,
+            sessionId: `whatsapp-${fromJid}-${Date.now()}`,
           },
         });
       }

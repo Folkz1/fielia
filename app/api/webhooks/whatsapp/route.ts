@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle different event types
-    if (event === 'messages.upsert') {
+    const normalizedEvent = String(event).toLowerCase();
+    if (normalizedEvent === 'messages.upsert' || normalizedEvent === 'messages_upsert') {
       console.log('WEBHOOK_V2_DEBUG Start');
       console.log('Webhook Body:', JSON.stringify(body, null, 2));
 
@@ -31,15 +32,26 @@ export async function POST(req: NextRequest) {
       }
       
       const key = message?.key;
-      const from = key?.remoteJid;
+      const fromJid = key?.remoteJid;
 
-      if (!from) {
+      if (!fromJid) {
         console.error('Invalid message structure - Missing remoteJid. Message:', JSON.stringify(message, null, 2));
         return NextResponse.json({ status: 'ignored', reason: 'invalid_structure_no_from' });
       }
 
-      const messageText = message?.message?.conversation || 
-                         message?.message?.extendedTextMessage?.text || '';
+      // Ignore group messages for now
+      if (String(fromJid).endsWith('@g.us')) {
+        return NextResponse.json({ status: 'ignored', reason: 'group_message' });
+      }
+
+      const fromNumber = String(fromJid).includes('@') ? String(fromJid).split('@')[0] : String(fromJid);
+
+      // Text message OR interactive list selection (row id)
+      const messageText =
+        message?.message?.conversation ||
+        message?.message?.extendedTextMessage?.text ||
+        message?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        '';
 
       if (!messageText) {
         return NextResponse.json({ status: 'ignored' });
@@ -47,7 +59,7 @@ export async function POST(req: NextRequest) {
 
       // Find or create user by WhatsApp ID
       let user = await prisma.user.findUnique({
-        where: { whatsappId: from },
+        where: { whatsappId: fromJid },
       });
 
       let isNewUser = false;
@@ -57,26 +69,27 @@ export async function POST(req: NextRequest) {
         isNewUser = true;
         user = await prisma.user.create({
           data: {
-            whatsappId: from,
+            whatsappId: fromJid,
             name: message.pushName || 'Fiel Torcedor',
-            email: `${from}@whatsapp.temp`,
+            email: `${fromNumber}@whatsapp.temp`,
             password: 'whatsapp-user',
           },
         });
       }
 
       // Handle New User or /menu command
-      if (isNewUser || messageText.toLowerCase() === '/menu') {
+      const normalizedText = messageText.trim().toLowerCase();
+      if (isNewUser || normalizedText === '/menu' || normalizedText === 'menu') {
         if (isNewUser) {
             await evolutionAPI.sendTextMessage({
-                number: from,
+                number: fromNumber,
                 text: WELCOME_MESSAGE,
                 delay: 1000,
             });
         }
         
         await evolutionAPI.sendListMessage({
-            number: from,
+            number: fromNumber,
             ...MAIN_MENU
         });
 
@@ -85,11 +98,11 @@ export async function POST(req: NextRequest) {
 
       // Rate Limit Check
       const { checkUserLimit } = await import('@/lib/bot/limits');
-      const limitResult = await checkUserLimit(from);
+      const limitResult = await checkUserLimit(fromJid);
 
       if (!limitResult.allowed) {
         await evolutionAPI.sendTextMessage({
-          number: from,
+          number: fromNumber,
           text: limitResult.message || 'Limite diário atingido.',
         });
         return NextResponse.json({ status: 'blocked', reason: 'daily_limit' });
@@ -140,7 +153,7 @@ export async function POST(req: NextRequest) {
 
       // Send response via WhatsApp
       await evolutionAPI.sendTextMessage({
-        number: from,
+        number: fromNumber,
         text: botResponse.content,
       });
 

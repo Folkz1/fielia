@@ -79,11 +79,16 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
   }
 
   // 2. Keyword Matching (Menu Options)
-  if (lowerMsg.includes('notícias') || lowerMsg.includes('noticias') || lowerMsg === '1') {
+  if (
+    lowerMsg === 'news' ||
+    lowerMsg.includes('notícias') ||
+    lowerMsg.includes('noticias') ||
+    lowerMsg === '1'
+  ) {
     return handleNews();
   }
 
-  if (lowerMsg.includes('quiz') || lowerMsg === '2') {
+  if (lowerMsg === 'quiz' || lowerMsg.includes('quiz') || lowerMsg === '2') {
     return handleQuiz(userId);
   }
 
@@ -97,6 +102,10 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
 
   if (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3') {
     return handleGame(userId);
+  }
+
+  if (lowerMsg === 'chat') {
+    return handleChat(userId, message);
   }
 
   // 3. Fallback to LLM

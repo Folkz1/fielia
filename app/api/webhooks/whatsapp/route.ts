@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { evolutionAPI } from '@/lib/evolution-api';
 import { routeMessage } from '@/lib/bot/router';
-import { WELCOME_MESSAGE, MAIN_MENU } from '@/lib/bot/templates';
+import { WELCOME_MESSAGE } from '@/lib/bot/templates';
 import { startScheduler } from '@/lib/scheduler';
 
 export const runtime = 'nodejs';
@@ -27,7 +27,6 @@ function getWebhookDebugPayload(body: any) {
       text:
         message?.message?.conversation ||
         message?.message?.extendedTextMessage?.text ||
-        message?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
         null,
     },
   };
@@ -77,11 +76,10 @@ export async function POST(req: NextRequest) {
 
       const fromNumber = String(fromJid).includes('@') ? String(fromJid).split('@')[0] : String(fromJid);
 
-      // Text message OR interactive list selection (row id)
+      // Text message only (no interactive list)
       const messageText =
         message?.message?.conversation ||
         message?.message?.extendedTextMessage?.text ||
-        message?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
         '';
 
       if (!messageText) {
@@ -119,25 +117,11 @@ export async function POST(req: NextRequest) {
             });
         }
         
-        try {
-          await evolutionAPI.sendListMessage({
-            number: fromNumber,
-            ...MAIN_MENU,
-          });
-        } catch (error) {
-          console.warn('Failed to send list menu, falling back to text:', error);
-          await evolutionAPI.sendTextMessage({
-            number: fromNumber,
-            text:
-              `*Menu Principal*\n\n` +
-              `1) Notícias\n` +
-              `2) Quiz\n` +
-              `3) Game\n` +
-              `4) Ranking\n` +
-              `5) Perfil\n\n` +
-              `Digite o número da opção ou /menu para ver novamente.`,
-          });
-        }
+        const menuResponse = await routeMessage(user.id, '/menu');
+        await evolutionAPI.sendTextMessage({
+          number: fromNumber,
+          text: menuResponse.content,
+        });
 
         return NextResponse.json({ status: 'processed_menu' });
       }

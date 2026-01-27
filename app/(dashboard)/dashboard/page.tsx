@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { 
-  Users, 
-  MessageSquare, 
-  Zap, 
+import Link from "next/link";
+import {
+  Users,
+  MessageSquare,
+  Zap,
   TrendingUp,
   Clock
 } from "lucide-react";
@@ -88,7 +89,9 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-3xl p-8">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-bold">Últimas Interações</h3>
-            <button className="text-sm text-gray-400 hover:text-white transition-colors">Ver todas</button>
+            <Link href="/dashboard/chat" className="text-sm text-gray-400 hover:text-white transition-colors">
+              Ver todas
+            </Link>
           </div>
 
           <div className="space-y-6">

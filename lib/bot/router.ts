@@ -61,6 +61,21 @@ async function handleGame(userId: string): Promise<BotResponse> {
   };
 }
 
+async function handleMenu(): Promise<BotResponse> {
+  return {
+    content:
+      `⚫⚪ *MENU FIEL IA* ⚫⚪\n\n` +
+      `Escolha uma opção:\n\n` +
+      `*1* - 📰 Últimas Notícias\n` +
+      `*2* - ❓ Quiz do Timão\n` +
+      `*3* - 🎮 Game Fiel\n` +
+      `*4* - 👑 Ranking\n` +
+      `*5* - 👤 Meu Perfil\n\n` +
+      `Ou digite sua pergunta sobre o Corinthians! 🦅`,
+    type: 'text'
+  };
+}
+
 async function handleMeme(userId: string, message: string): Promise<BotResponse> {
   const { generateMeme } = await import('@/lib/bot/services/meme.service');
   return generateMeme(userId, message);
@@ -130,7 +145,12 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
     };
   }
 
-  // 2. Keyword Matching (Menu Options)
+  // 2. Menu Command
+  if (lowerMsg === '/menu' || lowerMsg === 'menu') {
+    return handleMenu();
+  }
+
+  // 3. Keyword Matching (Menu Options)
   if (
     lowerMsg === 'news' ||
     lowerMsg.includes('notícias') ||

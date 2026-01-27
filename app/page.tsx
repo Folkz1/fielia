@@ -37,13 +37,21 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up" style={{ animationDelay: "0.3s" }}>
-            <Button size="lg" className="group">
-              Começar Agora
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-            <Button variant="ghost" size="lg">
+            <Link href="/auth/login">
+              <Button size="lg" className="group">
+                Começar Agora
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+            <button
+              onClick={() => {
+                const featuresSection = document.querySelector('#features');
+                featuresSection?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="inline-flex items-center justify-center font-semibold rounded-lg transition-smooth focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:pointer-events-none btn-ghost focus:ring-white/20 px-8 py-4 text-lg"
+            >
               Saber Mais
-            </Button>
+            </button>
           </div>
 
           {/* Stats */}
@@ -72,7 +80,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 px-4 relative">
+      <section id="features" className="py-24 px-4 relative">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-heading text-4xl md:text-6xl mb-4">
@@ -171,9 +179,11 @@ export default function Home() {
               ))}
             </ul>
 
-            <Button size="lg" className="w-full">
-              Assinar Agora
-            </Button>
+            <Link href="/auth/login">
+              <Button size="lg" className="w-full">
+                Assinar Agora
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

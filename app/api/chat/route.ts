@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { generateCorinthiansResponse } from '@/lib/openrouter';
+import { routeMessage } from '@/lib/bot/router';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,14 +22,6 @@ export async function POST(req: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-      include: {
-        messages: {
-          orderBy: {
-            createdAt: 'asc',
-          },
-          take: 10, // Last 10 messages for context
-        },
-      },
     });
 
     if (!chat) {
@@ -38,45 +30,36 @@ export async function POST(req: NextRequest) {
           userId,
           platform,
           sessionId: `${platform}-${Date.now()}`,
-          messages: {
-            create: {
-              role: 'user',
-              content: message,
-            },
-          },
-        },
-        include: {
-          messages: true,
-        },
-      });
-    } else {
-      // Add user message to existing chat
-      await prisma.aIMessage.create({
-        data: {
-          chatId: chat.id,
-          role: 'user',
-          content: message,
         },
       });
     }
 
-    // Generate AI response
-    const aiResponse = await generateCorinthiansResponse(message);
+    // Save user message
+    await prisma.aIMessage.create({
+      data: {
+        chatId: chat.id,
+        role: 'user',
+        content: message,
+      },
+    });
 
-    // Save AI response
+    // Use the SAME router as WhatsApp bot
+    const botResponse = await routeMessage(userId, message);
+
+    // Save bot response
     await prisma.aIMessage.create({
       data: {
         chatId: chat.id,
         role: 'assistant',
-        content: aiResponse.content,
-        tokensUsed: aiResponse.tokensUsed,
-        model: aiResponse.model,
+        content: botResponse.content,
       },
     });
 
     return NextResponse.json({
-      response: aiResponse.content,
-      tokensUsed: aiResponse.tokensUsed,
+      response: botResponse.content,
+      type: botResponse.type,
+      mediaUrl: botResponse.mediaUrl,
+      options: botResponse.options,
     });
   } catch (error) {
     console.error('Chat API Error:', error);
@@ -102,6 +85,7 @@ export async function GET(req: NextRequest) {
     const chats = await prisma.aIChat.findMany({
       where: {
         userId,
+        platform: 'web',
       },
       include: {
         messages: {
@@ -113,7 +97,7 @@ export async function GET(req: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-      take: 5,
+      take: 1, // Only latest chat
     });
 
     return NextResponse.json({ chats });

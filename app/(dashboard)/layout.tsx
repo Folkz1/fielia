@@ -7,7 +7,8 @@ import {
   LayoutDashboard, 
   MessageSquare, 
   Trophy,
-  Newspaper
+  Newspaper,
+  User
 } from "lucide-react";
 import { auth, signOut } from "@/auth";
 
@@ -54,11 +55,18 @@ export default async function DashboardLayout({
             Quizzes
           </Link>
           <Link 
-            href="/dashboard/chats" 
+            href="/dashboard/chat" 
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all text-gray-400 hover:text-white"
           >
             <MessageSquare className="w-5 h-5" />
-            Interações
+            Chat IA
+          </Link>
+          <Link
+            href="/dashboard/account"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all text-gray-400 hover:text-white"
+          >
+            <User className="w-5 h-5" />
+            Conta
           </Link>
         </nav>
 

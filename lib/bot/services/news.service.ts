@@ -81,10 +81,18 @@ export async function getCuratedNews(limit: number = 3, windowHours: number = 24
         .filter(Boolean) as typeof items;
 
       if (ordered.length) {
+        console.info(
+          `news.curated source=curation date=${today.toISOString()} total=${ordered.length} limit=${limit}`
+        );
         return ordered.slice(0, limit);
       }
     }
 
+    console.info(
+      `news.curated source=fallback windowHours=${windowHours} limit=${limit} hasCuration=${Boolean(
+        curation?.topIds?.length
+      )}`
+    );
     return getRecentDeduped(limit, windowHours);
   } catch (error) {
     console.error('Error fetching curated news:', error);

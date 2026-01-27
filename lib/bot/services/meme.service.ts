@@ -124,17 +124,19 @@ async function generateOpenRouterImage(prompt: string): Promise<MemeResult> {
 
   const outputItems = Array.isArray(response.output) ? response.output : [response.output];
   const imageItem = outputItems.find(
-    (item: any) => item?.type === 'image_generation_call' && item?.result
+    (item: any) => item?.type === 'image_generation_call'
   );
+  const imageResult =
+    imageItem && typeof imageItem === 'object' && 'result' in imageItem
+      ? String((imageItem as { result?: string | null }).result ?? '')
+      : '';
 
-  if (!imageItem?.result) {
+  if (!imageResult) {
     if (toolCalls.length > 0) {
       console.warn('OpenRouter returned tool calls without image output:', toolCalls);
     }
     throw new Error('OpenRouter image response missing result');
   }
-
-  const imageResult = String(imageItem.result);
   const dataUrl = parseDataUrl(imageResult);
 
   if (dataUrl) {

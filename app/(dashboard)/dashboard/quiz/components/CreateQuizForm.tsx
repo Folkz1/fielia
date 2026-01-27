@@ -220,10 +220,15 @@ export function CreateQuizForm({ onBack, onSuccess }: CreateQuizFormProps) {
         </div>
 
         <div className="flex justify-between items-center pt-4">
-           <Button type="button" variant="outline" onClick={addQuestion} className="border-dashed border-gray-700 hover:border-yellow-500 hover:text-yellow-500">
-             <Plus className="w-4 h-4 mr-2" />
-             Adicionar Questão
-           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={addQuestion}
+            className="border border-dashed border-gray-700 hover:border-yellow-500 hover:text-yellow-500"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Questão
+          </Button>
 
            <Button type="submit" disabled={loading} className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold min-w-[200px]">
              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}

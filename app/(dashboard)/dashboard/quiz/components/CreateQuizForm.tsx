@@ -159,13 +159,13 @@ export function CreateQuizForm({ onBack, onSuccess }: CreateQuizFormProps) {
                 <div className="flex justify-between items-start">
                   <Label className="text-yellow-500">Questão {qIndex + 1}</Label>
                   {questions.length > 1 && (
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => removeQuestion(qIndex)}
-                      className="text-gray-500 hover:text-red-500"
-                    >
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => removeQuestion(qIndex)}
+                  className="text-gray-500 hover:text-red-500"
+                >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   )}

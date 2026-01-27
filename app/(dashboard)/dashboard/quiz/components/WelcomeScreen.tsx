@@ -34,11 +34,11 @@ export function WelcomeScreen({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onViewBank} className="border-gray-700 hover:bg-gray-800">
+          <Button variant="ghost" onClick={onViewBank} className="border border-gray-700 hover:bg-gray-800">
             <List className="mr-2 h-4 w-4" />
             Ver Anteriores
           </Button>
-          <Button variant="outline" onClick={onCreate} className="border-gray-700 hover:bg-gray-800 hidden md:flex">
+          <Button variant="ghost" onClick={onCreate} className="border border-gray-700 hover:bg-gray-800 hidden md:flex">
             <PlusCircle className="mr-2 h-4 w-4" />
             Criar Quiz
           </Button>
@@ -124,7 +124,7 @@ export function WelcomeScreen({
               <p className="text-gray-400 max-w-md">
                 No momento não há nenhum quiz disponível para responder. Volte mais tarde ou crie um novo.
               </p>
-              <Button variant="outline" onClick={onCreate} className="mt-6">
+              <Button variant="ghost" onClick={onCreate} className="mt-6 border border-gray-700 hover:bg-gray-800">
                 Criar Novo Quiz
               </Button>
             </CardContent>

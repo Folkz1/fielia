@@ -45,7 +45,7 @@ export async function checkUserLimit(whatsappId: string): Promise<LimitCheckResu
   }
 
   // 3. Limit Check
-  if (user.dailyMessageCount >= 10) {
+  if (user.dailyMessageCount >= 50) {
     return {
       allowed: false,
       isPremium: false,

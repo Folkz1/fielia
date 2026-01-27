@@ -81,7 +81,7 @@ export function ResultScreen({ result, attempt, onBack }: ResultScreenProps) {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="outline" onClick={onBack} size="lg">
+                <Button variant="secondary" onClick={onBack} size="lg">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Voltar ao Início
                 </Button>

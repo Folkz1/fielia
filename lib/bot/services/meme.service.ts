@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import { OpenRouter } from '@openrouter/sdk';
 import { sendChatCompletion } from '@/lib/openrouter';
 
 type MemeResult = {
@@ -60,47 +61,92 @@ async function generateMemePrompt(userMessage: string) {
   }
 }
 
-async function generateGeminiImage(prompt: string): Promise<MemeResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_IMAGE_MODEL;
+function parseDataUrl(dataUrl: string) {
+  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mimeType: match[1],
+    bytes: Buffer.from(match[2], 'base64'),
+  };
+}
 
-  if (!apiKey || !model) {
-    throw new Error('Missing GEMINI_API_KEY or GEMINI_IMAGE_MODEL');
+async function fetchImageBytes(url: string) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`OpenRouter image fetch error: ${res.status}`);
+  }
+  const mimeType = res.headers.get('content-type') || 'image/png';
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return { mimeType, bytes: buffer };
+}
+
+async function logGenerationCost(client: OpenRouter, responseId?: string | null) {
+  if (!responseId) return;
+  try {
+    const generation = await client.generations.getGeneration({ id: responseId });
+    const data = generation?.data;
+    if (data) {
+      console.info('OpenRouter generation cost:', {
+        id: data.id,
+        model: data.model,
+        totalCost: data.totalCost,
+        provider: data.providerName,
+      });
+    }
+  } catch (error) {
+    console.warn('OpenRouter generation lookup failed:', error);
+  }
+}
+
+async function generateOpenRouterImage(prompt: string): Promise<MemeResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.0-nanobanana';
+
+  if (!apiKey) {
+    throw new Error('Missing OPENROUTER_API_KEY');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const body = {
-    contents: [
+  const client = new OpenRouter({ apiKey });
+  const result = client.callModel({
+    model,
+    input: [
       {
         role: 'user',
-        parts: [{ text: prompt }],
+        content: prompt,
       },
     ],
-  };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    modalities: ['image'],
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini image error: ${res.status} ${errText}`);
+  const response = await result.getResponse();
+  const toolCalls = await result.getToolCalls();
+  await logGenerationCost(client, response?.id);
+
+  const outputItems = Array.isArray(response.output) ? response.output : [response.output];
+  const imageItem = outputItems.find(
+    (item: any) => item?.type === 'image_generation_call' && item?.result
+  );
+
+  if (!imageItem?.result) {
+    if (toolCalls.length > 0) {
+      console.warn('OpenRouter returned tool calls without image output:', toolCalls);
+    }
+    throw new Error('OpenRouter image response missing result');
   }
 
-  const data = await res.json();
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  const inline = parts.find((part: any) => part.inlineData?.data);
+  const imageResult = String(imageItem.result);
+  const dataUrl = parseDataUrl(imageResult);
 
-  if (!inline?.inlineData?.data) {
-    throw new Error('Gemini image response missing inlineData');
+  if (dataUrl) {
+    return {
+      caption: 'Meme da Fiel',
+      imageBytes: dataUrl.bytes,
+      mimeType: dataUrl.mimeType,
+    };
   }
 
-  const mimeType = inline.inlineData.mimeType || 'image/png';
-  const buffer = Buffer.from(inline.inlineData.data, 'base64');
-
-  return { caption: 'Meme da Fiel', imageBytes: buffer, mimeType };
+  const fetched = await fetchImageBytes(imageResult);
+  return { caption: 'Meme da Fiel', imageBytes: fetched.bytes, mimeType: fetched.mimeType };
 }
 
 export async function generateMeme(userId: string, message: string): Promise<BotResponse> {
@@ -116,7 +162,7 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
   }
 
   try {
-    const result = await generateGeminiImage(prompt);
+    const result = await generateOpenRouterImage(prompt);
     const dir = await ensureMemeDir();
     const ext = result.mimeType?.includes('jpeg') ? 'jpg' : 'png';
     const filename = `meme-${Date.now()}.${ext}`;

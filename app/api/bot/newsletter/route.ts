@@ -43,11 +43,29 @@ export async function POST(req: NextRequest) {
       Number.parseInt(process.env.NEWSLETTER_DELAY_MS || '750', 10) || 0
     );
 
-    const news = await prisma.news.findMany({
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await prisma.news.findMany({
+      where: {
+        publishedAt: {
+          gte: since,
+        },
+      },
       orderBy: { publishedAt: 'desc' },
-      take: limit,
-      select: { title: true, summary: true, sourceUrl: true },
+      take: Math.max(20, limit * 8),
+      select: { title: true, summary: true, sourceUrl: true, publishedAt: true },
     });
+
+    const seen = new Set<string>();
+    const curated: typeof recent = [];
+    for (const item of recent) {
+      const key = item.sourceUrl || `${item.title}-${item.publishedAt.toISOString()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      curated.push(item);
+      if (curated.length >= limit) break;
+    }
+
+    const news = curated.length > 0 ? curated : recent.slice(0, limit);
 
     const message = buildNewsletterMessage(news);
 

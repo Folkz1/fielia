@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getLatestNews, formatNewsMessage } from './services/news.service';
+import { getCuratedNews, formatNewsMessage } from './services/news.service';
 import { getTopUsers, formatRankingMessage } from './services/ranking.service';
 import { getUserProfile, formatProfileMessage } from './services/user.service';
 import { startQuiz, processQuizAnswer } from './services/quiz.service';
@@ -13,7 +13,7 @@ export interface BotResponse {
 
 // Handlers
 async function handleNews(): Promise<BotResponse> {
-  const news = await getLatestNews(3);
+  const news = await getCuratedNews(3);
   return {
     content: formatNewsMessage(news),
     type: 'text'

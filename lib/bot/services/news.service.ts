@@ -15,6 +15,51 @@ export async function getLatestNews(limit: number = 3) {
   }
 }
 
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[\s]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .trim();
+}
+
+export async function getCuratedNews(limit: number = 3, windowHours: number = 24) {
+  try {
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const recent = await prisma.news.findMany({
+      where: {
+        publishedAt: {
+          gte: since,
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+      take: Math.max(20, limit * 8),
+    });
+
+    const seen = new Set<string>();
+    const curated: typeof recent = [];
+
+    for (const item of recent) {
+      const key = item.sourceUrl || normalizeText(item.title);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      curated.push(item);
+      if (curated.length >= limit) break;
+    }
+
+    if (curated.length > 0) {
+      return curated;
+    }
+
+    return getLatestNews(limit);
+  } catch (error) {
+    console.error('Error fetching curated news:', error);
+    return getLatestNews(limit);
+  }
+}
+
 export function formatNewsMessage(news: any[]) {
   if (news.length === 0) {
     return "📰 *Notícias do Timão*\n\nNão encontrei notícias recentes. Estamos buscando as últimas informações para você!";

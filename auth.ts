@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Needed for deployments behind reverse proxies / dynamic host headers (e.g., EasyPanel).
+  trustHost: true,
   providers: [
     Credentials({
       name: "Credentials",

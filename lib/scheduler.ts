@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { syncNewsFromFreshRSS } from '@/lib/news/sync';
 import { runNewsCuration } from '@/lib/news/curation';
 import { sendNewsletterToPremiumUsers } from '@/lib/news/newsletter';
+import { generateWeeklyQuizIfMissing } from '@/lib/quiz/generator';
 
 let started = false;
 
@@ -33,14 +34,19 @@ export function startScheduler() {
   const syncSchedule = process.env.CRON_NEWS_SYNC_SCHEDULE || '0 */6 * * *';
   const curateSchedule = process.env.CRON_NEWS_CURATION_SCHEDULE || '30 7 * * *';
   const newsletterSchedule = process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *';
+  const quizSchedule = process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1';
 
   cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
   cron.schedule(curateSchedule, () => runTaskSafe('news curation', runNewsCuration));
   cron.schedule(newsletterSchedule, () =>
     runTaskSafe('newsletter', sendNewsletterToPremiumUsers)
   );
+  cron.schedule(quizSchedule, () =>
+    runTaskSafe('weekly quiz generation', generateWeeklyQuizIfMissing)
+  );
 
   log(`sync schedule: ${syncSchedule}`);
   log(`curation schedule: ${curateSchedule}`);
   log(`newsletter schedule: ${newsletterSchedule}`);
+  log(`weekly quiz schedule: ${quizSchedule}`);
 }

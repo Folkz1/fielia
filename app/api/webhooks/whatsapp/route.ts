@@ -115,10 +115,25 @@ export async function POST(req: NextRequest) {
             });
         }
         
-        await evolutionAPI.sendListMessage({
+        try {
+          await evolutionAPI.sendListMessage({
             number: fromNumber,
-            ...MAIN_MENU
-        });
+            ...MAIN_MENU,
+          });
+        } catch (error) {
+          console.warn('Failed to send list menu, falling back to text:', error);
+          await evolutionAPI.sendTextMessage({
+            number: fromNumber,
+            text:
+              `*Menu Principal*\n\n` +
+              `1) Notícias\n` +
+              `2) Quiz\n` +
+              `3) Game\n` +
+              `4) Ranking\n` +
+              `5) Perfil\n\n` +
+              `Digite o número da opção ou /menu para ver novamente.`,
+          });
+        }
 
         return NextResponse.json({ status: 'processed_menu' });
       }

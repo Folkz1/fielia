@@ -1,38 +1,54 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield, Lock, Mail, ArrowRight } from "lucide-react";
+import { Shield, Lock, Mail, ArrowRight, User } from "lucide-react";
 
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password.length < 6) {
+      setError("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
       });
 
-      if (result?.error) {
-        setError("Credenciais inválidas. Tente novamente.");
-      } else {
-        router.push("/dashboard");
-        router.refresh();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Falha ao cadastrar.");
       }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 1200);
     } catch (err) {
-      setError("Ocorreu um erro ao fazer login.");
+      setError(err instanceof Error ? err.message : "Falha ao cadastrar.");
     } finally {
       setLoading(false);
     }
@@ -41,16 +57,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Fiel IA</h1>
-          <p className="text-gray-400">Painel Administrativo</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Criar conta</h1>
+          <p className="text-gray-400">Acesso rápido ao painel do Fiel IA</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
@@ -58,6 +72,27 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-4 rounded-xl text-center">
+                Cadastro realizado! Redirecionando...
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300 ml-1">Nome</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
+                  placeholder="Seu nome"
+                  required
+                />
+              </div>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300 ml-1">Email</label>
@@ -89,23 +124,34 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300 ml-1">Confirmar senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-white text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-all disabled:opacity-50"
             >
-              {loading ? "Entrando..." : "Entrar no Painel"}
+              {loading ? "Criando..." : "Criar conta"}
               {!loading && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <Link href="/auth/register" className="text-sm text-gray-300 hover:text-white transition-colors">
-              Criar conta
-            </Link>
-            <span className="mx-2 text-gray-600">•</span>
-            <Link href="/" className="text-gray-500 hover:text-white transition-colors text-sm">
-              Voltar para a Home
+            <Link href="/auth/login" className="text-sm text-gray-300 hover:text-white transition-colors">
+              Já tenho conta
             </Link>
           </div>
         </div>

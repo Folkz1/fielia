@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { evolutionAPI } from '@/lib/evolution-api';
 import { routeMessage } from '@/lib/bot/router';
 import { WELCOME_MESSAGE, MAIN_MENU } from '@/lib/bot/templates';
+import { startScheduler } from '@/lib/scheduler';
+
+export const runtime = 'nodejs';
 
 function getWebhookDebugPayload(body: any) {
   const data = body?.data;
@@ -32,6 +35,7 @@ function getWebhookDebugPayload(body: any) {
 
 export async function POST(req: NextRequest) {
   try {
+    startScheduler();
     const body = await req.json();
     
     // Evolution API webhook payload structure

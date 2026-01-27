@@ -23,7 +23,11 @@ function normalizeText(value: string) {
     .trim();
 }
 
-export async function getCuratedNews(limit: number = 3, windowHours: number = 24) {
+function startOfDayUTC(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+async function getRecentDeduped(limit: number, windowHours: number) {
   try {
     const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
     const recent = await prisma.news.findMany({
@@ -54,6 +58,34 @@ export async function getCuratedNews(limit: number = 3, windowHours: number = 24
     }
 
     return getLatestNews(limit);
+  } catch (error) {
+    console.error('Error fetching curated news:', error);
+    return getLatestNews(limit);
+  }
+}
+
+export async function getCuratedNews(limit: number = 3, windowHours: number = 24) {
+  try {
+    const today = startOfDayUTC(new Date());
+    const curation = await prisma.newsCuration.findUnique({
+      where: { date: today },
+    });
+
+    if (curation?.topIds?.length) {
+      const items = await prisma.news.findMany({
+        where: { id: { in: curation.topIds } },
+      });
+      const byId = new Map(items.map((item) => [item.id, item]));
+      const ordered = curation.topIds
+        .map((id) => byId.get(id))
+        .filter(Boolean) as typeof items;
+
+      if (ordered.length) {
+        return ordered.slice(0, limit);
+      }
+    }
+
+    return getRecentDeduped(limit, windowHours);
   } catch (error) {
     console.error('Error fetching curated news:', error);
     return getLatestNews(limit);

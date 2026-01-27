@@ -1,29 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { evolutionAPI } from '@/lib/evolution-api';
-
-function getNumberFromJid(jid: string) {
-  return jid.includes('@') ? jid.split('@')[0] : jid;
-}
-
-function buildNewsletterMessage(items: { title: string; summary: string; sourceUrl?: string | null }[]) {
-  const header = '📰 *Newsletter Fiel*';
-  if (items.length === 0) {
-    return `${header}\n\nSem novidades agora. Em breve mais notícias do Timão!`;
-  }
-
-  const lines = items.map((item, index) => {
-    const summary = item.summary ? item.summary.trim() : '';
-    const url = item.sourceUrl ? `\n${item.sourceUrl}` : '';
-    return `*${index + 1}. ${item.title}*\n${summary}${url}`;
-  });
-
-  return `${header}\n\n${lines.join('\n\n')}`;
-}
-
-async function sleep(ms: number) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { sendNewsletterToPremiumUsers } from '@/lib/news/newsletter';
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,79 +10,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const limit = Math.max(
-      1,
-      Number.parseInt(process.env.NEWSLETTER_NEWS_LIMIT || '5', 10) || 5
-    );
-    const delayMs = Math.max(
-      0,
-      Number.parseInt(process.env.NEWSLETTER_DELAY_MS || '750', 10) || 0
-    );
-
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recent = await prisma.news.findMany({
-      where: {
-        publishedAt: {
-          gte: since,
-        },
-      },
-      orderBy: { publishedAt: 'desc' },
-      take: Math.max(20, limit * 8),
-      select: { title: true, summary: true, sourceUrl: true, publishedAt: true },
-    });
-
-    const seen = new Set<string>();
-    const curated: typeof recent = [];
-    for (const item of recent) {
-      const key = item.sourceUrl || `${item.title}-${item.publishedAt.toISOString()}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      curated.push(item);
-      if (curated.length >= limit) break;
-    }
-
-    const news = curated.length > 0 ? curated : recent.slice(0, limit);
-
-    const message = buildNewsletterMessage(news);
-
-    const users = await prisma.user.findMany({
-      where: {
-        isPremium: true,
-        whatsappId: { not: null },
-      },
-      select: { id: true, whatsappId: true },
-    });
-
-    let sent = 0;
-    const errors: { userId: string; error: string }[] = [];
-
-    for (const user of users) {
-      try {
-        const number = getNumberFromJid(user.whatsappId || '');
-        if (!number) continue;
-
-        await evolutionAPI.sendTextMessage({
-          number,
-          text: message,
-        });
-
-        sent += 1;
-        if (delayMs > 0) {
-          await sleep(delayMs);
-        }
-      } catch (error) {
-        errors.push({
-          userId: user.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-
-    return NextResponse.json({
-      sent,
-      totalPremium: users.length,
-      errors,
-    });
+    const result = await sendNewsletterToPremiumUsers();
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Newsletter Error:', error);
     return NextResponse.json(

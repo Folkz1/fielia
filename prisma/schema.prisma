@@ -145,6 +145,15 @@ model News {
   @@map("news")
 }
 
+model NewsCuration {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  topIds    String[]
+  createdAt DateTime @default(now())
+
+  @@map("news_curation")
+}
+
 model AIChat {
   id          String   @id @default(cuid())
   userId      String

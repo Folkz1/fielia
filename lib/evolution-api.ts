@@ -70,19 +70,28 @@ export class EvolutionAPIClient {
     sections: {
       title: string;
       rows: {
-        id: string;
+        rowId?: string;
+        id?: string;
         title: string;
         description?: string;
       }[];
     }[];
   }) {
+    const normalizedSections = sections.map((section) => ({
+      ...section,
+      rows: section.rows.map((row) => ({
+        ...row,
+        rowId: row.rowId ?? row.id ?? row.title,
+      })),
+    }));
+
     return this.makeRequest(`/message/sendList/${this.instance}`, 'POST', {
       number,
       title,
       description: text,
       footerText: footer,
       buttonText,
-      sections,
+      sections: normalizedSections,
     });
   }
 

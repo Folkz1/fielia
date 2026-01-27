@@ -12,22 +12,22 @@ export const MAIN_MENU = {
       title: 'Opções',
       rows: [
         {
-          id: 'news',
+          rowId: 'news',
           title: '📰 Últimas Notícias',
           description: 'Fique por dentro do Timão',
         },
         {
-          id: 'quiz',
+          rowId: 'quiz',
           title: '❓ Quiz do Timão',
           description: 'Teste seu conhecimento',
         },
         {
-          id: 'chat',
+          rowId: 'chat',
           title: '💬 Chat Livre',
           description: 'Converse sobre o Coringão',
         },
         {
-          id: 'subscribe',
+          rowId: 'subscribe',
           title: '💎 Assinar Premium',
           description: 'Recursos exclusivos',
         },

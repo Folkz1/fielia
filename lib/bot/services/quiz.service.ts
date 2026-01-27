@@ -14,6 +14,13 @@ export async function startQuiz(userId: string): Promise<BotTextResponse> {
 
     if (!user) return { content: "Usuário não encontrado.", type: 'text' };
 
+    if (user.currentAction?.startsWith('quiz:')) {
+      return {
+        content: "Você já está em um quiz. Responda a pergunta atual ou digite *sair* para cancelar.",
+        type: 'text',
+      };
+    }
+
     // 2. Get Active Quiz
     const quiz = await prisma.quiz.findFirst({
       where: { isActive: true },
@@ -24,6 +31,22 @@ export async function startQuiz(userId: string): Promise<BotTextResponse> {
       return { 
         content: "😔 Nenhum quiz ativo no momento. Volte mais tarde!", 
         type: 'text' 
+      };
+    }
+
+    const existingAttempt = await prisma.quizAttempt.findFirst({
+      where: {
+        userId: user.id,
+        quizId: quiz.id,
+        completedAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    if (existingAttempt) {
+      return {
+        content: "Você já respondeu o quiz da semana. Volte na próxima semana para um novo!",
+        type: 'text',
       };
     }
 

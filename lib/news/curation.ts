@@ -70,12 +70,13 @@ export async function runNewsCuration() {
       'Retorne exatamente 3 ids se possível.',
     ].join('\n');
 
+    const model = process.env.OPENROUTER_CURATION_MODEL || process.env.OPENROUTER_MODEL;
     const response = await sendChatCompletion(
       [
         { role: 'system', content: system },
         { role: 'user', content: lines.join('\n') },
       ],
-      { temperature: 0.2, maxTokens: 300 }
+      { temperature: 0.2, maxTokens: 300, model }
     );
 
     const parsed = extractJson(response.content || '');

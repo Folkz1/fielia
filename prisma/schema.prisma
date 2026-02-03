@@ -35,6 +35,9 @@ model User {
   asaasCustomerId String? @unique
   asaasSubscriptionId String? @unique
   cpfCnpj       String?  @unique
+
+  // Admin
+  isAdmin       Boolean  @default(false)
   
   // Interaction State
   currentAction String?  // e.g., 'quiz:quizId:attemptId'

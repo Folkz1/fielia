@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Check, AlertTriangle } from "lucide-react";
+import { Crown, Check, AlertTriangle, Palette } from "lucide-react";
 import { useSubscription } from "@/hooks/use-api";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ThemeSelector } from "@/lib/theme-context";
 
 export default function SettingsPage() {
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
@@ -40,13 +41,29 @@ export default function SettingsPage() {
       <h1 className="text-4xl font-heading text-white mb-8">Configurações & Assinatura ⚙️</h1>
 
       <div className="grid gap-8">
+        {/* Theme Selector Card */}
+        <Card className="bg-corinthians-gray-dark border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              Aparencia
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Personalize as cores do app
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeSelector />
+          </CardContent>
+        </Card>
+
         {/* Subscription Card */}
-        <Card className={`border-2 transition-all ${isPremium ? 'border-corinthians-gold bg-corinthians-gold/10' : 'border-gray-800 bg-corinthians-gray-dark'}`}>
+        <Card className={`border-2 transition-all ${isPremium ? 'border-[var(--gradient-accent-start)] bg-[var(--gradient-accent-start)]/10' : 'border-gray-800 bg-corinthians-gray-dark'}`}>
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-2xl text-white flex items-center gap-2">
-                  <Crown className={`w-6 h-6 ${isPremium ? 'text-corinthians-gold' : 'text-gray-500'}`} />
+                  <Crown className={`w-6 h-6 ${isPremium ? 'text-[var(--gradient-accent-start)]' : 'text-gray-500'}`} />
                   Plano Fiel Torcedor Digital
                 </CardTitle>
                 <CardDescription className="text-gray-400">
@@ -54,7 +71,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </div>
               {isPremium ? (
-                <Badge className="bg-corinthians-gold text-black hover:bg-yellow-500">ATIVO</Badge>
+                <Badge className="badge-accent">ATIVO</Badge>
               ) : (
                 <Badge variant="outline" className="text-gray-400 border-gray-600">INATIVO</Badge>
               )}
@@ -93,7 +110,7 @@ export default function SettingsPage() {
                  <div className="grid md:grid-cols-2 gap-6">
                    <div>
                      <p className="text-3xl font-bold text-white mb-2">R$ 9,90<span className="text-sm text-gray-400 font-normal">/mês</span></p>
-                     <p className="text-corinthians-gold text-sm font-semibold mb-4">7 dias grátis para novos assinantes!</p>
+                     <p className="text-[var(--gradient-accent-start)] text-sm font-semibold mb-4">7 dias gratis para novos assinantes!</p>
                      
                      <ul className="space-y-2">
                        {[
@@ -103,22 +120,22 @@ export default function SettingsPage() {
                          "Badge Exclusiva de Apoiador"
                        ].map((item, i) => (
                          <li key={i} className="flex items-center gap-2 text-gray-300 text-sm">
-                           <Check className="w-4 h-4 text-corinthians-gold" /> {item}
+                           <Check className="w-4 h-4 text-[var(--gradient-accent-start)]" /> {item}
                          </li>
                        ))}
                      </ul>
                    </div>
                    
                    <div className="bg-black/30 rounded-lg p-4 flex flex-col justify-center items-center text-center">
-                     <Crown className="w-12 h-12 text-corinthians-gold mb-3" />
+                     <Crown className="w-12 h-12 text-[var(--gradient-accent-start)] mb-3" />
                      <p className="text-white font-semibold mb-1">Seja Fiel de verdade!</p>
                      <p className="text-xs text-gray-400 mb-4">Apoie o desenvolvimento e ganhe vantagens.</p>
-                     <Button 
-                       className="w-full bg-gradient-gold text-black hover:brightness-110"
+                     <Button
+                       className="w-full bg-gradient-accent text-[hsl(var(--accent-primary-foreground))] hover:brightness-110"
                        onClick={handleSubscribe}
                        disabled={isProcessing}
                      >
-                       {isProcessing ? <LoadingSpinner size="sm" className="text-black" /> : "Assinar Agora"}
+                       {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar Agora"}
                      </Button>
                      <p className="text-[10px] text-gray-500 mt-2">Cancelamento a qualquer momento.</p>
                    </div>

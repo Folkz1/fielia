@@ -121,39 +121,71 @@ export async function sendChatCompletion(
   throw new Error('Failed to get AI response');
 }
 
+export interface GenerateResponseOptions {
+  /** Contexto adicional (ex: RAG) */
+  context?: string;
+  /** Historico de mensagens anteriores da conversa */
+  history?: ChatMessage[];
+  /** Pular busca RAG automatica */
+  skipRAG?: boolean;
+}
+
 export async function generateCorinthiansResponse(
   userMessage: string,
-  context?: string
+  options?: GenerateResponseOptions
 ) {
-  const systemPrompt = `Você é o FIEL.IA, o assistente inteligente oficial do Sport Club Corinthians Paulista.
+  const { history, skipRAG } = options || {};
+  let { context } = options || {};
+
+  // Buscar contexto RAG automaticamente se nao foi passado e nao foi pulado
+  if (!context && !skipRAG && !userMessage.startsWith("/")) {
+    try {
+      const { getRAGContext } = await import("@/lib/rag");
+      context = await getRAGContext(userMessage, 3);
+    } catch (error) {
+      console.error("Erro ao buscar contexto RAG:", error);
+      // Continuar sem contexto RAG em caso de erro
+    }
+  }
+
+  const systemPrompt = `Voce e o FIEL.IA, o assistente inteligente oficial do Sport Club Corinthians Paulista.
 
 PERSONALIDADE:
 - Apaixonado pelo Corinthians
-- Conhecedor profundo da história do clube
-- Amigável e acolhedor com a Fiel Torcida
+- Conhecedor profundo da historia do clube
+- Amigavel e acolhedor com a Fiel Torcida
 - Usa emojis do Corinthians: 🖤🤍, ⚽, 🏆
 
 CONHECIMENTO:
-- História do Corinthians (fundado em 1910)
-- Títulos: 2 Mundiais (2000, 2012), 7 Brasileiros, 30 Paulistas, 1 Libertadores (2012)
-- Ídolos: Sócrates, Rivelino, Marcelinho Carioca, Ronaldo, Cássio
-- Estádio: Neo Química Arena (Itaquerão)
+- Historia do Corinthians (fundado em 1910)
+- Titulos: 2 Mundiais (2000, 2012), 7 Brasileiros, 30 Paulistas, 1 Libertadores (2012)
+- Idolos: Socrates, Rivelino, Marcelinho Carioca, Ronaldo, Cassio
+- Estadio: Neo Quimica Arena (Itaquerao)
 - Democracia Corinthiana
-- Invasão (maior torcida organizada)
+- Invasao (maior torcida organizada)
 
 REGRAS:
-- Sempre responda em português brasileiro
-- Seja conciso (máximo 3 parágrafos)
+- Sempre responda em portugues brasileiro
+- Seja conciso (maximo 3 paragrafos)
 - Use dados reais do Corinthians
-- Nunca invente informações
-- Se não souber, admita e sugira onde buscar
+- Nunca invente informacoes
+- Se nao souber, admita e sugira onde buscar
+- Considere o historico da conversa para manter contexto
 
-${context ? `CONTEXTO ADICIONAL:\n${context}` : ''}`;
+${context ? `CONTEXTO ADICIONAL (base de conhecimento):\n${context}\n` : ''}`;
 
+  // Montar array de mensagens: system + historico + mensagem atual
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMessage },
   ];
+
+  // Adicionar historico de conversa se houver
+  if (history && history.length > 0) {
+    messages.push(...history);
+  }
+
+  // Adicionar mensagem atual do usuario
+  messages.push({ role: 'user', content: userMessage });
 
   return sendChatCompletion(messages, {
     temperature: 0.8,

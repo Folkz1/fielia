@@ -14,8 +14,13 @@ const config: Config = {
         corinthians: {
           black: "#000000",
           white: "#FFFFFF",
+          // Primary accent: Orange (Modern Theme - Default)
+          orange: "#FF6B00",
+          "orange-dark": "#CC5500",
+          // Legacy gold colors (for backwards compatibility)
           gold: "#FFD700",
           "gold-dark": "#DAA520",
+          // Gray scale
           "gray-dark": "#1A1A1A",
           "gray-medium": "#2D2D2D",
           "gray-light": "#3F3F3F",
@@ -77,6 +82,12 @@ const config: Config = {
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
         "gradient-corinthians":
           "linear-gradient(135deg, #000000 0%, #1A1A1A 50%, #000000 100%)",
+        // Primary gradient using CSS variables
+        "gradient-accent":
+          "linear-gradient(135deg, var(--gradient-accent-start) 0%, var(--gradient-accent-end) 100%)",
+        // Modern orange gradient (default)
+        "gradient-orange": "linear-gradient(135deg, #FF6B00 0%, #CC5500 100%)",
+        // Legacy gold gradient
         "gradient-gold": "linear-gradient(135deg, #FFD700 0%, #DAA520 100%)",
       },
       animation: {
@@ -105,9 +116,11 @@ const config: Config = {
         },
       },
       boxShadow: {
+        "glow-orange": "0 0 20px rgba(255, 107, 0, 0.5)",
         "glow-gold": "0 0 20px rgba(255, 215, 0, 0.5)",
         "glow-white": "0 0 20px rgba(255, 255, 255, 0.3)",
-        "inner-glow": "inset 0 0 20px rgba(255, 215, 0, 0.2)",
+        "inner-glow": "inset 0 0 20px rgba(255, 107, 0, 0.2)",
+        "inner-glow-gold": "inset 0 0 20px rgba(255, 215, 0, 0.2)",
       },
     },
   },

@@ -3,6 +3,7 @@ import { getCuratedNews, formatNewsMessage } from './services/news.service';
 import { getTopUsers, formatRankingMessage } from './services/ranking.service';
 import { getUserProfile, formatProfileMessage } from './services/user.service';
 import { startQuiz, processQuizAnswer } from './services/quiz.service';
+import { getChatHistory } from './services/chat-history.service';
 
 export interface BotResponse {
   content: string;
@@ -81,11 +82,16 @@ async function handleMeme(userId: string, message: string): Promise<BotResponse>
   return generateMeme(userId, message);
 }
 
-async function handleChat(userId: string, message: string): Promise<BotResponse> {
+async function handleChat(userId: string, message: string, platform: string = 'whatsapp'): Promise<BotResponse> {
   try {
+    // Buscar historico de conversa para manter contexto
+    const history = await getChatHistory(userId, platform);
+
     // Dynamic import to avoid loading OpenRouter SDK on cold paths.
     const { generateCorinthiansResponse } = await import('@/lib/openrouter');
-    const response = await generateCorinthiansResponse(message);
+    const response = await generateCorinthiansResponse(message, {
+      history,
+    });
     const content = response.content?.trim();
 
     if (content) {
@@ -97,18 +103,18 @@ async function handleChat(userId: string, message: string): Promise<BotResponse>
 
   return {
     content:
-      `Estou com a IA temporariamente indisponível (limite/instabilidade).\n\n` +
+      `Estou com a IA temporariamente indisponivel (limite/instabilidade).\n\n` +
       `Posso te ajudar com:\n` +
-      `1) Notícias\n` +
+      `1) Noticias\n` +
       `2) Quiz\n` +
       `3) Meme\n` +
       `4) Ranking\n\n` +
-      `Digite */menu* para ver as opções.`,
+      `Digite */menu* para ver as opcoes.`,
     type: 'text',
   };
 }
 
-export async function routeMessage(userId: string, message: string): Promise<BotResponse> {
+export async function routeMessage(userId: string, message: string, platform: string = 'whatsapp'): Promise<BotResponse> {
   const lowerMsg = message.trim().toLowerCase();
 
   // 1. Check User State (Active Actions like Quiz)
@@ -189,9 +195,9 @@ export async function routeMessage(userId: string, message: string): Promise<Bot
   }
 
   if (lowerMsg === 'chat') {
-    return handleChat(userId, message);
+    return handleChat(userId, message, platform);
   }
 
   // 3. Fallback to LLM
-  return handleChat(userId, message);
+  return handleChat(userId, message, platform);
 }

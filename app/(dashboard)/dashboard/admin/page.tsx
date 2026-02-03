@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, Database, Upload, Trash2, Search, FileText, RefreshCw, Plus } from "lucide-react";
+import { Shield, Database, Upload, Trash2, Search, FileText, RefreshCw, Plus, Newspaper, Clock, Users, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 interface KnowledgeItem {
   id: string;
@@ -17,9 +17,32 @@ interface Stats {
   categories: { name: string; count: number }[];
 }
 
+interface SchedulerStatus {
+  cronEnabled: boolean;
+  nodeEnv: string;
+  schedules: {
+    newsSync: string;
+    newsCuration: string;
+    newsletter: string;
+    weeklyQuiz: string;
+  };
+  freshRss: {
+    url: string;
+    categoryId: string;
+  };
+}
+
+interface NewsSyncResult {
+  success: boolean;
+  fetched?: number;
+  created?: number;
+  skipped?: number;
+  error?: string;
+}
+
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"rag" | "ingest">("rag");
+  const [activeTab, setActiveTab] = useState<"sistema" | "rag" | "ingest">("sistema");
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,9 +59,20 @@ export default function AdminPage() {
   const [ingesting, setIngesting] = useState(false);
   const [ingestResult, setIngestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Sistema
+  const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
+  const [syncingNews, setSyncingNews] = useState(false);
+  const [newsSyncResult, setNewsSyncResult] = useState<NewsSyncResult | null>(null);
+
   useEffect(() => {
     checkAdminStatus();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchSchedulerStatus();
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -80,6 +114,32 @@ export default function AdminPage() {
       setStats(data);
     } catch (error) {
       console.error("Erro ao buscar stats:", error);
+    }
+  }
+
+  async function fetchSchedulerStatus() {
+    try {
+      const res = await fetch("/api/admin/scheduler");
+      if (res.ok) {
+        const data = await res.json();
+        setSchedulerStatus(data);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar status do scheduler:", error);
+    }
+  }
+
+  async function handleSyncNews() {
+    setSyncingNews(true);
+    setNewsSyncResult(null);
+    try {
+      const res = await fetch("/api/news/sync");
+      const data = await res.json();
+      setNewsSyncResult(data);
+    } catch (error) {
+      setNewsSyncResult({ success: false, error: "Erro de conexao" });
+    } finally {
+      setSyncingNews(false);
     }
   }
 
@@ -194,32 +254,191 @@ export default function AdminPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-700">
+      <div className="flex gap-2 border-b border-gray-700 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("sistema")}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === "sistema"
+              ? "text-accent-primary border-b-2 border-accent-primary"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <Clock className="w-4 h-4 inline mr-2" />
+          Sistema
+        </button>
         <button
           onClick={() => setActiveTab("rag")}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === "rag"
               ? "text-accent-primary border-b-2 border-accent-primary"
               : "text-gray-400 hover:text-white"
           }`}
         >
           <Database className="w-4 h-4 inline mr-2" />
-          Base de Conhecimento
+          Base RAG
         </button>
         <button
           onClick={() => setActiveTab("ingest")}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === "ingest"
               ? "text-accent-primary border-b-2 border-accent-primary"
               : "text-gray-400 hover:text-white"
           }`}
         >
           <Plus className="w-4 h-4 inline mr-2" />
-          Adicionar Documento
+          Adicionar RAG
         </button>
       </div>
 
       {/* Tab Content */}
+      {activeTab === "sistema" && (
+        <div className="space-y-6">
+          {/* Sync de Noticias */}
+          <div className="card-corinthians p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Newspaper className="w-5 h-5 text-accent-primary" />
+                  Sincronizacao de Noticias
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">Busca noticias do FreshRSS e atualiza o banco de dados</p>
+              </div>
+              <button
+                onClick={handleSyncNews}
+                disabled={syncingNews}
+                className="px-4 py-2 btn-primary disabled:opacity-50 flex items-center gap-2"
+              >
+                {syncingNews ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Sincronizar Agora
+                  </>
+                )}
+              </button>
+            </div>
+
+            {newsSyncResult && (
+              <div
+                className={`p-4 rounded-lg ${
+                  newsSyncResult.success
+                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                    : "bg-red-500/20 text-red-400 border border-red-500/30"
+                }`}
+              >
+                {newsSyncResult.success ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    <span>
+                      Sincronizado! {newsSyncResult.fetched} buscadas, {newsSyncResult.created} novas, {newsSyncResult.skipped} duplicadas.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-5 h-5" />
+                    <span>Erro: {newsSyncResult.error}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Status do Scheduler */}
+          <div className="card-corinthians p-6">
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <Clock className="w-5 h-5 text-accent-primary" />
+              Status do Scheduler
+            </h2>
+
+            {schedulerStatus ? (
+              <div className="space-y-4">
+                {/* Status Geral */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+                    {schedulerStatus.cronEnabled ? (
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-400" />
+                    )}
+                    <div>
+                      <p className="font-medium">CRON Habilitado</p>
+                      <p className="text-sm text-gray-400">{schedulerStatus.cronEnabled ? "Ativo" : "Desativado"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+                    {schedulerStatus.nodeEnv === "production" ? (
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-yellow-400" />
+                    )}
+                    <div>
+                      <p className="font-medium">Ambiente</p>
+                      <p className="text-sm text-gray-400">{schedulerStatus.nodeEnv || "development"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Agendamentos */}
+                <div>
+                  <h3 className="font-medium mb-2 text-gray-300">Agendamentos Configurados</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">Sync Noticias:</span>{" "}
+                      <code className="text-accent-primary">{schedulerStatus.schedules.newsSync}</code>
+                    </div>
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">Curacao:</span>{" "}
+                      <code className="text-accent-primary">{schedulerStatus.schedules.newsCuration}</code>
+                    </div>
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">Newsletter:</span>{" "}
+                      <code className="text-accent-primary">{schedulerStatus.schedules.newsletter}</code>
+                    </div>
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">Quiz Semanal:</span>{" "}
+                      <code className="text-accent-primary">{schedulerStatus.schedules.weeklyQuiz}</code>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FreshRSS */}
+                <div>
+                  <h3 className="font-medium mb-2 text-gray-300">Configuracao FreshRSS</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">URL:</span>{" "}
+                      <span className={schedulerStatus.freshRss.url === "configured" ? "text-green-400" : "text-red-400"}>
+                        {schedulerStatus.freshRss.url}
+                      </span>
+                    </div>
+                    <div className="p-2 bg-gray-800/30 rounded text-sm">
+                      <span className="text-gray-400">Categoria:</span>{" "}
+                      <code className="text-accent-primary">{schedulerStatus.freshRss.categoryId}</code>
+                    </div>
+                  </div>
+                </div>
+
+                {schedulerStatus.nodeEnv !== "production" && (
+                  <div className="p-3 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm">
+                    <AlertCircle className="w-4 h-4 inline mr-2" />
+                    O scheduler automatico so roda em producao (NODE_ENV=production). Use o botao acima para sincronizar manualmente.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">
+                <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                Carregando status...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === "rag" && (
         <div className="space-y-4">
           {/* Search */}

@@ -160,7 +160,7 @@ export function MobileSidebar({ userName, userEmail, onSignOut, isAdmin }: Mobil
           <div className="glass rounded-lg p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-gradient-accent flex items-center justify-center flex-shrink-0">
-                <span className="font-heading text-lg text-[hsl(var(--accent-primary-foreground))]">
+                <span className="font-heading text-lg avatar-text">
                   {userName?.charAt(0).toUpperCase() || "F"}
                 </span>
               </div>
@@ -175,9 +175,9 @@ export function MobileSidebar({ userName, userEmail, onSignOut, isAdmin }: Mobil
             </div>
 
             {/* Streak Counter */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-accent mt-3">
+            <div className="streak-counter mt-3">
               <span className="text-lg flex-shrink-0">🔥</span>
-              <span className="text-sm font-bold text-[hsl(var(--accent-primary-foreground))] whitespace-nowrap">7 dias de streak!</span>
+              <span className="text-sm font-bold whitespace-nowrap">7 dias de streak!</span>
             </div>
           </div>
 

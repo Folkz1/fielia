@@ -56,6 +56,10 @@
     --accent-primary-foreground: 0 0% 0%;
     --gradient-accent-start: #FFFFFF;
     --gradient-accent-end: #E5E5E5;
+    /* Classic theme specific overrides */
+    --btn-primary-text: 0 0% 0%; /* Black text on white buttons */
+    --streak-bg: #FFFFFF;
+    --streak-text: #000000;
   }
 
   /* Theme: Gold (Legacy) */
@@ -132,6 +136,11 @@
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+
+  /* Background Gradient */
+  .bg-gradient-accent {
+    background-image: linear-gradient(135deg, var(--gradient-accent-start) 0%, var(--gradient-accent-end) 100%);
   }
 
   .text-gradient-corinthians {
@@ -358,6 +367,26 @@
 
   .theme-classic .streak-counter {
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    color: #000000;
+  }
+
+  /* Classic theme button text fix */
+  .theme-classic .btn-primary {
+    color: #000000;
+  }
+
+  /* Classic theme gradient bg with black text */
+  .theme-classic .bg-gradient-accent {
+    color: #000000;
+  }
+
+  /* Avatar text color */
+  .avatar-text {
+    color: hsl(var(--accent-primary-foreground));
+  }
+
+  .theme-classic .avatar-text {
+    color: #000000;
   }
 }
 

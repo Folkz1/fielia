@@ -131,7 +131,7 @@ export default function SettingsPage() {
                      <p className="text-white font-semibold mb-1">Seja Fiel de verdade!</p>
                      <p className="text-xs text-gray-400 mb-4">Apoie o desenvolvimento e ganhe vantagens.</p>
                      <Button
-                       className="w-full bg-gradient-accent text-[hsl(var(--accent-primary-foreground))] hover:brightness-110"
+                       className="w-full btn-primary"
                        onClick={handleSubscribe}
                        disabled={isProcessing}
                      >

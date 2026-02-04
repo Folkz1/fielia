@@ -109,7 +109,7 @@ export default function SettingsPage() {
               <div className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
                    <div>
-                     <p className="text-3xl font-bold text-white mb-2">R$ 9,90<span className="text-sm text-gray-400 font-normal">/mês</span></p>
+                     <p className="text-3xl font-bold text-white mb-2">R$ 56,90<span className="text-sm text-gray-400 font-normal">/mês</span></p>
                      <p className="text-[var(--gradient-accent-start)] text-sm font-semibold mb-4">7 dias gratis para novos assinantes!</p>
                      
                      <ul className="space-y-2">

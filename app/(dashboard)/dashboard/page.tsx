@@ -222,7 +222,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <Link href="/dashboard/settings" className="btn-primary whitespace-nowrap">
-              Assinar por R$ 9,90/mes
+              Assinar por R$ 56,90/mes
             </Link>
           </div>
         </div>

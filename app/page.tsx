@@ -1,8 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Trophy, Zap, MessageCircle, TrendingUp, Star, ArrowRight, Banknote, Ticket, Shirt } from "lucide-react";
+import { Trophy, Zap, MessageCircle, TrendingUp, Star, ArrowRight, Ticket, Shirt, Quote } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -140,6 +141,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Torcida Section */}
+      <section className="py-16 sm:py-24 px-4 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div>
+              <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl mb-4">
+                <span className="text-gradient-gold">A Maior Torcida do Brasil</span>
+              </h2>
+              <p className="text-gray-300 text-base sm:text-lg mb-6">
+                Faca parte da comunidade mais apaixonada do futebol brasileiro.
+                Mais de 30 milhoes de corinthianos conectados pelo mesmo amor.
+              </p>
+              <p className="text-gray-400 text-sm sm:text-base">
+                No FIEL.IA, voce se conecta com outros torcedores, disputa quizzes,
+                acompanha noticias e vive a paixao pelo Timao todos os dias.
+              </p>
+            </div>
+            <div className="relative">
+              <div className="relative rounded-2xl overflow-hidden aspect-video lg:aspect-square">
+                <Image
+                  src="/images/torcida.jpeg"
+                  alt="Torcida do Corinthians fazendo festa"
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Prizes Section */}
       <section className="py-16 sm:py-24 px-4 relative bg-corinthians-gray-dark/30">
         <div className="max-w-6xl mx-auto">
@@ -152,41 +185,85 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {/* 1st Place */}
-            <div className="card-gold text-center group order-2 md:order-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-3xl mx-auto">
+            {/* Ingressos */}
+            <div className="card-gold text-center group">
               <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 rounded-2xl bg-gradient-gold flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Banknote className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-black" />
+                <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-black" />
               </div>
               <div className="badge-gold mb-4 text-sm sm:text-base">1o LUGAR</div>
-              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">R$ 100</h3>
-              <p className="text-gray-400 text-sm sm:text-base">Via PIX</p>
-            </div>
-
-            {/* 2nd Place */}
-            <div className="card-corinthians text-center group order-1 md:order-2">
-              <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 rounded-2xl bg-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-gold" />
-              </div>
-              <div className="badge-white mb-4 text-sm sm:text-base">2o LUGAR</div>
-              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Ingresso</h3>
+              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Ingressos</h3>
               <p className="text-gray-400 text-sm sm:text-base">Neo Quimica Arena</p>
+              <p className="text-gray-500 text-xs mt-2">Par de ingressos para jogos do Corinthians</p>
             </div>
 
-            {/* 3rd Place */}
-            <div className="card-corinthians text-center group order-3">
+            {/* Camisas */}
+            <div className="card-corinthians text-center group">
               <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 rounded-2xl bg-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Shirt className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-gold" />
               </div>
-              <div className="badge-white mb-4 text-sm sm:text-base">3o LUGAR</div>
-              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Camisa Oficial</h3>
-              <p className="text-gray-400 text-sm sm:text-base">Temporada 2025</p>
+              <div className="badge-white mb-4 text-sm sm:text-base">2o e 3o LUGAR</div>
+              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Camisas Oficiais</h3>
+              <p className="text-gray-400 text-sm sm:text-base">Nike x SCCP</p>
+              <p className="text-gray-500 text-xs mt-2">Manto do Corinthians temporada 2025</p>
             </div>
           </div>
 
           <p className="text-center text-gray-500 text-sm mt-8">
             * Premios distribuidos semanalmente para os melhores colocados do ranking
           </p>
+        </div>
+      </section>
+
+      {/* Social Proof Section */}
+      <section className="py-16 sm:py-24 px-4 relative">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4">
+              <span className="text-gradient-gold">O Que a Fiel Diz</span>
+            </h2>
+            <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto px-4">
+              Depoimentos de quem ja usa o FIEL.IA
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Marcos S.",
+                text: "O quiz e viciante! Ja ganhei uma camisa e agora to na briga pelo ingresso. Melhor app pro corinthiano!",
+                location: "Sao Paulo, SP"
+              },
+              {
+                name: "Ana Paula R.",
+                text: "A IA no WhatsApp e demais! Pergunto tudo sobre a historia do Timao e ela responde na hora. Muito bom!",
+                location: "Campinas, SP"
+              },
+              {
+                name: "Carlos H.",
+                text: "As noticias personalizadas me deixam sempre atualizado. Nao perco mais nada do meu Corinthians!",
+                location: "Rio de Janeiro, RJ"
+              }
+            ].map((testimonial, i) => (
+              <div key={i} className="card-corinthians relative">
+                <Quote className="w-8 h-8 text-corinthians-gold/30 absolute top-4 right-4" />
+                <p className="text-gray-300 text-sm sm:text-base mb-4 italic">
+                  &ldquo;{testimonial.text}&rdquo;
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-gold flex items-center justify-center">
+                    <span className="text-corinthians-black font-bold text-sm">
+                      {testimonial.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm">{testimonial.name}</p>
+                    <p className="text-gray-500 text-xs">{testimonial.location}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -203,20 +280,20 @@ export default function Home() {
           <div className="card-gold max-w-md mx-auto">
             <div className="mb-6 sm:mb-8">
               <div className="text-4xl sm:text-5xl font-heading text-corinthians-white mb-2">
-                R$ 9,90
+                R$ 56,90
                 <span className="text-xl sm:text-2xl text-gray-400">/mes</span>
               </div>
-              <p className="text-gray-400 text-sm sm:text-base">7 dias de teste gratis</p>
+              <p className="text-corinthians-gold text-sm sm:text-base font-semibold">Concorra a ingressos e camisas!</p>
             </div>
 
             <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left">
               {[
-                "Quiz semanal ilimitado",
-                "15 interacoes diarias no WhatsApp",
+                "Quiz semanal com premios reais",
+                "IA ilimitada no WhatsApp",
                 "Noticias personalizadas",
-                "Gerador de memes",
+                "Concorra a ingressos",
+                "Concorra a camisas oficiais",
                 "Ranking e conquistas",
-                "Suporte prioritario",
               ].map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <div className="w-5 h-5 rounded-full bg-corinthians-gold flex items-center justify-center flex-shrink-0">

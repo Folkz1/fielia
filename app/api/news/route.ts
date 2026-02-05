@@ -91,7 +91,10 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
-    return NextResponse.json({ news });
+    // Adicionar headers de cache
+    const response = NextResponse.json({ news });
+    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    return response;
   } catch (error) {
     console.error('Fetch News Error:', error);
     return NextResponse.json(

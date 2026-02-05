@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Trophy, Zap, MessageCircle, TrendingUp, Star, ArrowRight, Ticket, Shirt, Quote } from "lucide-react";
+import { Trophy, Zap, MessageCircle, TrendingUp, Star, ArrowRight, Quote } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -10,36 +10,52 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-corinthians">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-10 w-48 sm:w-72 h-48 sm:h-72 bg-corinthians-gold rounded-full blur-3xl animate-pulse-slow"></div>
-          <div className="absolute bottom-20 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-corinthians-white rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: "1s" }}></div>
+        {/* Video Background */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/hero-video.webp"
+            alt="Background"
+            fill
+            className="object-cover object-center scale-125"
+            priority
+            quality={75}
+            sizes="100vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgIBAwQDAAAAAAAAAAAAAQIDBBEABSEGEhMxQVFh/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAZEQACAwEAAAAAAAAAAAAAAAABAgADESH/2gAMAwEAAhEDEEA/ANg6i3Cxu1Guq6WwFJyGYvMzADHyAB+5+tMv0YZ4jFLEkkZ9qygj9GPilaKG2SfZ//Z"
+          />
+          {/* Multiple overlay layers for smooth effect */}
+          <div className="absolute inset-0 bg-black/70"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60"></div>
+          {/* Vignette effect */}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }}></div>
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto text-center pt-8 sm:pt-0">
+        {/* Content */}
+        <div className="relative z-10 max-w-4xl mx-auto text-center pt-8 sm:pt-0">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-corinthians-gold/20 border border-corinthians-gold/30 mb-6 sm:mb-8 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-corinthians-gold/20 border border-corinthians-gold/30 mb-6 sm:mb-8 animate-fade-in backdrop-blur-sm">
             <Star className="w-4 h-4 text-corinthians-gold" />
             <span className="text-xs sm:text-sm font-semibold text-corinthians-gold">Exclusivo para a Fiel Torcida</span>
           </div>
 
           {/* Main Heading */}
-          <h1 className="font-heading text-5xl sm:text-6xl md:text-8xl lg:text-9xl mb-4 sm:mb-6 animate-slide-up">
-            <span className="text-gradient-corinthians">FIEL.IA</span>
+          <h1 className="font-heading text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 sm:mb-6 animate-slide-up">
+            <span className="text-gradient-corinthians drop-shadow-2xl">FIEL.IA</span>
           </h1>
 
-          <p className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-3 sm:mb-4 max-w-3xl mx-auto px-4 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          <p className="text-xl sm:text-2xl md:text-3xl text-gray-200 mb-3 sm:mb-4 max-w-3xl mx-auto animate-slide-up drop-shadow-lg" style={{ animationDelay: "0.1s" }}>
             O Assistente Inteligente do Torcedor Corinthiano
           </p>
 
-          <p className="text-sm sm:text-base md:text-lg text-gray-400 mb-8 sm:mb-12 max-w-2xl mx-auto px-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-8 sm:mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: "0.2s" }}>
             Quizzes semanais, noticias personalizadas e IA no WhatsApp. Tudo para voce viver o Corinthians 24/7.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center px-4 animate-slide-up" style={{ animationDelay: "0.3s" }}>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center animate-slide-up" style={{ animationDelay: "0.3s" }}>
             <Link href="/auth/login" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto group">
+              <Button size="lg" className="w-full sm:w-auto group text-lg px-8 py-6">
                 Comecar Agora
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
@@ -49,32 +65,32 @@ export default function Home() {
                 const featuresSection = document.querySelector('#features');
                 featuresSection?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center font-semibold rounded-lg transition-smooth focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:pointer-events-none btn-ghost focus:ring-white/20 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg"
+              className="w-full sm:w-auto inline-flex items-center justify-center font-semibold rounded-lg transition-smooth focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:pointer-events-none btn-ghost focus:ring-white/20 px-8 py-4 text-lg backdrop-blur-sm bg-white/5 border border-white/20"
             >
               Saber Mais
             </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 sm:gap-8 mt-12 sm:mt-20 max-w-2xl mx-auto px-4 animate-fade-in" style={{ animationDelay: "0.5s" }}>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl md:text-4xl font-heading text-corinthians-gold mb-1 sm:mb-2">15+</div>
-              <div className="text-xs sm:text-sm text-gray-400">Interacoes Diarias</div>
+          <div className="grid grid-cols-3 gap-6 sm:gap-12 mt-12 sm:mt-16 max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "0.5s" }}>
+            <div className="text-center backdrop-blur-sm bg-black/30 rounded-xl p-4 border border-white/10">
+              <div className="text-3xl sm:text-4xl font-heading text-corinthians-gold mb-1">15+</div>
+              <div className="text-xs sm:text-sm text-gray-300">Interacoes Diarias</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl md:text-4xl font-heading text-corinthians-gold mb-1 sm:mb-2">100+</div>
-              <div className="text-xs sm:text-sm text-gray-400">Perguntas no Quiz</div>
+            <div className="text-center backdrop-blur-sm bg-black/30 rounded-xl p-4 border border-white/10">
+              <div className="text-3xl sm:text-4xl font-heading text-corinthians-gold mb-1">100+</div>
+              <div className="text-xs sm:text-sm text-gray-300">Perguntas no Quiz</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl md:text-4xl font-heading text-corinthians-gold mb-1 sm:mb-2">24/7</div>
-              <div className="text-xs sm:text-sm text-gray-400">Assistente IA</div>
+            <div className="text-center backdrop-blur-sm bg-black/30 rounded-xl p-4 border border-white/10">
+              <div className="text-3xl sm:text-4xl font-heading text-corinthians-gold mb-1">24/7</div>
+              <div className="text-xs sm:text-sm text-gray-300">Assistente IA</div>
             </div>
           </div>
         </div>
 
         {/* Scroll Indicator - Hidden on mobile */}
-        <div className="hidden sm:block absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-corinthians-gold/50 flex items-start justify-center p-2">
+        <div className="hidden sm:block absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-10">
+          <div className="w-6 h-10 rounded-full border-2 border-corinthians-gold/50 flex items-start justify-center p-2 backdrop-blur-sm bg-black/20">
             <div className="w-1 h-3 bg-corinthians-gold rounded-full"></div>
           </div>
         </div>
@@ -165,6 +181,9 @@ export default function Home() {
                   alt="Torcida do Corinthians fazendo festa"
                   fill
                   className="object-cover"
+                  loading="lazy"
+                  quality={80}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
               </div>
@@ -185,27 +204,68 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-3xl mx-auto">
-            {/* Ingressos */}
-            <div className="card-gold text-center group">
-              <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 rounded-2xl bg-gradient-gold flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-black" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
+            {/* 1o Lugar - Ingressos */}
+            <div className="card-gold text-center group relative overflow-hidden">
+              <div className="absolute top-3 right-3 bg-gradient-gold text-corinthians-black px-3 py-1 rounded-full text-xs font-bold z-10">
+                1o LUGAR
               </div>
-              <div className="badge-gold mb-4 text-sm sm:text-base">1o LUGAR</div>
-              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Ingressos</h3>
-              <p className="text-gray-400 text-sm sm:text-base">Neo Quimica Arena</p>
-              <p className="text-gray-500 text-xs mt-2">Par de ingressos para jogos do Corinthians</p>
+              <div className="relative w-full h-40 sm:h-48 mb-4 rounded-xl overflow-hidden bg-black/30">
+                <Image
+                  src="/images/prizes/ingresso.png"
+                  alt="Par de Ingressos Neo Quimica Arena"
+                  fill
+                  className="object-contain group-hover:scale-110 transition-transform duration-300 p-4"
+                  loading="lazy"
+                  quality={75}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
+              </div>
+              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Par de Ingressos</h3>
+              <p className="text-corinthians-gold text-sm sm:text-base font-semibold">Neo Quimica Arena</p>
+              <p className="text-gray-500 text-xs mt-2">Jogos do Corinthians em casa</p>
             </div>
 
-            {/* Camisas */}
-            <div className="card-corinthians text-center group">
-              <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 rounded-2xl bg-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Shirt className="w-12 h-12 sm:w-16 sm:h-16 text-corinthians-gold" />
+            {/* 2o Lugar - Camisa */}
+            <div className="card-corinthians text-center group relative overflow-hidden border-2 border-gray-400/30">
+              <div className="absolute top-3 right-3 bg-gray-400 text-black px-3 py-1 rounded-full text-xs font-bold z-10">
+                2o LUGAR
               </div>
-              <div className="badge-white mb-4 text-sm sm:text-base">2o e 3o LUGAR</div>
-              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Camisas Oficiais</h3>
-              <p className="text-gray-400 text-sm sm:text-base">Nike x SCCP</p>
-              <p className="text-gray-500 text-xs mt-2">Manto do Corinthians temporada 2025</p>
+              <div className="relative w-full h-40 sm:h-48 mb-4 rounded-xl overflow-hidden bg-black/30">
+                <Image
+                  src="/images/prizes/camisa.webp"
+                  alt="Camisa Oficial Nike x SCCP"
+                  fill
+                  className="object-contain group-hover:scale-110 transition-transform duration-300"
+                  loading="lazy"
+                  quality={75}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
+              </div>
+              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">Camisa Oficial</h3>
+              <p className="text-gray-400 text-sm sm:text-base font-semibold">Nike x SCCP 2025</p>
+              <p className="text-gray-500 text-xs mt-2">Manto sagrado do Corinthians</p>
+            </div>
+
+            {/* 3o Lugar - PIX */}
+            <div className="card-corinthians text-center group relative overflow-hidden border-2 border-orange-700/30">
+              <div className="absolute top-3 right-3 bg-orange-700 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
+                3o LUGAR
+              </div>
+              <div className="relative w-full h-40 sm:h-48 mb-4 rounded-xl overflow-hidden bg-black/30">
+                <Image
+                  src="/images/prizes/pix.png"
+                  alt="Premio em PIX R$ 50"
+                  fill
+                  className="object-contain group-hover:scale-110 transition-transform duration-300 p-4"
+                  loading="lazy"
+                  quality={75}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
+              </div>
+              <h3 className="font-heading text-2xl sm:text-3xl mb-2 text-white">PIX R$ 50</h3>
+              <p className="text-orange-500 text-sm sm:text-base font-semibold">Premio em Dinheiro</p>
+              <p className="text-gray-500 text-xs mt-2">Transferencia instantanea</p>
             </div>
           </div>
 

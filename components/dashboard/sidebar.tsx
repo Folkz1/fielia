@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { Home, MessageSquare, Trophy, Crown, Newspaper, Settings, LogOut, User } from "lucide-react";
+import Image from "next/image";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -19,13 +20,23 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-corinthians-gray-dark border-r border-corinthians-gray-light p-6 flex flex-col z-50 overflow-y-auto scrollbar-thin">
+    <aside className="fixed left-0 top-0 h-full w-64 bg-corinthians-gray-dark border-r border-corinthians-gray-light px-6 py-4 flex flex-col z-50 overflow-y-auto scrollbar-thin">
       {/* Logo */}
-      <Link href="/" className="block mb-12 group">
-        <h1 className="font-heading text-3xl text-gradient-gold group-hover:scale-105 transition-transform">
-          FIEL.IA
-        </h1>
-        <p className="text-xs text-gray-500 mt-1">Assistente do Torcedor</p>
+      <Link href="/" className="flex items-center gap-3 mb-8 group">
+        <div className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden ring-2 ring-orange-500/50 group-hover:ring-orange-500 transition-all bg-gray-900">
+          <Image
+            src="/images/logo-fiel-ia.png"
+            alt="FIEL.IA"
+            fill
+            className="object-contain p-0.5 group-hover:scale-105 transition-transform"
+          />
+        </div>
+        <div>
+          <h1 className="font-heading text-2xl text-gradient-gold">
+            FIEL.IA
+          </h1>
+          <p className="text-xs text-gray-500">Assistente do Torcedor</p>
+        </div>
       </Link>
 
       {/* Navigation */}

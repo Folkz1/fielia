@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PlayCircle, Clock, CheckCircle2, AlertCircle, List, PlusCircle } from "lucide-react";
+import { PlayCircle, Clock, CheckCircle2, AlertCircle, List } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -12,7 +12,6 @@ interface WelcomeScreenProps {
   userAttempt: any;
   onStart: () => void;
   onViewBank: () => void;
-  onCreate: () => void;
 }
 
 export function WelcomeScreen({
@@ -20,7 +19,6 @@ export function WelcomeScreen({
   userAttempt,
   onStart,
   onViewBank,
-  onCreate,
 }: WelcomeScreenProps) {
   return (
     <div className="space-y-8">
@@ -33,16 +31,10 @@ export function WelcomeScreen({
             Teste seu conhecimento sobre o Timão e ganhe pontos!
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={onViewBank} className="border border-gray-700 hover:bg-gray-800">
-            <List className="mr-2 h-4 w-4" />
-            Ver Anteriores
-          </Button>
-          <Button variant="ghost" onClick={onCreate} className="border border-gray-700 hover:bg-gray-800 hidden md:flex">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Criar Quiz
-          </Button>
-        </div>
+        <Button variant="ghost" onClick={onViewBank} className="border border-gray-700 hover:bg-gray-800">
+          <List className="mr-2 h-4 w-4" />
+          Ver Anteriores
+        </Button>
       </div>
 
       <div className="grid gap-6">
@@ -122,11 +114,8 @@ export function WelcomeScreen({
                 Nenhum Quiz Ativo
               </h3>
               <p className="text-gray-400 max-w-md">
-                No momento não há nenhum quiz disponível para responder. Volte mais tarde ou crie um novo.
+                No momento nao ha nenhum quiz disponivel. Volte mais tarde!
               </p>
-              <Button variant="ghost" onClick={onCreate} className="mt-6 border border-gray-700 hover:bg-gray-800">
-                Criar Novo Quiz
-              </Button>
             </CardContent>
           </Card>
         )}

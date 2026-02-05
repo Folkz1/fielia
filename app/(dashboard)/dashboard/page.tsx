@@ -28,13 +28,13 @@ export default async function DashboardPage() {
       where: { id: userId },
       select: {
         name: true,
-        points: true,
+        totalPoints: true,
         currentStreak: true,
-        longestStreak: true,
+        maxStreak: true,
         isPremium: true,
         quizAttempts: {
           take: 5,
-          orderBy: { completedAt: 'desc' },
+          orderBy: { startedAt: 'desc' },
           include: { quiz: true }
         }
       }
@@ -43,17 +43,18 @@ export default async function DashboardPage() {
     // Calcular ranking do usuario
     if (userData) {
       const usersAbove = await prisma.user.count({
-        where: { points: { gt: userData.points } }
+        where: { totalPoints: { gt: userData.totalPoints } }
       });
       userRanking = usersAbove + 1;
-      totalRanked = await prisma.user.count({ where: { points: { gt: 0 } } });
+      totalRanked = await prisma.user.count({ where: { totalPoints: { gt: 0 } } });
     }
 
     // Quiz ativo da semana
     activeQuiz = await prisma.quiz.findFirst({
       where: {
-        startsAt: { lte: new Date() },
-        endsAt: { gte: new Date() }
+        startDate: { lte: new Date() },
+        endDate: { gte: new Date() },
+        isActive: true
       },
       include: {
         _count: { select: { questions: true } }
@@ -68,7 +69,7 @@ export default async function DashboardPage() {
   });
 
   const streak = userData?.currentStreak || 0;
-  const points = userData?.points || 0;
+  const points = userData?.totalPoints || 0;
 
   return (
     <div className="space-y-8">

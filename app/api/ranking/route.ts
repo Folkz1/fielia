@@ -45,7 +45,10 @@ export async function GET(req: NextRequest) {
       ...user,
     }));
 
-    return NextResponse.json({ ranking, period });
+    // Adicionar headers de cache - ranking atualiza a cada 1 minuto
+    const response = NextResponse.json({ ranking, period });
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    return response;
   } catch (error) {
     console.error('Ranking API Error:', error);
     return NextResponse.json(

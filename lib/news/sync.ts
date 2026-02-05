@@ -7,7 +7,49 @@ type FeedItem = {
   isoDate?: string;
   content?: string;
   contentSnippet?: string;
+  enclosure?: {
+    url?: string;
+    type?: string;
+  };
+  'media:content'?: {
+    $?: {
+      url?: string;
+    };
+  };
+  'media:thumbnail'?: {
+    $?: {
+      url?: string;
+    };
+  };
 };
+
+// Extrai URL de imagem do item RSS
+function extractImageUrl(item: FeedItem): string | null {
+  // 1. Tentar enclosure (comum em RSS)
+  if (item.enclosure?.url && item.enclosure.type?.startsWith('image/')) {
+    return item.enclosure.url;
+  }
+
+  // 2. Tentar media:content
+  if (item['media:content']?.$?.url) {
+    return item['media:content'].$.url;
+  }
+
+  // 3. Tentar media:thumbnail
+  if (item['media:thumbnail']?.$?.url) {
+    return item['media:thumbnail'].$.url;
+  }
+
+  // 4. Tentar extrair do content HTML
+  const content = item.content || '';
+  const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (imgMatch?.[1]) {
+    return imgMatch[1];
+  }
+
+  // 5. Tentar extrair og:image do link (se disponivel)
+  return null;
+}
 
 function buildFeedUrl() {
   const base = (process.env.FRESHRSS_URL || '').replace(/\/$/, '');
@@ -67,7 +109,15 @@ export async function syncNewsFromFreshRSS() {
   );
   const category = process.env.NEWS_DEFAULT_CATEGORY || 'Geral';
 
-  const parser = new Parser();
+  const parser = new Parser({
+    customFields: {
+      item: [
+        ['media:content', 'media:content'],
+        ['media:thumbnail', 'media:thumbnail'],
+        ['enclosure', 'enclosure'],
+      ],
+    },
+  });
   const authHeader = buildAuthHeader();
   const res = await fetch(url, {
     headers: authHeader ? { Authorization: authHeader } : undefined,
@@ -98,6 +148,7 @@ export async function syncNewsFromFreshRSS() {
 
     const summary = item.contentSnippet || item.content || item.title;
     const content = item.content || item.contentSnippet || item.title;
+    const imageUrl = extractImageUrl(item);
 
     await prisma.news.create({
       data: {
@@ -106,6 +157,7 @@ export async function syncNewsFromFreshRSS() {
         content,
         category,
         sourceUrl: item.link || null,
+        imageUrl: imageUrl,
         publishedAt: toDate(item.isoDate),
       },
     });

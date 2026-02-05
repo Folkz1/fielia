@@ -5,10 +5,9 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { QuizGame } from "./QuizGame";
 import { ResultScreen } from "./ResultScreen";
 import { QuizBank } from "./QuizBank";
-import { CreateQuizForm } from "./CreateQuizForm";
 import { Loader2 } from "lucide-react";
 
-export type QuizView = "welcome" | "quiz" | "result" | "bank" | "create";
+export type QuizView = "welcome" | "quiz" | "result" | "bank";
 
 export function QuizManager() {
   const [view, setView] = useState<QuizView>("welcome");
@@ -64,7 +63,6 @@ export function QuizManager() {
           userAttempt={userAttempt}
           onStart={handleStartQuiz}
           onViewBank={() => setView("bank")}
-          onCreate={() => setView("create")}
         />
       )}
 
@@ -91,15 +89,6 @@ export function QuizManager() {
         />
       )}
 
-      {view === "create" && (
-        <CreateQuizForm
-          onBack={() => setView("welcome")}
-          onSuccess={() => {
-            fetchQuizData();
-            setView("welcome");
-          }}
-        />
-      )}
     </div>
   );
 }

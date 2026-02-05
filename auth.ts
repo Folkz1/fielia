@@ -54,6 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: "/auth/login",
+    error: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "fiel-ia-secret",
 });

@@ -42,8 +42,8 @@ export function DashboardShell({
   // Admin vendo como torcedor esconde funcionalidades admin
   const showAsAdmin = isAdmin && !viewAsFan;
 
-  // Verifica se esta na area admin
-  const isAdminArea = pathname.startsWith("/dashboard/admin");
+  // Verifica se esta na area admin (agora separada em /admin)
+  const isAdminArea = pathname.startsWith("/admin");
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -95,9 +95,9 @@ export function DashboardShell({
             )}
 
             {/* Link para Admin - apenas para admins no modo admin */}
-            {showAsAdmin && !isAdminArea && (
+            {showAsAdmin && (
               <Link
-                href="/dashboard/admin"
+                href="/admin"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 transition-all"
               >
                 <Shield className="w-3.5 h-3.5" />

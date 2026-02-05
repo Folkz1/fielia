@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   Home,
   MessageSquare,
@@ -25,7 +26,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/ranking", icon: Crown, label: "Ranking" },
   { href: "/dashboard/news", icon: Newspaper, label: "Noticias" },
   { href: "/dashboard/account", icon: User, label: "Conta" },
-];
+] as const;
 
 interface MobileSidebarProps {
   userName?: string | null;
@@ -78,7 +79,7 @@ export function MobileSidebar({ userName, userEmail, onSignOut, isAdmin }: Mobil
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-64 bg-corinthians-gray-dark border-r border-white/10 p-6 flex flex-col z-50 overflow-y-auto scrollbar-thin",
+          "fixed left-0 top-0 h-full w-64 bg-corinthians-gray-dark border-r border-white/10 px-6 py-4 flex flex-col z-50 overflow-y-auto scrollbar-thin",
           "transition-transform duration-300 ease-in-out",
           // Desktop: sempre visivel
           "lg:translate-x-0",
@@ -87,12 +88,22 @@ export function MobileSidebar({ userName, userEmail, onSignOut, isAdmin }: Mobil
         )}
       >
         {/* Header da Sidebar com botao fechar em mobile */}
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="block group">
-            <h1 className="font-heading text-3xl text-gradient-gold group-hover:scale-105 transition-transform">
-              FIEL.IA
-            </h1>
-            <p className="text-xs text-gray-500 mt-1">Assistente do Torcedor</p>
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="relative w-11 h-11 rounded-xl overflow-hidden ring-2 ring-orange-500/50 group-hover:ring-orange-500 transition-all bg-gray-900">
+              <Image
+                src="/images/logo-fiel-ia.png"
+                alt="FIEL.IA"
+                fill
+                className="object-contain p-0.5 group-hover:scale-105 transition-transform"
+              />
+            </div>
+            <div>
+              <h1 className="font-heading text-2xl text-gradient-gold">
+                FIEL.IA
+              </h1>
+              <p className="text-[10px] text-gray-500">Assistente do Torcedor</p>
+            </div>
           </Link>
 
           {/* Botao fechar - apenas mobile */}
@@ -134,13 +145,8 @@ export function MobileSidebar({ userName, userEmail, onSignOut, isAdmin }: Mobil
           {/* Admin - Apenas para admins */}
           {isAdmin && (
             <Link
-              href="/dashboard/admin"
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all",
-                pathname === "/dashboard/admin"
-                  ? "bg-orange-500 text-white"
-                  : "text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
-              )}
+              href="/admin"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
             >
               <Shield className="w-5 h-5" />
               <span>Painel Admin</span>

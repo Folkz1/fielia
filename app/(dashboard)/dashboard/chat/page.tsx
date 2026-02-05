@@ -31,7 +31,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     // Get current user from API
-    fetch('/api/auth/me')
+    fetch('/api/user/me')
       .then(res => res.json())
       .then(data => {
         if (data.userId) {

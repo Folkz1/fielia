@@ -22,6 +22,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user) return null;
 
+        const now = new Date();
+        const isPremiumActive =
+          user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now);
+
+        if (user.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { isPremium: false, subscriptionEnd: null },
+          });
+        }
+
         const isPasswordValid = await bcrypt.compare(
           credentials.password as string,
           user.password
@@ -33,7 +44,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          image: user.isPremium ? "premium" : "free",
+          image: isPremiumActive ? "premium" : "free",
         };
       },
     }),

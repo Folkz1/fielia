@@ -17,7 +17,12 @@ export function formatProfileMessage(user: any) {
     return "❌ *Perfil não encontrado*\n\nNão consegui localizar seus dados. Tente enviar uma mensagem para se cadastrar!";
   }
 
-  const premiumStatus = user.isPremium ? "💎 *Premium*" : "🆓 *Grátis*";
+  const now = new Date();
+  const subscriptionEnd = user.subscriptionEnd ? new Date(user.subscriptionEnd) : null;
+  const isPremiumActive =
+    Boolean(user.isPremium) && (!subscriptionEnd || subscriptionEnd > now);
+
+  const premiumStatus = isPremiumActive ? "💎 *Premium*" : "🆓 *Grátis*";
   
   let message = `👤 *Seu Perfil Fiel*\n\n`;
   message += `*Nome:* ${user.name}\n`;
@@ -26,7 +31,7 @@ export function formatProfileMessage(user: any) {
   message += `*Melhor Sequência:* ${user.maxStreak} dias\n`;
   message += `*Status:* ${premiumStatus}\n\n`;
   
-  if (!user.isPremium) {
+  if (!isPremiumActive) {
     message += `Assine o Premium para ter acesso ilimitado e bônus de pontos! 🚀`;
   }
 

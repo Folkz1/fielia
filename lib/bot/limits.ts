@@ -19,12 +19,22 @@ export async function checkUserLimit(whatsappId: string): Promise<LimitCheckResu
   }
 
   // 1. Premium Check
-  if (user.isPremium) {
+  const now = new Date();
+  const isPremiumActive =
+    user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now);
+
+  if (user.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isPremium: false, subscriptionEnd: null },
+    });
+  }
+
+  if (isPremiumActive) {
     return { allowed: true, isPremium: true };
   }
 
   // 2. Daily Reset Logic
-  const now = new Date();
   const lastMessage = new Date(user.lastMessageDate);
   
   // Simple day check: if different day, reset

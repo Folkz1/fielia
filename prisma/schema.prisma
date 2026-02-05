@@ -48,8 +48,55 @@ model User {
   // Relations
   quizAttempts  QuizAttempt[]
   aiChats       AIChat[]
-  
+  memes         Meme[]
+  asaasPayments AsaasPayment[]
+
   @@map("users")
+}
+
+model AsaasPayment {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  asaasPaymentId String   @unique
+  asaasCustomerId String?
+  asaasSubscriptionId String?
+
+  status         String
+  billingType    String
+  amountCents    Int
+
+  dueDate        DateTime?
+  paidAt         DateTime?
+
+  invoiceUrl     String?
+  description    String?
+  externalReference String?
+
+  premiumGrantedAt DateTime?
+
+  raw            Json?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([asaasCustomerId])
+  @@index([asaasSubscriptionId])
+  @@map("asaas_payments")
+}
+
+model AsaasWebhookEvent {
+  id            String   @id
+  event         String
+  asaasPaymentId String?
+  payload       Json?
+
+  createdAt     DateTime @default(now())
+
+  @@index([asaasPaymentId])
+  @@map("asaas_webhook_events")
 }
 
 model Quiz {
@@ -145,6 +192,9 @@ model News {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Relations
+  memes       Meme[]
+
   @@map("news")
 }
 
@@ -188,6 +238,23 @@ model AIMessage {
   createdAt   DateTime @default(now())
   
   @@map("ai_messages")
+}
+
+model Meme {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  prompt    String
+  caption   String
+  imageUrl  String
+
+  newsId    String?
+  news      News?    @relation(fields: [newsId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@map("memes")
 }
 
 model CorinthiansKnowledge {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,16 +9,34 @@ import { useSubscription } from "@/hooks/use-api";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ThemeSelector } from "@/lib/theme-context";
 
+const fetcher = (url: string) =>
+  fetch(url).then(async (res) => {
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  });
+
 export default function SettingsPage() {
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
-  const [isPremium, setIsPremium] = useState(false); // In real app, fetch from user context
-  const [userId] = useState("mock-user-id"); // In real app, fetch from auth
+
+  const { data, mutate, isLoading } = useSWR("/api/subscription", fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const isPremium = Boolean(data?.isPremium);
+  const userId = data?.userId || "";
+  const subscriptionEnd = data?.subscriptionEnd ? new Date(data.subscriptionEnd) : null;
 
   const handleSubscribe = async () => {
     try {
-      await createSubscription(userId);
-      setIsPremium(true);
-      // Show success toast
+      const result = await createSubscription("PIX");
+
+      // Redirect to Asaas checkout page (hosted invoice)
+      if (result?.invoiceUrl) {
+        window.location.href = result.invoiceUrl as string;
+        return;
+      }
+
+      await mutate();
     } catch (error) {
       console.error(error);
       // Show error toast
@@ -27,9 +45,8 @@ export default function SettingsPage() {
 
   const handleCancel = async () => {
     try {
-      await cancelSubscription(userId);
-      setIsPremium(false);
-      // Show success toast
+      await cancelSubscription();
+      await mutate();
     } catch (error) {
       console.error(error);
       // Show error toast
@@ -82,7 +99,11 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center gap-3">
                   <Check className="text-green-500 w-5 h-5" />
-                  <p className="text-green-400 text-sm">Sua assinatura está ativa e renova em 19/02/2026.</p>
+                  <p className="text-green-400 text-sm">
+                    {subscriptionEnd
+                      ? `Sua assinatura está ativa e renova em ${subscriptionEnd.toLocaleDateString('pt-BR')}.`
+                      : "Sua assinatura está ativa."}
+                  </p>
                 </div>
                 
                 <div className="space-y-2 text-gray-300">
@@ -99,7 +120,7 @@ export default function SettingsPage() {
                   <Button 
                     variant="destructive" 
                     onClick={handleCancel}
-                    disabled={isProcessing}
+                    disabled={isProcessing || isLoading}
                   >
                     {isProcessing ? <LoadingSpinner size="sm" /> : "Cancelar Assinatura"}
                   </Button>
@@ -133,7 +154,7 @@ export default function SettingsPage() {
                      <Button
                        className="w-full btn-primary"
                        onClick={handleSubscribe}
-                       disabled={isProcessing}
+                       disabled={isProcessing || isLoading}
                      >
                        {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar Agora"}
                      </Button>
@@ -158,7 +179,7 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">ID</label>
-                <p className="text-gray-300 font-mono text-xs">{userId}</p>
+                <p className="text-gray-300 font-mono text-xs">{userId || "-"}</p>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">Email</label>

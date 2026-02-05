@@ -38,10 +38,12 @@ export async function sendNewsletterToPremiumUsers() {
   const news = await getCuratedNews(limit, 48);
   const message = buildNewsletterMessage(news);
 
+  const now = new Date();
   const users = await prisma.user.findMany({
     where: {
       isPremium: true,
       whatsappId: { not: null },
+      OR: [{ subscriptionEnd: null }, { subscriptionEnd: { gt: now } }],
     },
     select: { id: true, whatsappId: true },
   });

@@ -1,6 +1,15 @@
 const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://sandbox.asaas.com/api/v3';
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY!;
 
+type BillingType = 'BOLETO' | 'CREDIT_CARD' | 'PIX' | 'UNDEFINED';
+type SubscriptionCycle =
+  | 'WEEKLY'
+  | 'BIWEEKLY'
+  | 'MONTHLY'
+  | 'QUARTERLY'
+  | 'SEMIANNUALLY'
+  | 'YEARLY';
+
 interface CreateCustomerParams {
   name: string;
   cpfCnpj: string;
@@ -16,11 +25,24 @@ interface CreateCustomerParams {
 
 interface CreateSubscriptionParams {
   customer: string;
-  billingType: 'BOLETO' | 'CREDIT_CARD' | 'PIX';
+  billingType: Exclude<BillingType, 'UNDEFINED'>;
   value: number;
   nextDueDate: string;
-  cycle: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
+  cycle: SubscriptionCycle;
   description?: string;
+}
+
+interface CreatePaymentParams {
+  customer: string;
+  billingType: Exclude<BillingType, 'UNDEFINED'>;
+  value: number;
+  dueDate: string;
+  description?: string;
+  externalReference?: string;
+  callback?: {
+    successUrl?: string;
+    autoRedirect?: boolean;
+  };
 }
 
 export class AsaasClient {
@@ -72,22 +94,40 @@ export class AsaasClient {
     return this.makeRequest(`/subscriptions/${subscriptionId}`, 'DELETE');
   }
 
-  async listPayments(customerId?: string) {
-    const query = customerId ? `?customer=${customerId}` : '';
-    return this.makeRequest(`/payments${query}`);
+  async createPayment(params: CreatePaymentParams) {
+    return this.makeRequest('/payments', 'POST', params);
+  }
+
+  async listPayments(query?: Record<string, string | number | boolean | undefined>) {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(query || {})) {
+      if (value === undefined) continue;
+      search.set(key, String(value));
+    }
+
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return this.makeRequest(`/payments${suffix}`);
   }
 
   async getPayment(paymentId: string) {
     return this.makeRequest(`/payments/${paymentId}`);
   }
 
+  async getPaymentPixQrCode(paymentId: string) {
+    return this.makeRequest(`/payments/${paymentId}/pixQrCode`);
+  }
+
+  async listSubscriptionPayments(subscriptionId: string) {
+    return this.makeRequest(`/subscriptions/${subscriptionId}/payments`);
+  }
+
   async createPaymentLink(params: {
     name: string;
     description?: string;
-    billingType: 'BOLETO' | 'CREDIT_CARD' | 'PIX' | 'UNDEFINED';
+    billingType: BillingType;
     chargeType: 'DETACHED' | 'RECURRENT';
     value?: number;
-    subscriptionCycle?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
+    subscriptionCycle?: SubscriptionCycle;
   }) {
     return this.makeRequest('/paymentLinks', 'POST', params);
   }

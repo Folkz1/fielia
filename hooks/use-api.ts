@@ -60,13 +60,13 @@ export function useQuiz() {
 export function useSubscription() {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const createSubscription = useCallback(async (userId: string) => {
+  const createSubscription = useCallback(async (billingType: 'PIX' | 'BOLETO' = 'PIX') => {
     setIsProcessing(true);
     try {
       const res = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, plan: 'premium' }),
+        body: JSON.stringify({ billingType }),
       });
 
       if (!res.ok) throw new Error('Failed to create subscription');
@@ -76,10 +76,10 @@ export function useSubscription() {
     }
   }, []);
 
-  const cancelSubscription = useCallback(async (userId: string) => {
+  const cancelSubscription = useCallback(async () => {
     setIsProcessing(true);
     try {
-      const res = await fetch(`/api/subscription?userId=${userId}`, {
+      const res = await fetch(`/api/subscription`, {
         method: 'DELETE',
       });
 

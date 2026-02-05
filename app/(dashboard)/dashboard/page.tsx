@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   let userData = null;
   let userRanking = 0;
   let totalRanked = 0;
-  let recentNews: any[] = [];
+  let recentNews: { id: string; title: string; publishedAt: Date }[] = [];
   let activeQuiz = null;
 
   if (userId) {

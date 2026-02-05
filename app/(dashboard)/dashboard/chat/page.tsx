@@ -57,7 +57,7 @@ export default function ChatPage() {
         const data = await response.json();
         if (data.chats && data.chats.length > 0) {
           const latestChat = data.chats[0];
-          const chatMessages = latestChat.messages.map((msg: any) => ({
+          const chatMessages = latestChat.messages.map((msg: { role: string; content: string; createdAt: string }) => ({
             role: msg.role,
             content: msg.content,
             timestamp: new Date(msg.createdAt),

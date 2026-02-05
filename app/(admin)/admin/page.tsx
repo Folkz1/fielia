@@ -6,6 +6,22 @@ import {
   Newspaper, CreditCard, Star, TrendingUp, RefreshCw, AlertCircle
 } from "lucide-react";
 
+interface AdminQuiz {
+  id: string;
+  title: string;
+  endDate: string;
+  _count: { questions: number; attempts: number };
+}
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  totalPoints: number;
+  isPremium: boolean;
+  createdAt: string;
+}
+
 interface Analytics {
   users: {
     total: number;
@@ -21,8 +37,8 @@ interface Analytics {
     totalAttempts: number;
     attemptsThisWeek: number;
     avgAccuracy: string | number;
-    activeQuizzes: any[];
-    upcomingQuizzes: any[];
+    activeQuizzes: AdminQuiz[];
+    upcomingQuizzes: AdminQuiz[];
   };
   chat: {
     totalMessages: number;
@@ -34,8 +50,8 @@ interface Analytics {
     total: number;
     thisWeek: number;
   };
-  topUsers: any[];
-  recentUsers: any[];
+  topUsers: AdminUser[];
+  recentUsers: AdminUser[];
 }
 
 export default function AdminDashboardPage() {

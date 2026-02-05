@@ -248,7 +248,7 @@ export default function AdminQuizzesPage() {
     }
   }
 
-  function updateQuestion(index: number, field: keyof ManualQuestion, value: any) {
+  function updateQuestion(index: number, field: keyof ManualQuestion, value: string | number | string[]) {
     const updated = [...manualQuestions];
     updated[index] = { ...updated[index], [field]: value };
     setManualQuestions(updated);

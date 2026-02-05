@@ -5,10 +5,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Medal, Trophy, Flame, Gift, Calendar, Goal } from "lucide-react";
+import { Medal, Trophy, Flame, Gift, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import Image from "next/image";
+
+interface RankingUser {
+  id: string;
+  name: string;
+  totalPoints: number;
+  currentStreak: number;
+  lastActive: string;
+}
 
 interface NextQuiz {
   id: string;
@@ -48,8 +56,8 @@ export default function RankingPage() {
     );
   }
 
-  const top3 = ranking.slice(0, 3);
-  const rest = ranking.slice(3);
+  const top3 = ranking.slice(0, 3) as RankingUser[];
+  const rest = ranking.slice(3) as RankingUser[];
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR', {

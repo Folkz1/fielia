@@ -199,27 +199,27 @@ export default function NewsPage() {
 
                     {/* Meta */}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-sm font-semibold">
                         {getCategoryIcon(item.category)} {item.category}
                       </span>
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <span className="flex items-center gap-1 text-sm text-gray-400">
                         <Clock className="w-3 h-3" />
                         {formatRelativeTime(item.publishedAt)}
                       </span>
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 group-hover:text-yellow-500 transition-colors leading-tight">
+                    <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 group-hover:text-yellow-500 transition-colors leading-snug">
                       {item.title}
                     </h3>
 
                     {/* Summary */}
-                    <p className="text-gray-400 text-sm mb-4 line-clamp-2 leading-relaxed">
+                    <p className="text-gray-300 text-base mb-4 line-clamp-2 leading-relaxed">
                       {item.summary}
                     </p>
 
                     {/* CTA */}
-                    <div className="flex items-center gap-2 text-yellow-500 text-sm font-semibold">
+                    <div className="flex items-center gap-2 text-yellow-500 text-base font-semibold">
                       <span>Ler completa</span>
                       <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>

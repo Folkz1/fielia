@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
-import { ArrowLeft, Calendar, ExternalLink, Share2, Tag } from 'lucide-react';
 import { enrichNewsIfNeeded } from '@/lib/news/enrich';
 import { splitParagraphs, stripHtmlToText } from '@/lib/news/text';
+import { Calendar, ExternalLink, Tag } from 'lucide-react';
+
+export const runtime = 'nodejs';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -17,9 +20,8 @@ function formatDate(date: Date) {
   });
 }
 
-export default async function NewsDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  const news = await prisma.news.findUnique({
+async function getNews(id: string) {
+  return prisma.news.findUnique({
     where: { id },
     select: {
       id: true,
@@ -32,6 +34,31 @@ export default async function NewsDetailPage({ params }: PageProps) {
       publishedAt: true,
     },
   });
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const news = await getNews(id);
+
+  if (!news) {
+    return { title: 'Noticia nao encontrada | FIEL.IA' };
+  }
+
+  return {
+    title: `${news.title} | FIEL.IA`,
+    description: news.summary,
+    openGraph: {
+      title: news.title,
+      description: news.summary,
+      type: 'article',
+      images: news.imageUrl ? [{ url: news.imageUrl }] : [],
+    },
+  };
+}
+
+export default async function PublicNewsPage({ params }: PageProps) {
+  const { id } = await params;
+  const news = await getNews(id);
 
   if (!news) {
     notFound();
@@ -42,18 +69,25 @@ export default async function NewsDetailPage({ params }: PageProps) {
   const paragraphs = splitParagraphs(contentText);
 
   return (
-    <div className="min-h-screen">
-      <div className="mb-8">
-        <Link
-          href="/dashboard/news"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
-        >
-          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Voltar</span>
-        </Link>
-      </div>
+    <main className="min-h-screen bg-gradient-to-b from-black via-black to-zinc-950">
+      <article className="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-14">
+        <div className="mb-10 flex flex-wrap items-center justify-between gap-3">
+          <Link href="/" className="text-sm font-semibold text-white hover:text-gray-200">
+            FIEL.IA
+          </Link>
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <Link href="/auth/login" className="hover:text-white">
+              Entrar
+            </Link>
+            <Link
+              href="/auth/register"
+              className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-gray-200 hover:border-white/25"
+            >
+              Criar conta
+            </Link>
+          </div>
+        </div>
 
-      <div className="max-w-4xl mx-auto">
         <header className="mb-8">
           <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-semibold">
@@ -64,14 +98,6 @@ export default async function NewsDetailPage({ params }: PageProps) {
               <Calendar className="w-3.5 h-3.5" />
               {formatDate(resolved.publishedAt)}
             </span>
-            <Link
-              href={`/news/${resolved.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-gray-300 hover:text-white"
-            >
-              Link publico <Share2 className="w-3.5 h-3.5" />
-            </Link>
             {resolved.sourceUrl && (
               <a
                 href={resolved.sourceUrl}
@@ -114,7 +140,8 @@ export default async function NewsDetailPage({ params }: PageProps) {
             <p className="text-gray-400">Conteudo indisponivel.</p>
           )}
         </section>
-      </div>
-    </div>
+      </article>
+    </main>
   );
 }
+

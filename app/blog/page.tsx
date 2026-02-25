@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 import { Calendar, ChevronRight, Newspaper } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 type Props = {
   searchParams?: Promise<{
@@ -18,6 +21,32 @@ function formatDate(value: Date | null) {
 }
 
 export default async function BlogIndexPage({ searchParams }: Props) {
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-black via-black to-zinc-950">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6 md:py-14">
+          <header className="mb-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs uppercase tracking-wide text-gray-300">
+              <Newspaper className="h-3.5 w-3.5 text-[var(--gradient-accent-start)]" />
+              Blog FIEL.IA
+            </div>
+            <h1 className="mt-4 text-4xl font-semibold text-white md:text-6xl">
+              Blog em preparacao
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-gray-400 md:text-base">
+              Estamos configurando as noticias reescritas dentro da plataforma. Volte em breve.
+            </p>
+          </header>
+
+          <section className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
+            <p className="text-sm text-gray-400">Conteudo indisponivel no momento.</p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   const params = (await searchParams) || {};
   const category = params.category?.trim();
 

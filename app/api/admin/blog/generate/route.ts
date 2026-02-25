@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 import {
   generateBlogPostFromNews,
   generateBlogPostsFromLatestNews,
@@ -26,6 +27,17 @@ export async function POST(req: NextRequest) {
     const adminId = await ensureAdmin();
     if (!adminId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const blogPostsReady = await hasBlogPostsTable();
+    if (!blogPostsReady) {
+      return NextResponse.json(
+        {
+          error:
+            'Blog is not initialized (table public.blog_posts is missing). Run `npx prisma db push` or `npx prisma migrate deploy` against your DATABASE_URL.',
+        },
+        { status: 503 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));

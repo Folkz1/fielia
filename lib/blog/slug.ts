@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 
 function normalizeToSlug(input: string) {
   return input
@@ -21,6 +22,10 @@ export function createBaseSlug(title: string, fallbackId?: string) {
 
 export async function generateUniqueBlogSlug(title: string, fallbackId?: string) {
   const base = createBaseSlug(title, fallbackId);
+
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) return base;
+
   let slug = base;
   let suffix = 2;
 

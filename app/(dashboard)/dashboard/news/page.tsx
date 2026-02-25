@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, Calendar, Tag, ExternalLink, Trophy, Zap, Clock, Filter } from "lucide-react";
+import { ArrowLeft, ExternalLink, Trophy, Zap, Clock, Filter } from "lucide-react";
 import Link from "next/link";
 import { Poppins } from "next/font/google";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const poppins = Poppins({
@@ -37,6 +38,7 @@ interface CurationData {
 }
 
 export default function NewsPage() {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("Todas");
   const [selectedPeriod, setSelectedPeriod] = useState("24h");
   const [highlights, setHighlights] = useState<NewsItem[]>([]);
@@ -112,6 +114,10 @@ export default function NewsPage() {
     }
   };
 
+  const openInternal = (id: string) => {
+    router.push(`/dashboard/news/${id}`);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -160,16 +166,16 @@ export default function NewsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {highlights.map((item, index) => {
-              const CardWrapper = item.sourceUrl ? 'a' : 'div';
-              const wrapperProps = item.sourceUrl
-                ? { href: item.sourceUrl, target: "_blank", rel: "noopener noreferrer" }
-                : {};
-
               return (
-                <CardWrapper
+                <div
                   key={item.id}
-                  {...wrapperProps}
-                  className="group relative block"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => openInternal(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") openInternal(item.id);
+                  }}
+                  className="group relative block cursor-pointer"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   {/* Glow Effect */}
@@ -198,9 +204,16 @@ export default function NewsPage() {
                         <span className="text-5xl">{getCategoryIcon(item.category)}</span>
                       )}
                       {item.sourceUrl && (
-                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1.5">
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1.5 hover:bg-black/85"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Abrir fonte original"
+                        >
                           <ExternalLink className="w-3.5 h-3.5 text-white" />
-                        </div>
+                        </a>
                       )}
                     </div>
 
@@ -227,11 +240,11 @@ export default function NewsPage() {
 
                     {/* CTA */}
                     <div className="flex items-center gap-2 text-yellow-500 text-base font-semibold">
-                      <span>Ler completa</span>
-                      <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <span>Ler aqui</span>
+                      <span className="w-4 h-4 group-hover:translate-x-1 transition-transform">›</span>
                     </div>
                   </div>
-                </CardWrapper>
+                </div>
               );
             })}
           </div>
@@ -301,16 +314,16 @@ export default function NewsPage() {
         ) : (
           <div className="space-y-4">
             {news.map((item, index) => {
-              const CardWrapper = item.sourceUrl ? 'a' : 'div';
-              const wrapperProps = item.sourceUrl
-                ? { href: item.sourceUrl, target: "_blank", rel: "noopener noreferrer" }
-                : {};
-
               return (
-                <CardWrapper
+                <div
                   key={item.id}
-                  {...wrapperProps}
-                  className="group block"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => openInternal(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") openInternal(item.id);
+                  }}
+                  className="group block cursor-pointer"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 transition-all duration-300 hover:bg-white/10 hover:border-yellow-500/30 hover:shadow-lg hover:shadow-yellow-500/5">
@@ -331,9 +344,16 @@ export default function NewsPage() {
                           <span className="text-3xl">{getCategoryIcon(item.category)}</span>
                         )}
                         {item.sourceUrl && (
-                          <div className="absolute top-1 right-1 bg-black/70 backdrop-blur-sm rounded-full p-1">
+                          <a
+                            href={item.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute top-1 right-1 bg-black/70 backdrop-blur-sm rounded-full p-1 hover:bg-black/85"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Abrir fonte original"
+                          >
                             <ExternalLink className="w-3 h-3 text-white" />
-                          </div>
+                          </a>
                         )}
                       </div>
 
@@ -362,13 +382,13 @@ export default function NewsPage() {
 
                         {/* CTA */}
                         <div className="flex items-center gap-1.5 text-yellow-500 text-sm sm:text-base font-semibold">
-                          <span>Ler mais</span>
-                          <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                          <span>Ler aqui</span>
+                          <span className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform">›</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                </CardWrapper>
+                </div>
               );
             })}
           </div>

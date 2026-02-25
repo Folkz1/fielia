@@ -29,6 +29,7 @@ export default function AdminBlogPage() {
   const [tone, setTone] = useState("informativo e envolvente");
   const [targetAudience, setTargetAudience] = useState("torcedores do Corinthians");
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [blogPostsReady, setBlogPostsReady] = useState<boolean | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -36,6 +37,7 @@ export default function AdminBlogPage() {
       const res = await fetch("/api/admin/blog/candidates?limit=40");
       const data = await res.json();
       setItems(data.items || []);
+      setBlogPostsReady(typeof data.blogPostsReady === "boolean" ? data.blogPostsReady : null);
     } finally {
       setLoading(false);
     }
@@ -63,6 +65,10 @@ export default function AdminBlogPage() {
   }
 
   async function generateOne(newsId: string, forceRegenerate = false) {
+    if (blogPostsReady === false) {
+      setResultMessage("Banco ainda nao tem tabela blog_posts. Rode `npx prisma db push` primeiro.");
+      return;
+    }
     setGeneratingId(newsId);
     setResultMessage(null);
     try {
@@ -94,6 +100,10 @@ export default function AdminBlogPage() {
   }
 
   async function generateBatch() {
+    if (blogPostsReady === false) {
+      setResultMessage("Banco ainda nao tem tabela blog_posts. Rode `npx prisma db push` primeiro.");
+      return;
+    }
     setBatching(true);
     setResultMessage(null);
     try {
@@ -158,7 +168,7 @@ export default function AdminBlogPage() {
           </button>
           <button
             onClick={generateBatch}
-            disabled={batching || loading}
+            disabled={batching || loading || blogPostsReady === false}
             className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
           >
             {batching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
@@ -202,6 +212,12 @@ export default function AdminBlogPage() {
           />
         </label>
       </div>
+
+      {blogPostsReady === false && (
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+          Blog ainda nao foi inicializado no banco (tabela blog_posts ausente). Rode `npx prisma db push` ou `npx prisma migrate deploy` no DATABASE_URL.
+        </div>
+      )}
 
       {resultMessage && (
         <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
@@ -260,7 +276,7 @@ export default function AdminBlogPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => generateOne(item.id, false)}
-                    disabled={generatingId === item.id}
+                    disabled={generatingId === item.id || blogPostsReady === false}
                     className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs text-white hover:bg-white/10 disabled:opacity-50"
                   >
                     {generatingId === item.id ? "Gerando..." : item.blogPost ? "Atualizar" : "Gerar"}
@@ -268,7 +284,7 @@ export default function AdminBlogPage() {
                   {item.blogPost && (
                     <button
                       onClick={() => generateOne(item.id, true)}
-                      disabled={generatingId === item.id}
+                      disabled={generatingId === item.id || blogPostsReady === false}
                       className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
                     >
                       Forcar

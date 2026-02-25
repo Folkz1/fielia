@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 
 async function ensureAdmin() {
   const session = await auth();
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const limit = Math.max(1, Math.min(Number(searchParams.get('limit') || '30'), 100));
 
+    const blogPostsReady = await hasBlogPostsTable();
+
     const items = await prisma.news.findMany({
       orderBy: { publishedAt: 'desc' },
       take: limit,
@@ -35,19 +38,27 @@ export async function GET(req: NextRequest) {
         imageUrl: true,
         sourceUrl: true,
         publishedAt: true,
-        blogPost: {
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            status: true,
-            publishedAt: true,
-          },
-        },
+        ...(blogPostsReady
+          ? {
+              blogPost: {
+                select: {
+                  id: true,
+                  slug: true,
+                  title: true,
+                  status: true,
+                  publishedAt: true,
+                },
+              },
+            }
+          : {}),
       },
     });
 
-    return NextResponse.json({ items });
+    const normalized = blogPostsReady
+      ? items
+      : items.map((item) => ({ ...item, blogPost: null }));
+
+    return NextResponse.json({ items: normalized, blogPostsReady });
   } catch (error) {
     console.error('Blog candidates error:', error);
     return NextResponse.json({ error: 'Failed to fetch blog candidates' }, { status: 500 });

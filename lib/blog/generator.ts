@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendChatCompletion } from '@/lib/openrouter';
 import { generateUniqueBlogSlug } from '@/lib/blog/slug';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 
 type GenerateBlogPostInput = {
   newsId: string;
@@ -137,12 +138,24 @@ export async function generateBlogPostFromNews(
     input.targetAudience || process.env.BLOG_TARGET_AUDIENCE || 'torcedores do Corinthians';
   const publish = input.publish ?? true;
 
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) {
+    throw new Error(
+      'Blog is not initialized (table public.blog_posts is missing). Run `npx prisma db push` or `npx prisma migrate deploy` against your DATABASE_URL.'
+    );
+  }
+
   const news = await prisma.news.findUnique({
     where: { id: input.newsId },
-    include: {
-      blogPost: {
-        select: { id: true, slug: true, status: true, publishedAt: true },
-      },
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+      content: true,
+      category: true,
+      imageUrl: true,
+      sourceUrl: true,
+      publishedAt: true,
     },
   });
 
@@ -150,14 +163,19 @@ export async function generateBlogPostFromNews(
     throw new Error('News not found');
   }
 
-  if (news.blogPost && !input.forceRegenerate) {
+  const existingPost = await prisma.blogPost.findUnique({
+    where: { newsId: news.id },
+    select: { id: true, slug: true, status: true, publishedAt: true },
+  });
+
+  if (existingPost && !input.forceRegenerate) {
     return {
       created: false,
       usedFallback: false,
       post: {
-        id: news.blogPost.id,
-        slug: news.blogPost.slug,
-        status: news.blogPost.status,
+        id: existingPost.id,
+        slug: existingPost.slug,
+        status: existingPost.status,
         title: news.title,
       },
     };
@@ -213,7 +231,6 @@ export async function generateBlogPostFromNews(
     50
   );
 
-  const existingPost = news.blogPost;
   const slug = existingPost?.slug || (await generateUniqueBlogSlug(title, news.id));
   const status = publish ? 'PUBLISHED' : existingPost?.status || 'DRAFT';
   const publishedAt =
@@ -263,13 +280,29 @@ export async function generateBlogPostsFromLatestNews(options?: {
   targetAudience?: string;
   publish?: boolean;
 }) {
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) {
+    throw new Error(
+      'Blog is not initialized (table public.blog_posts is missing). Run `npx prisma db push` or `npx prisma migrate deploy` against your DATABASE_URL.'
+    );
+  }
+
   const limit = Math.max(1, Math.min(options?.limit || 5, 30));
-  const candidates = await prisma.news.findMany({
-    where: { blogPost: null },
+
+  const poolSize = Math.min(120, limit * 6);
+  const pool = await prisma.news.findMany({
     orderBy: { publishedAt: 'desc' },
-    take: limit,
+    take: poolSize,
     select: { id: true },
   });
+
+  const existing = await prisma.blogPost.findMany({
+    where: { newsId: { in: pool.map((item) => item.id) } },
+    select: { newsId: true },
+  });
+  const existingIds = new Set(existing.map((item) => item.newsId).filter(Boolean) as string[]);
+
+  const candidates = pool.filter((item) => !existingIds.has(item.id)).slice(0, limit);
 
   const results: GenerateBlogPostResult[] = [];
   for (const candidate of candidates) {

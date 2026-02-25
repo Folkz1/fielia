@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -7,6 +8,11 @@ type Params = {
 
 export async function GET(_: NextRequest, context: Params) {
   try {
+    const blogPostsReady = await hasBlogPostsTable();
+    if (!blogPostsReady) {
+      return NextResponse.json({ error: 'Blog is not initialized' }, { status: 503 });
+    }
+
     const { slug } = await context.params;
     const post = await prisma.blogPost.findUnique({
       where: { slug },

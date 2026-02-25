@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 
 export async function GET(req: NextRequest) {
   try {
+    const blogPostsReady = await hasBlogPostsTable();
+    if (!blogPostsReady) {
+      return NextResponse.json({ error: 'Blog is not initialized' }, { status: 503 });
+    }
+
     const { searchParams } = new URL(req.url);
     const limit = Math.max(1, Math.min(Number(searchParams.get('limit') || '12'), 50));
     const page = Math.max(1, Number(searchParams.get('page') || '1'));

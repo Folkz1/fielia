@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
+import { hasBlogPostsTable } from '@/lib/db/postgres';
 import { ArrowLeft, Calendar, ExternalLink, Tag } from 'lucide-react';
 
 type PageProps = {
@@ -105,6 +106,13 @@ async function getPost(slug: string) {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) {
+    return {
+      title: 'Blog em preparacao | FIEL.IA Blog',
+    };
+  }
+
   const { slug } = await params;
   const post = await getPost(slug);
 
@@ -127,6 +135,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
+  const blogPostsReady = await hasBlogPostsTable();
+  if (!blogPostsReady) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-black via-black to-zinc-950">
+        <article className="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-14">
+          <Link
+            href="/"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-gray-400 transition hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Link>
+
+          <header className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
+            <h1 className="text-3xl font-semibold text-white md:text-5xl">Blog em preparacao</h1>
+            <p className="mt-3 text-sm text-gray-400 md:text-base">
+              Estamos configurando o conteudo do blog. Volte em breve.
+            </p>
+          </header>
+        </article>
+      </main>
+    );
+  }
+
   const { slug } = await params;
   const post = await getPost(slug);
 

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:asaas:sandbox": "node scripts/test-asaas-sandbox.mjs"
   },
   "dependencies": {
     "@openrouter/sdk": "^0.3.15",

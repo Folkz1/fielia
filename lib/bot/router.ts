@@ -9,7 +9,7 @@ export interface BotResponse {
   content: string;
   type: 'text' | 'image' | 'video' | 'interactive';
   mediaUrl?: string;
-  options?: any;
+  options?: unknown;
 }
 
 // Handlers
@@ -48,14 +48,14 @@ async function handleSubscribe(): Promise<BotResponse> {
   return {
     content:
       `*Fiel Premium*\n\n` +
-      `Para assinar e liberar recursos premium:\n` +
+      `Para assinar com *cartao de credito* e liberar recursos premium:\n` +
       (settingsUrl ? `Acesse: ${settingsUrl}\n\n` : '') +
       `Digite */menu* para ver as opções.`,
     type: 'text',
   };
 }
 
-async function handleGame(userId: string): Promise<BotResponse> {
+async function handleGame(): Promise<BotResponse> {
   return {
     content: "🎮 *Game Fiel*\n\nFuncionalidade de Jogo em breve! Jogue e ganhe pontos.",
     type: 'text'
@@ -191,7 +191,7 @@ export async function routeMessage(userId: string, message: string, platform: st
   }
 
   if (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3') {
-    return handleGame(userId);
+    return handleGame();
   }
 
   if (lowerMsg === 'chat') {

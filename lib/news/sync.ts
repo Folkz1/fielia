@@ -134,6 +134,7 @@ export async function syncNewsFromFreshRSS() {
 
   let created = 0;
   let skipped = 0;
+  const createdNewsIds: string[] = [];
 
   for (const item of items.slice(0, limit)) {
     if (!item.title) {
@@ -150,7 +151,7 @@ export async function syncNewsFromFreshRSS() {
     const content = item.content || item.contentSnippet || item.title;
     const imageUrl = extractImageUrl(item);
 
-    await prisma.news.create({
+    const createdNews = await prisma.news.create({
       data: {
         title: item.title,
         summary,
@@ -162,7 +163,25 @@ export async function syncNewsFromFreshRSS() {
       },
     });
 
+    createdNewsIds.push(createdNews.id);
     created += 1;
+  }
+
+  let blogGenerated = 0;
+  let blogFallback = 0;
+  const autoGenerateBlog = (process.env.BLOG_AUTO_GENERATE || 'false').toLowerCase() === 'true';
+
+  if (autoGenerateBlog && createdNewsIds.length > 0) {
+    const { generateBlogPostFromNews } = await import('@/lib/blog/generator');
+    for (const newsId of createdNewsIds) {
+      try {
+        const result = await generateBlogPostFromNews({ newsId, publish: true });
+        blogGenerated += result.created ? 1 : 0;
+        if (result.usedFallback) blogFallback += 1;
+      } catch (error) {
+        console.warn(`Failed to auto-generate blog post from news ${newsId}:`, error);
+      }
+    }
   }
 
   return {
@@ -170,5 +189,8 @@ export async function syncNewsFromFreshRSS() {
     created,
     skipped,
     category,
+    autoGenerateBlog,
+    blogGenerated,
+    blogFallback,
   };
 }

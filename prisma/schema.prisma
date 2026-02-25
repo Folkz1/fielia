@@ -194,8 +194,39 @@ model News {
   
   // Relations
   memes       Meme[]
+  blogPost    BlogPost?
 
   @@map("news")
+}
+
+model BlogPost {
+  id               String   @id @default(cuid())
+  newsId           String?  @unique
+  news             News?    @relation(fields: [newsId], references: [id], onDelete: SetNull)
+
+  slug             String   @unique
+  title            String
+  excerpt          String
+  content          String   @db.Text
+  category         String   @default("Geral")
+  coverImageUrl    String?
+
+  sourceTitle      String?
+  sourceUrl        String?
+  sourcePublishedAt DateTime?
+
+  tone             String   @default("informativo")
+  targetAudience   String   @default("Torcida do Corinthians")
+  status           String   @default("PUBLISHED")
+  generatedPrompt  String?
+
+  publishedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([category])
+  @@map("blog_posts")
 }
 
 model NewsCuration {

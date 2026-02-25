@@ -38,7 +38,7 @@ export function useRanking(period: 'weekly' | 'monthly' | 'alltime' = 'weekly', 
 export function useQuiz() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitQuiz = useCallback(async (userId: string, quizId: string, answers: any[]) => {
+  const submitQuiz = useCallback(async (userId: string, quizId: string, answers: unknown[]) => {
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/quiz/submit', {
@@ -60,16 +60,27 @@ export function useQuiz() {
 export function useSubscription() {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const createSubscription = useCallback(async (billingType: 'PIX' | 'BOLETO' = 'PIX') => {
+  const createSubscription = useCallback(async () => {
     setIsProcessing(true);
     try {
       const res = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingType }),
+        body: JSON.stringify({ billingType: 'CREDIT_CARD' }),
       });
 
-      if (!res.ok) throw new Error('Failed to create subscription');
+      if (!res.ok) {
+        let message = 'Failed to create subscription';
+        try {
+          const data = await res.json();
+          if (typeof data?.error === 'string') {
+            message = data.error;
+          }
+        } catch {
+          // keep generic message
+        }
+        throw new Error(message);
+      }
       return await res.json();
     } finally {
       setIsProcessing(false);
@@ -83,7 +94,18 @@ export function useSubscription() {
         method: 'DELETE',
       });
 
-      if (!res.ok) throw new Error('Failed to cancel subscription');
+      if (!res.ok) {
+        let message = 'Failed to cancel subscription';
+        try {
+          const data = await res.json();
+          if (typeof data?.error === 'string') {
+            message = data.error;
+          }
+        } catch {
+          // keep generic message
+        }
+        throw new Error(message);
+      }
       return await res.json();
     } finally {
       setIsProcessing(false);

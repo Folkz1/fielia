@@ -30,6 +30,7 @@ interface CreateSubscriptionParams {
   nextDueDate: string;
   cycle: SubscriptionCycle;
   description?: string;
+  externalReference?: string;
 }
 
 interface CreatePaymentParams {
@@ -54,7 +55,7 @@ export class AsaasClient {
     this.apiKey = ASAAS_API_KEY;
   }
 
-  private async makeRequest(endpoint: string, method: string = 'GET', body?: any) {
+  private async makeRequest(endpoint: string, method: string = 'GET', body?: unknown) {
     const url = `${this.baseURL}${endpoint}`;
     
     const response = await fetch(url, {
@@ -67,8 +68,8 @@ export class AsaasClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Asaas API Error: ${JSON.stringify(error)}`);
+      const errorBody = await response.text();
+      throw new Error(`Asaas API Error ${response.status}: ${errorBody}`);
     }
 
     return response.json();

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,14 @@ const fetcher = (url: string) =>
 
 export default function SettingsPage() {
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<{
+    status?: string | null;
+    dueDate?: string | null;
+    invoiceUrl?: string | null;
+    reusedSubscription?: boolean;
+    billingType?: string | null;
+  } | null>(null);
 
   const { data, mutate, isLoading } = useSWR("/api/subscription", fetcher, {
     revalidateOnFocus: false,
@@ -28,28 +37,38 @@ export default function SettingsPage() {
 
   const handleSubscribe = async () => {
     try {
-      const result = await createSubscription("PIX");
+      setErrorMessage(null);
+      const result = await createSubscription();
 
-      // Redirect to Asaas checkout page (hosted invoice)
+      // Redirect to Asaas hosted checkout/invoice page
       if (result?.invoiceUrl) {
         window.location.href = result.invoiceUrl as string;
         return;
       }
 
+      setPaymentInfo({
+        status: result?.status || null,
+        dueDate: result?.dueDate || null,
+        invoiceUrl: result?.invoiceUrl || null,
+        billingType: result?.billingType || null,
+        reusedSubscription: Boolean(result?.reusedSubscription),
+      });
       await mutate();
     } catch (error) {
       console.error(error);
-      // Show error toast
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao criar assinatura");
     }
   };
 
   const handleCancel = async () => {
     try {
+      setErrorMessage(null);
       await cancelSubscription();
+      setPaymentInfo(null);
       await mutate();
     } catch (error) {
       console.error(error);
-      // Show error toast
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao cancelar assinatura");
     }
   };
 
@@ -95,6 +114,37 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                {errorMessage}
+              </div>
+            )}
+
+            {paymentInfo && !isPremium && (
+              <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-100 space-y-2">
+                <p>
+                  {paymentInfo.reusedSubscription
+                    ? "Voce ja tinha uma cobranca pendente. Reutilizamos a assinatura existente."
+                    : "Assinatura criada. Pagamento pendente de confirmacao."}
+                </p>
+                <p>Metodo de cobranca: Cartao de credito</p>
+                {paymentInfo.status && <p>Status: {paymentInfo.status}</p>}
+                {paymentInfo.dueDate && (
+                  <p>Vencimento: {new Date(paymentInfo.dueDate).toLocaleDateString("pt-BR")}</p>
+                )}
+                {paymentInfo.invoiceUrl && (
+                  <a
+                    href={paymentInfo.invoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block rounded bg-white/10 px-2 py-1 text-[11px] text-white hover:bg-white/20"
+                  >
+                    Abrir checkout de pagamento
+                  </a>
+                )}
+              </div>
+            )}
+
             {isPremium ? (
               <div className="space-y-6">
                 <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center gap-3">
@@ -156,7 +206,7 @@ export default function SettingsPage() {
                        onClick={handleSubscribe}
                        disabled={isProcessing || isLoading}
                      >
-                       {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar Agora"}
+                       {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar no Cartao"}
                      </Button>
                      <p className="text-[10px] text-gray-500 mt-2">Cancelamento a qualquer momento.</p>
                    </div>

@@ -24,11 +24,11 @@ export default function Home() {
             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgIBAwQDAAAAAAAAAAAAAQIDBBEABSEGEhMxQVFh/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAZEQACAwEAAAAAAAAAAAAAAAABAgADESH/2gAMAwEAAhEDEEA/ANg6i3Cxu1Guq6WwFJyGYvMzADHyAB+5+tMv0YZ4jFLEkkZ9qygj9GPilaKG2SfZ//Z"
           />
           {/* Multiple overlay layers for smooth effect */}
-          <div className="absolute inset-0 bg-black/70"></div>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60"></div>
+          <div className="absolute inset-0 bg-black/55"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-transparent to-black/45"></div>
           {/* Vignette effect */}
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }}></div>
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.55) 100%)' }}></div>
         </div>
 
         {/* Content */}
@@ -48,7 +48,7 @@ export default function Home() {
             O Assistente Inteligente do Torcedor Corinthiano
           </p>
 
-          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-8 sm:mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-8 sm:mb-10 max-w-2xl mx-auto animate-slide-up drop-shadow" style={{ animationDelay: "0.2s" }}>
             Quizzes semanais, noticias personalizadas e IA no WhatsApp. Tudo para voce viver o Corinthians 24/7.
           </p>
 

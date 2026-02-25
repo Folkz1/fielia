@@ -1,7 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { OpenRouter } from '@openrouter/sdk';
 import { sendChatCompletion } from '@/lib/openrouter';
 
 type MemeResult = {
@@ -31,8 +30,9 @@ async function generateMemePrompt(userMessage: string) {
   const system = [
     'Você é um criador de memes do Corinthians.',
     'Gere um JSON com as chaves: prompt, caption.',
-    'prompt: descrição curta e visual para gerar imagem.',
-    'caption: legenda curta e engraçada.',
+    'prompt: descrição curta e visual para gerar imagem de meme engraçado do Corinthians.',
+    'caption: legenda curta e engraçada em português.',
+    'Responda APENAS com o JSON, sem markdown.',
   ].join('\n');
 
   const response = await sendChatCompletion(
@@ -48,7 +48,9 @@ async function generateMemePrompt(userMessage: string) {
 
   const text = response.content?.trim() || '';
   try {
-    const parsed = JSON.parse(text);
+    // Remove markdown code blocks if present
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
     return {
       prompt: String(parsed.prompt || userMessage),
       caption: String(parsed.caption || 'Meme da Fiel'),
@@ -80,75 +82,131 @@ async function fetchImageBytes(url: string) {
   return { mimeType, bytes: buffer };
 }
 
-async function logGenerationCost(client: OpenRouter, responseId?: string | null) {
-  if (!responseId) return;
-  try {
-    const generation = await client.generations.getGeneration({ id: responseId });
-    const data = generation?.data;
-    if (data) {
-      console.info('OpenRouter generation cost:', {
-        id: data.id,
-        model: data.model,
-        totalCost: data.totalCost,
-        provider: data.providerName,
-      });
-    }
-  } catch (error) {
-    console.warn('OpenRouter generation lookup failed:', error);
-  }
-}
-
 async function generateOpenRouterImage(prompt: string): Promise<MemeResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.0-nanobanana';
+  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image';
 
   if (!apiKey) {
     throw new Error('Missing OPENROUTER_API_KEY');
   }
 
-  const client = new OpenRouter({ apiKey });
-  const result = client.callModel({
-    model,
-    input: [
-      {
-        role: 'user',
-        content: prompt,
+  // Use the correct OpenRouter API format for image generation
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'X-Title': 'FIEL.IA - Meme Generator',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: `Generate a funny Corinthians football meme image: ${prompt}`,
+        },
+      ],
+      modalities: ['image', 'text'],
+      image_config: {
+        aspect_ratio: '1:1',
       },
-    ],
-    modalities: ['image'],
+    }),
   });
 
-  const response = await result.getResponse();
-  const toolCalls = await result.getToolCalls();
-  await logGenerationCost(client, response?.id);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenRouter image API error:', response.status, errorText);
+    throw new Error(`OpenRouter API error: ${response.status}`);
+  }
 
-  const outputItems = Array.isArray(response.output) ? response.output : [response.output];
-  const imageItem = outputItems.find(
-    (item: any) => item?.type === 'image_generation_call'
-  );
-  const imageResult =
-    imageItem && typeof imageItem === 'object' && 'result' in imageItem
-      ? String((imageItem as { result?: string | null }).result ?? '')
-      : '';
+  const data = await response.json();
+  console.log('OpenRouter image response:', JSON.stringify(data, null, 2));
 
-  if (!imageResult) {
-    if (toolCalls.length > 0) {
-      console.warn('OpenRouter returned tool calls without image output:', toolCalls);
+  // Extract image from response
+  const choice = data.choices?.[0];
+  const message = choice?.message;
+
+  // Check for images array in message
+  if (message?.images && message.images.length > 0) {
+    const imageData = message.images[0];
+
+    // Handle base64 data URL
+    if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+      const parsed = parseDataUrl(imageData);
+      if (parsed) {
+        return {
+          caption: 'Meme da Fiel',
+          imageBytes: parsed.bytes,
+          mimeType: parsed.mimeType,
+        };
+      }
     }
-    throw new Error('OpenRouter image response missing result');
-  }
-  const dataUrl = parseDataUrl(imageResult);
 
-  if (dataUrl) {
-    return {
-      caption: 'Meme da Fiel',
-      imageBytes: dataUrl.bytes,
-      mimeType: dataUrl.mimeType,
-    };
+    // Handle URL
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      const fetched = await fetchImageBytes(imageData);
+      return {
+        caption: 'Meme da Fiel',
+        imageBytes: fetched.bytes,
+        mimeType: fetched.mimeType,
+      };
+    }
+
+    // Handle object with url or data property
+    if (typeof imageData === 'object') {
+      const url = imageData.url || imageData.data;
+      if (url && url.startsWith('data:')) {
+        const parsed = parseDataUrl(url);
+        if (parsed) {
+          return {
+            caption: 'Meme da Fiel',
+            imageBytes: parsed.bytes,
+            mimeType: parsed.mimeType,
+          };
+        }
+      }
+      if (url && url.startsWith('http')) {
+        const fetched = await fetchImageBytes(url);
+        return {
+          caption: 'Meme da Fiel',
+          imageBytes: fetched.bytes,
+          mimeType: fetched.mimeType,
+        };
+      }
+    }
   }
 
-  const fetched = await fetchImageBytes(imageResult);
-  return { caption: 'Meme da Fiel', imageBytes: fetched.bytes, mimeType: fetched.mimeType };
+  // Check content array for image parts
+  if (Array.isArray(message?.content)) {
+    for (const part of message.content) {
+      if (part.type === 'image' || part.type === 'image_url') {
+        const imageUrl = part.image_url?.url || part.url || part.data;
+        if (imageUrl) {
+          if (imageUrl.startsWith('data:')) {
+            const parsed = parseDataUrl(imageUrl);
+            if (parsed) {
+              return {
+                caption: 'Meme da Fiel',
+                imageBytes: parsed.bytes,
+                mimeType: parsed.mimeType,
+              };
+            }
+          }
+          if (imageUrl.startsWith('http')) {
+            const fetched = await fetchImageBytes(imageUrl);
+            return {
+              caption: 'Meme da Fiel',
+              imageBytes: fetched.bytes,
+              mimeType: fetched.mimeType,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('OpenRouter image response missing image data');
 }
 
 export async function generateMeme(userId: string, message: string): Promise<BotResponse> {

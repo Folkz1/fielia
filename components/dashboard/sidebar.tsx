@@ -4,12 +4,13 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
-import { Home, MessageSquare, Trophy, Crown, Newspaper, Settings, LogOut, User } from "lucide-react";
+import { Home, MessageSquare, Trophy, Crown, Newspaper, Settings, LogOut, User, Sparkles } from "lucide-react";
 import Image from "next/image";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/chat", icon: MessageSquare, label: "Chat IA" },
+  { href: "/dashboard/memes", icon: Sparkles, label: "Memes IA" },
   { href: "/dashboard/quiz", icon: Trophy, label: "Quiz Semanal" },
   { href: "/dashboard/ranking", icon: Crown, label: "Ranking" },
   { href: "/dashboard/news", icon: Newspaper, label: "Notícias" },

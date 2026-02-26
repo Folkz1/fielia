@@ -50,8 +50,14 @@ export default function AdminBlogPage() {
       const res = await fetch("/api/news/sync");
       const data = await res.json();
       if (data?.success) {
+        const rewritten =
+          typeof data?.rewritten === "number" ? ` | reescritas: ${data.rewritten}` : "";
+        const rewriteFailed =
+          typeof data?.rewriteFailed === "number" && data.rewriteFailed > 0
+            ? ` | falhas IA: ${data.rewriteFailed}`
+            : "";
         setResultMessage(
-          `Sync OK: ${data.created ?? 0} novas noticias (${data.skipped ?? 0} ignoradas).`
+          `Sync OK: ${data.created ?? 0} novas noticias (${data.skipped ?? 0} ignoradas).${rewritten}${rewriteFailed}`
         );
       } else {
         setResultMessage(`Falha no sync: ${data?.error || "erro desconhecido"}`);

@@ -18,6 +18,9 @@ interface SyncResult {
   fetched?: number;
   created?: number;
   skipped?: number;
+  scraped?: number;
+  rewritten?: number;
+  rewriteFailed?: number;
   error?: string;
 }
 
@@ -111,6 +114,12 @@ export default function AdminNewsPage() {
               <CheckCircle className="w-5 h-5" />
               <span>
                 Sincronizado! {syncResult.fetched} buscadas, {syncResult.created} novas, {syncResult.skipped} duplicadas.
+                {typeof syncResult.rewritten === 'number' && (
+                  <> | reescritas: {syncResult.rewritten}</>
+                )}
+                {typeof syncResult.rewriteFailed === 'number' && syncResult.rewriteFailed > 0 && (
+                  <> | falhas IA: {syncResult.rewriteFailed}</>
+                )}
               </span>
             </div>
           ) : (

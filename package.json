@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:asaas:sandbox": "node scripts/test-asaas-sandbox.mjs"
+    "test:asaas:sandbox": "node scripts/test-asaas-sandbox.mjs",
+    "test:openrouter": "node scripts/test-openrouter.mjs"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

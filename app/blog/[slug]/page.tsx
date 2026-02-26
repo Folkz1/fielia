@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { hasBlogPostsTable } from '@/lib/db/postgres';
-import { ArrowLeft, Calendar, ExternalLink, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar, Tag } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -195,17 +195,6 @@ export default async function BlogPostPage({ params }: PageProps) {
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(publishedAt)}
             </span>
-            {post.sourceUrl && (
-              <a
-                href={post.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[var(--gradient-accent-start)] hover:underline"
-              >
-                Fonte original
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            )}
           </div>
         </header>
 

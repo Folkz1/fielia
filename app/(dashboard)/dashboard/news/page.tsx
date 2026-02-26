@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, Trophy, Zap, Clock, Filter } from "lucide-react";
+import { ArrowLeft, Trophy, Zap, Clock, Filter } from "lucide-react";
 import Link from "next/link";
 import { Poppins } from "next/font/google";
 import { useState, useEffect } from "react";
@@ -203,18 +203,6 @@ export default function NewsPage() {
                       ) : (
                         <span className="text-5xl">{getCategoryIcon(item.category)}</span>
                       )}
-                      {item.sourceUrl && (
-                        <a
-                          href={item.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1.5 hover:bg-black/85"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label="Abrir fonte original"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-white" />
-                        </a>
-                      )}
                     </div>
 
                     {/* Meta */}
@@ -342,18 +330,6 @@ export default function NewsPage() {
                           />
                         ) : (
                           <span className="text-3xl">{getCategoryIcon(item.category)}</span>
-                        )}
-                        {item.sourceUrl && (
-                          <a
-                            href={item.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="absolute top-1 right-1 bg-black/70 backdrop-blur-sm rounded-full p-1 hover:bg-black/85"
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label="Abrir fonte original"
-                          >
-                            <ExternalLink className="w-3 h-3 text-white" />
-                          </a>
                         )}
                       </div>
 

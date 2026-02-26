@@ -109,8 +109,10 @@ export function formatNewsMessage(news: any[]) {
   news.forEach((item, index) => {
     message += `*${index + 1}. ${item.title}*\n`;
     message += `${item.summary}\n`;
-    if (item.sourceUrl) {
-      message += `[Ler mais](${item.sourceUrl})\n`;
+    const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+    const url = item.id ? (base ? `${base}/news/${item.id}` : `/news/${item.id}`) : '';
+    if (url) {
+      message += `${url}\n`;
     }
     message += "\n";
   });

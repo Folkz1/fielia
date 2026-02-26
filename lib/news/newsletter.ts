@@ -6,7 +6,13 @@ function getNumberFromJid(jid: string) {
   return jid.includes('@') ? jid.split('@')[0] : jid;
 }
 
-function buildNewsletterMessage(items: { title: string; summary: string; sourceUrl?: string | null }[]) {
+function buildPublicNewsUrl(id: string) {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  if (!base) return `/news/${id}`;
+  return `${base}/news/${id}`;
+}
+
+function buildNewsletterMessage(items: { id: string; title: string; summary: string }[]) {
   const header = '📰 *Newsletter Fiel*';
   if (items.length === 0) {
     return `${header}\n\nSem novidades agora. Em breve mais notícias do Timão!`;
@@ -14,8 +20,8 @@ function buildNewsletterMessage(items: { title: string; summary: string; sourceU
 
   const lines = items.map((item, index) => {
     const summary = item.summary ? item.summary.trim() : '';
-    const url = item.sourceUrl ? `\n${item.sourceUrl}` : '';
-    return `*${index + 1}. ${item.title}*\n${summary}${url}`;
+    const url = buildPublicNewsUrl(item.id);
+    return `*${index + 1}. ${item.title}*\n${summary}\n${url}`;
   });
 
   return `${header}\n\n${lines.join('\n\n')}`;

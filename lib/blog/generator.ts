@@ -81,10 +81,6 @@ function buildFallbackPost(news: {
     'Acompanhe os desdobramentos oficiais e os impactos esportivos para o elenco e para a temporada.',
   ];
 
-  if (news.sourceUrl) {
-    lines.push('', `Fonte original: ${news.sourceUrl}`);
-  }
-
   return {
     title: truncate(title, 140),
     excerpt,

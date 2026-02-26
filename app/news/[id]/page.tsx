@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { enrichNewsIfNeeded } from '@/lib/news/enrich';
 import { splitParagraphs, stripHtmlToText } from '@/lib/news/text';
-import { Calendar, ExternalLink, Tag } from 'lucide-react';
+import { Calendar, Tag } from 'lucide-react';
 
 export const runtime = 'nodejs';
 
@@ -98,16 +98,6 @@ export default async function PublicNewsPage({ params }: PageProps) {
               <Calendar className="w-3.5 h-3.5" />
               {formatDate(resolved.publishedAt)}
             </span>
-            {resolved.sourceUrl && (
-              <a
-                href={resolved.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[var(--gradient-accent-start)] hover:underline"
-              >
-                Fonte original <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
           </div>
 
           <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-3">
@@ -144,4 +134,3 @@ export default async function PublicNewsPage({ params }: PageProps) {
     </main>
   );
 }
-

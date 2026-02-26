@@ -1,5 +1,8 @@
 import Parser from 'rss-parser';
 import { prisma } from '@/lib/prisma';
+import { scrapeArticleFromUrl } from '@/lib/news/scrape';
+import { rewriteNewsWithAI } from '@/lib/news/rewrite';
+import { stripHtmlToText } from '@/lib/news/text';
 
 type FeedItem = {
   title?: string;
@@ -77,6 +80,16 @@ function toDate(value?: string) {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
+function compactWhitespace(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function truncate(value: string, max: number) {
+  const cleaned = value.trim();
+  if (cleaned.length <= max) return cleaned;
+  return `${cleaned.slice(0, max - 3).trim()}...`;
+}
+
 async function itemExists(item: FeedItem) {
   if (item.link) {
     const existing = await prisma.news.findFirst({
@@ -134,7 +147,11 @@ export async function syncNewsFromFreshRSS() {
 
   let created = 0;
   let skipped = 0;
+  let scraped = 0;
+  let rewritten = 0;
+  let rewriteFailed = 0;
   const createdNewsIds: string[] = [];
+  const rewriteEnabled = (process.env.NEWS_REWRITE_USE_AI || 'true').toLowerCase() === 'true';
 
   for (const item of items.slice(0, limit)) {
     if (!item.title) {
@@ -147,18 +164,55 @@ export async function syncNewsFromFreshRSS() {
       continue;
     }
 
-    const summary = item.contentSnippet || item.content || item.title;
-    const content = item.content || item.contentSnippet || item.title;
-    const imageUrl = extractImageUrl(item);
+    const baseTitle = compactWhitespace(item.title);
+    const baseSummaryRaw = item.contentSnippet || item.title;
+    const baseContentRaw = item.content || item.contentSnippet || item.title;
+
+    const sourceUrl = item.link || null;
+    let imageUrl = extractImageUrl(item);
+
+    let sourceTextForAI = stripHtmlToText(baseContentRaw);
+    if (sourceUrl) {
+      const scrapedArticle = await scrapeArticleFromUrl(sourceUrl);
+      if (scrapedArticle?.text && scrapedArticle.text.length >= 300) {
+        sourceTextForAI = scrapedArticle.text;
+        scraped += 1;
+      }
+      if (!imageUrl && scrapedArticle?.imageUrl) {
+        imageUrl = scrapedArticle.imageUrl;
+      }
+    }
+
+    // Defaults when AI is disabled/unavailable: keep a short neutral snippet.
+    let finalTitle = baseTitle;
+    let finalSummary = truncate(compactWhitespace(baseSummaryRaw), 220) || baseTitle;
+    let finalContent = finalSummary;
+
+    if (rewriteEnabled && process.env.OPENROUTER_API_KEY && sourceTextForAI.length >= 250) {
+      try {
+        const rewrittenPayload = await rewriteNewsWithAI({
+          title: baseTitle,
+          category,
+          sourceText: sourceTextForAI,
+        });
+        finalTitle = rewrittenPayload.title;
+        finalSummary = rewrittenPayload.summary;
+        finalContent = rewrittenPayload.content;
+        rewritten += 1;
+      } catch (error) {
+        rewriteFailed += 1;
+        console.warn('News rewrite failed:', error);
+      }
+    }
 
     const createdNews = await prisma.news.create({
       data: {
-        title: item.title,
-        summary,
-        content,
+        title: finalTitle,
+        summary: finalSummary,
+        content: finalContent,
         category,
-        sourceUrl: item.link || null,
-        imageUrl: imageUrl,
+        sourceUrl,
+        imageUrl,
         publishedAt: toDate(item.isoDate),
       },
     });
@@ -188,6 +242,9 @@ export async function syncNewsFromFreshRSS() {
     fetched: items.length,
     created,
     skipped,
+    scraped,
+    rewritten,
+    rewriteFailed,
     category,
     autoGenerateBlog,
     blogGenerated,

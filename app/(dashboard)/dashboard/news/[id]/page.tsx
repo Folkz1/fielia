@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { ArrowLeft, Calendar, ExternalLink, Share2, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar, Share2, Tag } from 'lucide-react';
 import { enrichNewsIfNeeded } from '@/lib/news/enrich';
 import { splitParagraphs, stripHtmlToText } from '@/lib/news/text';
+
+export const runtime = 'nodejs';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -72,16 +74,6 @@ export default async function NewsDetailPage({ params }: PageProps) {
             >
               Link publico <Share2 className="w-3.5 h-3.5" />
             </Link>
-            {resolved.sourceUrl && (
-              <a
-                href={resolved.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[var(--gradient-accent-start)] hover:underline"
-              >
-                Fonte original <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
           </div>
 
           <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-3">

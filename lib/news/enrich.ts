@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { scrapeArticleFromUrl } from '@/lib/news/scrape';
+import { rewriteNewsWithAI } from '@/lib/news/rewrite';
 
 export type NewsForRendering = {
   id: string;
@@ -35,11 +36,6 @@ function shouldEnrich(news: NewsForRendering) {
   return false;
 }
 
-function buildSummaryFromText(text: string) {
-  const base = compactWhitespace(text);
-  return truncate(base, 220);
-}
-
 export async function enrichNewsIfNeeded(news: NewsForRendering): Promise<NewsForRendering> {
   if (!shouldEnrich(news)) return news;
   if (!news.sourceUrl) return news;
@@ -52,26 +48,23 @@ export async function enrichNewsIfNeeded(news: NewsForRendering): Promise<NewsFo
     const scrapedText = scraped?.text?.trim() || '';
     if (!scrapedText || scrapedText.length < 300) return news;
 
-    const currentContent = (news.content || '').trim();
-    const currentSummary = (news.summary || '').trim();
-
     const data: Record<string, unknown> = {};
-    if (!currentContent || scrapedText.length > currentContent.length + 80) {
-      data.content = scrapedText;
-    }
-
-    const shouldUpdateSummary =
-      !currentSummary ||
-      currentSummary === currentContent ||
-      currentSummary.length < 80;
-
-    if (shouldUpdateSummary) {
-      const excerpt = scraped?.excerpt ? compactWhitespace(scraped.excerpt) : '';
-      data.summary = excerpt ? truncate(excerpt, 220) : buildSummaryFromText(scrapedText);
-    }
 
     if (!news.imageUrl && scraped?.imageUrl) {
       data.imageUrl = scraped.imageUrl;
+    }
+
+    try {
+      const rewritten = await rewriteNewsWithAI({
+        title: news.title,
+        category: news.category,
+        sourceText: scrapedText,
+      });
+      data.title = rewritten.title;
+      data.summary = rewritten.summary;
+      data.content = rewritten.content;
+    } catch (error) {
+      console.warn('News rewrite failed (keeping existing text):', error);
     }
 
     if (Object.keys(data).length === 0) return news;
@@ -99,4 +92,3 @@ export async function enrichNewsIfNeeded(news: NewsForRendering): Promise<NewsFo
   inFlight.set(news.id, promise);
   return promise;
 }
-

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +17,11 @@ const fetcher = (url: string) =>
     return res.json();
   });
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
+  const searchParams = useSearchParams();
+  const shouldAutoSubscribe = searchParams.get("subscribe") === "1";
+  const autoSubscribeStartedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<{
     status?: string | null;
@@ -35,7 +39,7 @@ export default function SettingsPage() {
   const userId = data?.userId || "";
   const subscriptionEnd = data?.subscriptionEnd ? new Date(data.subscriptionEnd) : null;
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = useCallback(async () => {
     try {
       setErrorMessage(null);
       const result = await createSubscription();
@@ -58,7 +62,18 @@ export default function SettingsPage() {
       console.error(error);
       setErrorMessage(error instanceof Error ? error.message : "Falha ao criar assinatura");
     }
-  };
+  }, [createSubscription, mutate]);
+
+  useEffect(() => {
+    if (!shouldAutoSubscribe) return;
+    if (autoSubscribeStartedRef.current) return;
+    if (!userId) return;
+    if (isPremium) return;
+    if (isProcessing || isLoading) return;
+
+    autoSubscribeStartedRef.current = true;
+    void handleSubscribe();
+  }, [shouldAutoSubscribe, userId, isPremium, isProcessing, isLoading, handleSubscribe]);
 
   const handleCancel = async () => {
     try {
@@ -245,5 +260,13 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={(<div className="p-8 flex justify-center"><LoadingSpinner /></div>)}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }

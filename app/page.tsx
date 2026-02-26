@@ -367,7 +367,13 @@ export default function Home() {
               ))}
             </ul>
 
-            <Link href="/auth/login" className="block">
+            <Link
+              href={{
+                pathname: "/auth/login",
+                query: { callbackUrl: "/dashboard/settings?subscribe=1" },
+              }}
+              className="block"
+            >
               <Button size="lg" className="w-full">
                 Assinar Agora
               </Button>

@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shield, Lock, Mail, ArrowRight } from "lucide-react";
 
-export default function LoginPage() {
+function getSafeCallbackUrl(value: string | null) {
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//")) return null;
+  return value;
+}
+
+function LoginPageInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl") ?? searchParams.get("next"));
+  const registerHref = callbackUrl
+    ? { pathname: "/auth/register", query: { callbackUrl } }
+    : "/auth/register";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +41,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Credenciais inválidas. Tente novamente.");
       } else {
-        router.push("/dashboard");
+        router.push(callbackUrl || "/dashboard");
         router.refresh();
       }
     } catch (err) {
@@ -100,7 +113,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <Link href="/auth/register" className="text-sm text-gray-300 hover:text-white transition-colors">
+            <Link href={registerHref} className="text-sm text-gray-300 hover:text-white transition-colors">
               Criar conta
             </Link>
             <span className="mx-2 text-gray-600">•</span>
@@ -111,5 +124,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={(<div className="min-h-screen bg-black flex items-center justify-center text-gray-400">Carregando...</div>)}>
+      <LoginPageInner />
+    </Suspense>
   );
 }

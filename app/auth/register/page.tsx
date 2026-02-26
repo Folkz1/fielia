@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shield, Lock, Mail, ArrowRight, User } from "lucide-react";
 
-export default function RegisterPage() {
+function getSafeCallbackUrl(value: string | null) {
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//")) return null;
+  return value;
+}
+
+function RegisterPageInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,6 +21,12 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl") ?? searchParams.get("next"));
+  const loginHref = callbackUrl
+    ? { pathname: "/auth/login", query: { callbackUrl } }
+    : "/auth/login";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +58,11 @@ export default function RegisterPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/auth/login");
+        if (callbackUrl) {
+          router.push(`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+        } else {
+          router.push("/auth/login");
+        }
       }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao cadastrar.");
@@ -150,12 +167,20 @@ export default function RegisterPage() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <Link href="/auth/login" className="text-sm text-gray-300 hover:text-white transition-colors">
+            <Link href={loginHref} className="text-sm text-gray-300 hover:text-white transition-colors">
               Já tenho conta
             </Link>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={(<div className="min-h-screen bg-black flex items-center justify-center text-gray-400">Carregando...</div>)}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

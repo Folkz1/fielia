@@ -199,11 +199,12 @@ export async function POST(req: NextRequest) {
     let asaasCustomerId = user.asaasCustomerId;
     const cpfCnpj =
       user.cpfCnpj ||
+      (body?.cpfCnpj ? String(body.cpfCnpj).replace(/\D/g, '') : null) ||
       (process.env.NODE_ENV !== 'production' ? generateValidCpf(user.id) : null);
 
-    if (!cpfCnpj) {
+    if (!cpfCnpj || cpfCnpj.length < 11) {
       return NextResponse.json(
-        { error: 'cpfCnpj is required to create an Asaas customer' },
+        { error: 'CPF é obrigatório para criar a assinatura. Informe seu CPF na página de conta.' },
         { status: 400 }
       );
     }

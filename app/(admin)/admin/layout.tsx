@@ -26,16 +26,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    async function checkAdmin() {
+    let cancelled = false;
+    async function checkAdmin(attempt = 0) {
       try {
         const res = await fetch("/api/admin/check");
-        const data = await res.json();
-        setIsAdmin(data.isAdmin);
+        if (!cancelled) {
+          if (res.status === 503 && attempt < 3) {
+            // Erro transiente (DNS/DB) - retry com backoff
+            setTimeout(() => checkAdmin(attempt + 1), 1000 * (attempt + 1));
+            return;
+          }
+          const data = await res.json();
+          setIsAdmin(data.isAdmin);
+        }
       } catch {
-        setIsAdmin(false);
+        if (!cancelled && attempt < 3) {
+          setTimeout(() => checkAdmin(attempt + 1), 1000 * (attempt + 1));
+        } else if (!cancelled) {
+          setIsAdmin(false);
+        }
       }
     }
     checkAdmin();
+    return () => { cancelled = true; };
   }, []);
 
   // Fechar sidebar ao mudar de rota em mobile

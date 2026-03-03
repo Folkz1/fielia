@@ -60,13 +60,13 @@ export function useQuiz() {
 export function useSubscription() {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const createSubscription = useCallback(async () => {
+  const createSubscription = useCallback(async (cpfCnpj?: string) => {
     setIsProcessing(true);
     try {
       const res = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingType: 'CREDIT_CARD' }),
+        body: JSON.stringify({ billingType: 'CREDIT_CARD', ...(cpfCnpj ? { cpfCnpj } : {}) }),
       });
 
       if (!res.ok) {

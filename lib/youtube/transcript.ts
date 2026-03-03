@@ -1,9 +1,14 @@
 /**
  * Servico de transcricao de videos do YouTube para RAG
- * Usa youtubei.js para info do video + caption tracks
- * Busca legendas direto via timedtext API (json3 format)
+ *
+ * Estrategia de fallback (YouTube bloqueia bots em IPs de datacenter):
+ *   1. youtube-caption-extractor (dual method: XML + engagement panel)
+ *   2. youtubei.js timedtext API (fallback)
+ *
+ * Ref: https://github.com/LuanRT/YouTube.js/issues/1102
  */
 
+import { getSubtitles, getVideoDetails } from "youtube-caption-extractor";
 import { Innertube } from "youtubei.js";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
@@ -68,7 +73,6 @@ async function createYT() {
 
 /**
  * Resolve handle/custom URL para channel ID (UC...) via page scraping
- * youtubei.js 16.x nao suporta getChannel("@handle") direto
  */
 async function resolveChannelId(channelUrl: string): Promise<string> {
   const channelInfo = extractChannelInfo(channelUrl);
@@ -76,12 +80,10 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
     throw new Error("URL de canal invalida");
   }
 
-  // Se ja e um channel ID (UC...), retornar direto
   if (channelInfo.type === "id" && channelInfo.value.startsWith("UC")) {
     return channelInfo.value;
   }
 
-  // Para handles e custom URLs, scrape a pagina para obter o channel ID
   let pageUrl: string;
   if (channelInfo.type === "handle") {
     pageUrl = `https://www.youtube.com/@${channelInfo.value}`;
@@ -91,7 +93,7 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
 
   const res = await fetch(pageUrl, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
     },
     redirect: "follow",
@@ -102,13 +104,13 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
   }
 
   const html = await res.text();
-  const patterns = [
+  const idPatterns = [
     /"browseId":"(UC[a-zA-Z0-9_-]+)"/,
     /"externalId":"(UC[a-zA-Z0-9_-]+)"/,
     /"channelId":"(UC[a-zA-Z0-9_-]+)"/,
   ];
 
-  for (const p of patterns) {
+  for (const p of idPatterns) {
     const match = html.match(p);
     if (match) return match[1];
   }
@@ -144,6 +146,42 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
   return results;
 }
 
+// ===== METODO 1: youtube-caption-extractor (primario) =====
+
+/**
+ * Tenta extrair legendas usando youtube-caption-extractor
+ * Mais robusto contra bloqueios do YouTube (dual method)
+ */
+async function transcriptViaCaptionExtractor(videoId: string, lang: string = "pt"): Promise<string | null> {
+  const languages = [lang, "pt", "pt-BR", "en", ""];
+
+  for (const tryLang of languages) {
+    try {
+      const subtitles = await getSubtitles({ videoID: videoId, lang: tryLang || undefined });
+
+      if (subtitles && subtitles.length > 0) {
+        const text = subtitles
+          .map((s: { text: string }) => s.text)
+          .join(" ")
+          .replace(/\n/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (text.length > 50) {
+          console.log(`[YouTube] Caption extractor OK (lang=${tryLang || 'auto'}, ${text.length} chars)`);
+          return text;
+        }
+      }
+    } catch (err) {
+      console.log(`[YouTube] Caption extractor falhou (lang=${tryLang || 'auto'}):`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  return null;
+}
+
+// ===== METODO 2: youtubei.js timedtext (fallback) =====
+
 interface TimedTextEvent {
   segs?: { utf8: string }[];
 }
@@ -153,75 +191,136 @@ interface TimedTextResponse {
 }
 
 /**
- * Busca legendas de um video via timedtext API
- * Usa youtubei.js para obter os caption tracks e depois faz fetch direto
+ * Tenta extrair legendas via youtubei.js + timedtext API
+ * Pode falhar em servidores cloud (YouTube bloqueia IPs de datacenter)
+ */
+async function transcriptViaInnertube(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
+  try {
+    const yt = await createYT();
+    const info = await yt.getInfo(videoId);
+
+    if (!info.captions) {
+      console.log("[YouTube] Innertube: sem captions no response");
+      return null;
+    }
+
+    const tracks = info.captions.caption_tracks;
+    if (!tracks || tracks.length === 0) {
+      console.log("[YouTube] Innertube: caption_tracks vazio");
+      return null;
+    }
+
+    console.log(`[YouTube] Innertube: ${tracks.length} tracks encontradas: ${tracks.map(t => `${t.language_code}(${t.kind || 'manual'})`).join(', ')}`);
+
+    const priority = [
+      tracks.find(t => t.language_code === 'pt' && t.kind !== 'asr'),
+      tracks.find(t => t.language_code === 'pt-BR' && t.kind !== 'asr'),
+      tracks.find(t => t.language_code?.startsWith('pt')),
+      tracks.find(t => t.language_code === preferredLang && t.kind !== 'asr'),
+      tracks.find(t => t.language_code === preferredLang),
+      tracks.find(t => t.language_code === 'en' && t.kind !== 'asr'),
+      tracks.find(t => t.language_code === 'en'),
+      tracks[0],
+    ];
+
+    const selectedTrack = priority.find(Boolean);
+    if (!selectedTrack?.base_url) {
+      console.log("[YouTube] Innertube: nenhum track com base_url");
+      return null;
+    }
+
+    const url = selectedTrack.base_url + '&fmt=json3';
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      console.log(`[YouTube] Innertube: timedtext HTTP ${res.status}`);
+      return null;
+    }
+
+    const data: TimedTextResponse = await res.json();
+
+    if (!data.events || data.events.length === 0) {
+      console.log("[YouTube] Innertube: events vazio");
+      return null;
+    }
+
+    const transcript = data.events
+      .filter(e => e.segs)
+      .map(e => e.segs!.map(s => s.utf8).join(''))
+      .join(' ')
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (transcript.length > 50) {
+      console.log(`[YouTube] Innertube OK (${transcript.length} chars)`);
+      return transcript;
+    }
+
+    return null;
+  } catch (err) {
+    console.log("[YouTube] Innertube falhou:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
+ * Busca legendas de um video com fallback chain
+ * Metodo 1: youtube-caption-extractor (mais robusto)
+ * Metodo 2: youtubei.js + timedtext API (fallback)
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
-  const yt = await createYT();
-  const info = await yt.getInfo(videoId);
+  console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  if (!info.captions) {
-    throw new Error("Este video nao possui legendas disponiveis");
-  }
+  // Metodo 1: youtube-caption-extractor
+  const result1 = await transcriptViaCaptionExtractor(videoId, preferredLang);
+  if (result1) return result1;
 
-  const tracks = info.captions.caption_tracks;
-  if (!tracks || tracks.length === 0) {
-    throw new Error("Nenhuma faixa de legenda encontrada");
-  }
+  // Metodo 2: youtubei.js + timedtext
+  const result2 = await transcriptViaInnertube(videoId, preferredLang);
+  if (result2) return result2;
 
-  // Prioridade: pt manual > pt-BR manual > pt auto > en manual > en auto > qualquer
-  const priority = [
-    tracks.find(t => t.language_code === 'pt' && t.kind !== 'asr'),
-    tracks.find(t => t.language_code === 'pt-BR' && t.kind !== 'asr'),
-    tracks.find(t => t.language_code?.startsWith('pt')),
-    tracks.find(t => t.language_code === preferredLang && t.kind !== 'asr'),
-    tracks.find(t => t.language_code === preferredLang),
-    tracks.find(t => t.language_code === 'en' && t.kind !== 'asr'),
-    tracks.find(t => t.language_code === 'en'),
-    tracks[0], // fallback: primeira disponivel
-  ];
-
-  const selectedTrack = priority.find(Boolean);
-  if (!selectedTrack?.base_url) {
-    throw new Error("Nenhuma legenda acessivel");
-  }
-
-  // Fetch legendas em formato json3
-  const url = selectedTrack.base_url + '&fmt=json3';
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    throw new Error(`Falha ao buscar legendas: HTTP ${res.status}`);
-  }
-
-  const data: TimedTextResponse = await res.json();
-
-  if (!data.events || data.events.length === 0) {
-    throw new Error("Legendas vazias");
-  }
-
-  // Extrair texto de todos os eventos
-  const transcript = data.events
-    .filter(e => e.segs)
-    .map(e => e.segs!.map(s => s.utf8).join(''))
-    .join(' ')
-    .replace(/\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return transcript;
+  throw new Error(
+    "Nao foi possivel obter legendas deste video. " +
+    "Verifique se o video possui legendas (manuais ou automaticas) habilitadas. " +
+    "Videos sem legendas nao podem ser transcritos."
+  );
 }
 
 /**
  * Busca info basica do video (titulo, etc)
+ * Usa youtube-caption-extractor primeiro (mais confiavel)
  */
 export async function getVideoInfo(videoId: string): Promise<{ title: string; hasCaptions: boolean }> {
-  const yt = await createYT();
-  const info = await yt.getInfo(videoId);
-  return {
-    title: info.basic_info.title || `Video ${videoId}`,
-    hasCaptions: !!info.captions && (info.captions.caption_tracks?.length || 0) > 0,
-  };
+  // Tentar youtube-caption-extractor primeiro
+  try {
+    const details = await getVideoDetails({ videoID: videoId, lang: "pt" });
+    if (details?.title) {
+      // Se retornou detalhes, provavelmente tem legendas
+      const hasCaptions = details.subtitles && details.subtitles.length > 0;
+      return {
+        title: details.title,
+        hasCaptions: hasCaptions ?? false,
+      };
+    }
+  } catch {
+    // fallback para innertube
+  }
+
+  // Fallback: youtubei.js
+  try {
+    const yt = await createYT();
+    const info = await yt.getInfo(videoId);
+    return {
+      title: info.basic_info.title || `Video ${videoId}`,
+      hasCaptions: !!info.captions && (info.captions.caption_tracks?.length || 0) > 0,
+    };
+  } catch {
+    return {
+      title: `Video ${videoId}`,
+      hasCaptions: true, // Assumir que tem - vai tentar transcrever de qualquer forma
+    };
+  }
 }
 
 /**

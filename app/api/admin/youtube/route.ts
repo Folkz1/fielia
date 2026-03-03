@@ -47,16 +47,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "URL de video invalida" }, { status: 400 });
       }
 
-      // Checar se video tem legendas antes de tentar
+      // Buscar info do video (titulo) - nao bloquear por hasCaptions
+      // pois o check pode dar falso negativo em servidores cloud
       const vInfo = await getVideoInfo(videoId);
-      if (!vInfo.hasCaptions) {
-        return NextResponse.json({
-          success: false,
-          videoId,
-          title: vInfo.title,
-          error: `O video "${vInfo.title}" nao possui legendas. Apenas videos com legendas (manuais ou automaticas) podem ser transcritos.`,
-        }, { status: 422 });
-      }
 
       const result = await transcribeAndIngest(videoId, body.title || vInfo.title, category);
       return NextResponse.json(result);

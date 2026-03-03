@@ -36,6 +36,22 @@ interface NewsItem {
   publishedAt: string;
 }
 
+/**
+ * Normaliza URLs de memes antigas (http://localhost:3000/memes/xxx)
+ * para o novo formato via API route (/api/memes/image/xxx)
+ */
+function normalizeMemeUrl(url: string): string {
+  if (!url) return "";
+  // Se ja e a nova URL, retornar direto
+  if (url.startsWith("/api/memes/image/")) return url;
+  // Extrair filename de URLs antigas (qualquer dominio + /memes/filename)
+  const match = url.match(/\/memes\/([^/?#]+)$/);
+  if (match) return `/api/memes/image/${match[1]}`;
+  // URL relativa simples
+  if (url.startsWith("/memes/")) return `/api/memes/image/${url.replace("/memes/", "")}`;
+  return url;
+}
+
 export default function MemesPage() {
   const [memes, setMemes] = useState<MemeItem[]>([]);
   const [recentNews, setRecentNews] = useState<NewsItem[]>([]);
@@ -143,7 +159,7 @@ export default function MemesPage() {
 
   function handleDownload(meme: MemeItem) {
     const link = document.createElement("a");
-    link.href = meme.imageUrl;
+    link.href = normalizeMemeUrl(meme.imageUrl);
     link.download = `meme-fiel-ia-${meme.id}.png`;
     link.target = "_blank";
     document.body.appendChild(link);
@@ -355,7 +371,7 @@ export default function MemesPage() {
                 {/* Meme image */}
                 <div className="relative w-full aspect-square bg-black/30">
                   <img
-                    src={meme.imageUrl}
+                    src={normalizeMemeUrl(meme.imageUrl)}
                     alt={meme.caption}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -411,7 +427,7 @@ export default function MemesPage() {
           >
             <div className="relative w-full aspect-square bg-black">
               <img
-                src={selectedMeme.imageUrl}
+                src={normalizeMemeUrl(selectedMeme.imageUrl)}
                 alt={selectedMeme.caption}
                 className="w-full h-full object-contain"
               />

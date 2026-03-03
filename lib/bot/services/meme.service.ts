@@ -10,8 +10,8 @@ type BotResponse = {
 };
 
 function buildPublicUrl(filename: string) {
-  const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-  return base ? `${base}/memes/${filename}` : '';
+  // URL relativa - funciona em qualquer dominio (dev e producao)
+  return `/api/memes/image/${filename}`;
 }
 
 async function ensureMemeDir() {
@@ -203,9 +203,6 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
     await fs.writeFile(filepath, result.bytes);
 
     const mediaUrl = buildPublicUrl(filename);
-    if (!mediaUrl) {
-      throw new Error('Missing NEXT_PUBLIC_APP_URL to build meme URL');
-    }
 
     return {
       content: caption,

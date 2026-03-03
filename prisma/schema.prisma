@@ -1,10 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
-  engineType = "library"
+  engineType      = "library"
 }
 
 datasource db {
@@ -12,74 +9,54 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  password      String
-  phone         String?  @unique
-  whatsappId    String?  @unique
-  
-  // Stats
-  totalPoints   Int      @default(0)
-  currentStreak Int      @default(0)
-  maxStreak     Int      @default(0)
-  lastActive    DateTime @default(now())
-  
-  // Rate Limiting
-  dailyMessageCount Int      @default(0)
-  lastMessageDate   DateTime @default(now())
-  
-  // Subscription
-  isPremium     Boolean  @default(false)
-  subscriptionEnd DateTime?
-  asaasCustomerId String? @unique
-  asaasSubscriptionId String? @unique
-  cpfCnpj       String?  @unique
-
-  // Admin
-  isAdmin       Boolean  @default(false)
-  
-  // Interaction State
-  currentAction String?  // e.g., 'quiz:quizId:attemptId'
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  quizAttempts  QuizAttempt[]
-  aiChats       AIChat[]
-  memes         Meme[]
-  asaasPayments AsaasPayment[]
+  id                  String         @id @default(cuid())
+  email               String         @unique
+  name                String
+  password            String
+  phone               String?        @unique
+  whatsappId          String?        @unique
+  totalPoints         Int            @default(0)
+  currentStreak       Int            @default(0)
+  maxStreak           Int            @default(0)
+  lastActive          DateTime       @default(now())
+  isPremium           Boolean        @default(false)
+  subscriptionEnd     DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  asaasCustomerId     String?        @unique
+  asaasSubscriptionId String?        @unique
+  cpfCnpj             String?        @unique
+  dailyMessageCount   Int            @default(0)
+  lastMessageDate     DateTime       @default(now())
+  currentAction       String?
+  isAdmin             Boolean        @default(false)
+  aiChats             AIChat[]
+  asaasPayments       AsaasPayment[]
+  memes               Meme[]
+  quizAttempts        QuizAttempt[]
 
   @@map("users")
 }
 
 model AsaasPayment {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  asaasPaymentId String   @unique
-  asaasCustomerId String?
+  id                  String    @id @default(cuid())
+  userId              String
+  asaasPaymentId      String    @unique
+  asaasCustomerId     String?
   asaasSubscriptionId String?
-
-  status         String
-  billingType    String
-  amountCents    Int
-
-  dueDate        DateTime?
-  paidAt         DateTime?
-
-  invoiceUrl     String?
-  description    String?
-  externalReference String?
-
-  premiumGrantedAt DateTime?
-
-  raw            Json?
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status              String
+  billingType         String
+  amountCents         Int
+  dueDate             DateTime?
+  paidAt              DateTime?
+  invoiceUrl          String?
+  description         String?
+  externalReference   String?
+  premiumGrantedAt    DateTime?
+  raw                 Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([asaasCustomerId])
@@ -88,141 +65,117 @@ model AsaasPayment {
 }
 
 model AsaasWebhookEvent {
-  id            String   @id
-  event         String
+  id             String   @id
+  event          String
   asaasPaymentId String?
-  payload       Json?
-
-  createdAt     DateTime @default(now())
+  payload        Json?
+  createdAt      DateTime @default(now())
 
   @@index([asaasPaymentId])
   @@map("asaas_webhook_events")
 }
 
 model Quiz {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   title       String
   description String?
-  difficulty  String   @default("medium") // easy, medium, hard
-  category    String   @default("general") // history, players, titles, general
-  
-  isActive    Boolean  @default(true)
+  difficulty  String         @default("medium")
+  category    String         @default("general")
+  isActive    Boolean        @default(true)
   startDate   DateTime
   endDate     DateTime
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  questions   QuizQuestion[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   attempts    QuizAttempt[]
-  
+  questions   QuizQuestion[]
+
   @@map("quizzes")
 }
 
 model QuizQuestion {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   quizId        String
-  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  
   question      String
-  options       String[] // JSON array of options
+  options       String[]
   correctAnswer String
-  points        Int      @default(100)
-  
-  order         Int      @default(0)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
+  points        Int          @default(100)
+  order         Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   answers       QuizAnswer[]
-  
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
   @@map("quiz_questions")
 }
 
 model QuizAttempt {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quizId      String
-  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  
-  score       Int      @default(0)
-  totalPoints Int      @default(0)
-  accuracy    Float    @default(0)
-  
-  startedAt   DateTime @default(now())
+  score       Int          @default(0)
+  totalPoints Int          @default(0)
+  accuracy    Float        @default(0)
+  startedAt   DateTime     @default(now())
   completedAt DateTime?
-  
-  // Relations
   answers     QuizAnswer[]
-  
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("quiz_attempts")
 }
 
 model QuizAnswer {
-  id          String   @id @default(cuid())
-  attemptId   String
-  attempt     QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  questionId  String
-  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  
-  answer      String
-  isCorrect   Boolean
-  timeTaken   Int      // seconds
-  pointsEarned Int     @default(0)
-  
-  createdAt   DateTime @default(now())
-  
+  id           String       @id @default(cuid())
+  attemptId    String
+  questionId   String
+  answer       String
+  isCorrect    Boolean
+  timeTaken    Int
+  pointsEarned Int          @default(0)
+  createdAt    DateTime     @default(now())
+  attempt      QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question     QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@map("quiz_answers")
 }
 
 model News {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   summary     String
-  content     String   @db.Text
-  category    String   // jogos, transferencias, bastidores, torcida
-  
+  content     String
+  category    String
   imageUrl    String?
   sourceUrl   String?
-  
-  publishedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  memes       Meme[]
+  publishedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   blogPost    BlogPost?
+  memes       Meme[]
 
   @@map("news")
 }
 
 model BlogPost {
-  id               String   @id @default(cuid())
-  newsId           String?  @unique
-  news             News?    @relation(fields: [newsId], references: [id], onDelete: SetNull)
-
-  slug             String   @unique
-  title            String
-  excerpt          String
-  content          String   @db.Text
-  category         String   @default("Geral")
-  coverImageUrl    String?
-
-  sourceTitle      String?
-  sourceUrl        String?
+  id                String    @id @default(cuid())
+  newsId            String?   @unique
+  slug              String    @unique
+  title             String
+  excerpt           String
+  content           String
+  category          String    @default("Geral")
+  coverImageUrl     String?
+  sourceTitle       String?
+  sourceUrl         String?
   sourcePublishedAt DateTime?
-
-  tone             String   @default("informativo")
-  targetAudience   String   @default("Torcida do Corinthians")
-  status           String   @default("PUBLISHED")
-  generatedPrompt  String?
-
-  publishedAt      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  tone              String    @default("informativo")
+  targetAudience    String    @default("Torcida do Corinthians")
+  status            String    @default("PUBLISHED")
+  generatedPrompt   String?
+  publishedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  news              News?     @relation(fields: [newsId], references: [id])
 
   @@index([status, publishedAt])
   @@index([category])
@@ -239,69 +192,111 @@ model NewsCuration {
 }
 
 model AIChat {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  platform    String   // whatsapp, web
-  sessionId   String
-  
-  messages    AIMessage[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String      @id @default(cuid())
+  userId    String
+  platform  String
+  sessionId String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AIMessage[]
+
   @@map("ai_chats")
 }
 
 model AIMessage {
-  id          String   @id @default(cuid())
-  chatId      String
-  chat        AIChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  
-  role        String   // user, assistant, system
-  content     String   @db.Text
-  
-  // Metadata
-  tokensUsed  Int?
-  model       String?
-  
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  chatId     String
+  role       String
+  content    String
+  tokensUsed Int?
+  model      String?
+  createdAt  DateTime @default(now())
+  chat       AIChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
   @@map("ai_messages")
 }
 
 model Meme {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   prompt    String
   caption   String
   imageUrl  String
-
   newsId    String?
-  news      News?    @relation(fields: [newsId], references: [id], onDelete: SetNull)
-
   createdAt DateTime @default(now())
+  news      News?    @relation(fields: [newsId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("memes")
 }
 
-model CorinthiansKnowledge {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   @db.Text
-  category    String   // history, players, titles, stadium, torcida
-  
-  // For RAG
-  embedding   Float[]  // Vector embedding for semantic search
-  
-  source      String?
-  sourceUrl   String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("corinthians_knowledge")
+model Affiliate {
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  description      String?
+  logoUrl          String?
+  baseUrl          String
+  trackingParam    String?
+  trackingValue    String?
+  ctaText          String           @default("Aposte agora")
+  ctaDescription   String?
+  disclaimer       String?
+  isActive         Boolean          @default(true)
+  showInBlog       Boolean          @default(true)
+  showInNews       Boolean          @default(true)
+  showInChat       Boolean          @default(true)
+  showInNewsletter Boolean          @default(true)
+  revenueModel     String?
+  revenueDetails   String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  clicks           AffiliateClick[]
+
+  @@map("affiliates")
+}
+
+model AffiliateClick {
+  id          String    @id @default(cuid())
+  affiliateId String
+  source      String
+  referrer    String?
+  userAgent   String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
+  @@index([createdAt])
+  @@map("affiliate_clicks")
+}
+
+model Knowledge {
+  id        String                 @id(map: "corinthians_knowledge_pkey") @default(cuid())
+  title     String
+  content   String
+  category  String
+  source    String?
+  sourceUrl String?
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  embedding Unsupported("vector")?
+  tenant    String                 @default("fiel-ia")
+
+  @@index([tenant], map: "idx_kb_tenant")
+  @@map("knowledge_base")
+}
+
+model YouTubeChannel {
+  id         String    @id @default(cuid())
+  channelId  String    @unique
+  name       String
+  url        String
+  isActive   Boolean   @default(true)
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("youtube_channels")
 }

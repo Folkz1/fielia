@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { hasBlogPostsTable } from '@/lib/db/postgres';
 import { ArrowLeft, Calendar, Tag } from 'lucide-react';
+import { AffiliateCTA } from '@/components/affiliate-cta';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -13,10 +14,19 @@ type ContentBlock =
   | { type: 'h2'; text: string }
   | { type: 'h3'; text: string }
   | { type: 'list'; items: string[] }
+  | { type: 'blockquote'; text: string }
+  | { type: 'separator' }
   | { type: 'paragraph'; text: string };
 
 function compactWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function renderInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[var(--gradient-accent-start)] underline decoration-[var(--gradient-accent-start)]/30 underline-offset-2 hover:decoration-[var(--gradient-accent-start)]">$1</a>');
 }
 
 function parseContentBlocks(content: string): ContentBlock[] {
@@ -47,6 +57,13 @@ function parseContentBlocks(content: string): ContentBlock[] {
       continue;
     }
 
+    if (line === '---' || line === '***') {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'separator' });
+      continue;
+    }
+
     if (line.startsWith('## ')) {
       flushParagraph();
       flushList();
@@ -61,9 +78,16 @@ function parseContentBlocks(content: string): ContentBlock[] {
       continue;
     }
 
-    if (line.startsWith('- ')) {
+    if (line.startsWith('> ')) {
       flushParagraph();
-      listItems.push(line.replace(/^-+\s*/, '').trim());
+      flushList();
+      blocks.push({ type: 'blockquote', text: line.replace(/^>\s*/, '') });
+      continue;
+    }
+
+    if (/^[-*]\s/.test(line)) {
+      flushParagraph();
+      listItems.push(line.replace(/^[-*]\s+/, '').trim());
       continue;
     }
 
@@ -208,41 +232,88 @@ export default async function BlogPostPage({ params }: PageProps) {
           </div>
         )}
 
-        <section className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+        <section className="space-y-8">
           {blocks.map((block, idx) => {
             if (block.type === 'h2') {
               return (
-                <h2 key={`h2-${idx}`} className="text-3xl font-semibold text-white">
-                  {block.text}
-                </h2>
+                <div key={`h2-${idx}`} className="mt-10 first:mt-0">
+                  <div className="mb-1 h-1 w-12 rounded-full bg-gradient-to-r from-[var(--gradient-accent-start)] to-[var(--gradient-accent-end)]" />
+                  <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+                    {block.text}
+                  </h2>
+                </div>
               );
             }
 
             if (block.type === 'h3') {
               return (
-                <h3 key={`h3-${idx}`} className="text-2xl font-semibold text-gray-100">
+                <h3 key={`h3-${idx}`} className="mt-6 text-xl font-semibold text-gray-100 md:text-2xl">
                   {block.text}
                 </h3>
               );
             }
 
+            if (block.type === 'blockquote') {
+              return (
+                <blockquote
+                  key={`bq-${idx}`}
+                  className="border-l-4 border-[var(--gradient-accent-start)] bg-white/[0.03] py-3 pl-5 pr-4 text-gray-300 italic rounded-r-lg"
+                  dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(block.text) }}
+                />
+              );
+            }
+
+            if (block.type === 'separator') {
+              return (
+                <div key={`sep-${idx}`} className="flex items-center gap-3 py-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+                </div>
+              );
+            }
+
             if (block.type === 'list') {
               return (
-                <ul key={`list-${idx}`} className="list-disc space-y-2 pl-6 text-gray-200">
+                <ul key={`list-${idx}`} className="space-y-3 pl-1">
                   {block.items.map((item, listIdx) => (
-                    <li key={`list-item-${idx}-${listIdx}`}>{item}</li>
+                    <li key={`list-item-${idx}-${listIdx}`} className="flex gap-3 text-gray-200">
+                      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--gradient-accent-start)]" />
+                      <span
+                        className="leading-7"
+                        dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(item) }}
+                      />
+                    </li>
                   ))}
                 </ul>
               );
             }
 
             return (
-              <p key={`p-${idx}`} className="leading-8 text-gray-200">
-                {block.text}
-              </p>
+              <p
+                key={`p-${idx}`}
+                className="text-base leading-8 text-gray-300 md:text-lg md:leading-9"
+                dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(block.text) }}
+              />
             );
           })}
         </section>
+
+        <AffiliateCTA source="blog" referrer={`/blog/${post.slug}`} variant="banner" className="mt-10" />
+
+        {post.sourceUrl && (
+          <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4">
+            <p className="text-xs text-gray-500">
+              Fonte:{' '}
+              <a
+                href={post.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 underline decoration-gray-600 underline-offset-2 hover:text-white"
+              >
+                {post.sourceTitle || post.sourceUrl}
+              </a>
+            </p>
+          </div>
+        )}
       </article>
     </main>
   );

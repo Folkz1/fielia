@@ -15,6 +15,36 @@ async function checkAdmin() {
   return user?.isAdmin || false;
 }
 
+/**
+ * DELETE /api/admin/knowledge
+ * Delete em lote
+ * Body: { ids: string[] }
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const isAdmin = await checkAdmin();
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const ids: string[] = body.ids;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids obrigatorio" }, { status: 400 });
+    }
+
+    const result = await prisma.knowledge.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return NextResponse.json({ success: true, deleted: result.count });
+  } catch (error) {
+    console.error("Erro ao deletar em lote:", error);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const isAdmin = await checkAdmin();
@@ -37,7 +67,7 @@ export async function GET(req: NextRequest) {
         }
       : {};
 
-    const items = await prisma.corinthiansKnowledge.findMany({
+    const items = await prisma.knowledge.findMany({
       where,
       select: {
         id: true,
@@ -53,7 +83,7 @@ export async function GET(req: NextRequest) {
       skip: offset,
     });
 
-    const total = await prisma.corinthiansKnowledge.count({ where });
+    const total = await prisma.knowledge.count({ where });
 
     return NextResponse.json({ items, total });
   } catch (error) {

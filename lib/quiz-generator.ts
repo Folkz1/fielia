@@ -22,7 +22,7 @@ async function getQuizContext(): Promise<string> {
 
   // Buscar conhecimento do RAG
   try {
-    const knowledge = await prisma.corinthiansKnowledge.findMany({
+    const knowledge = await prisma.knowledge.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
       select: { title: true, content: true, category: true },

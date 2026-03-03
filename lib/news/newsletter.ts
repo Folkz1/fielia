@@ -12,7 +12,25 @@ function buildPublicNewsUrl(id: string) {
   return `${base}/news/${id}`;
 }
 
-function buildNewsletterMessage(items: { id: string; title: string; summary: string }[]) {
+function buildGoUrl(slug: string) {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  if (!base) return `/go/${slug}?src=newsletter`;
+  return `${base}/go/${slug}?src=newsletter`;
+}
+
+async function getNewsletterAffiliate() {
+  try {
+    return await prisma.affiliate.findFirst({
+      where: { isActive: true, showInNewsletter: true },
+      select: { slug: true, name: true, ctaText: true, ctaDescription: true, disclaimer: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function buildNewsletterMessage(items: { id: string; title: string; summary: string }[]) {
   const header = '📰 *Newsletter Fiel*';
   if (items.length === 0) {
     return `${header}\n\nSem novidades agora. Em breve mais notícias do Timão!`;
@@ -24,7 +42,19 @@ function buildNewsletterMessage(items: { id: string; title: string; summary: str
     return `*${index + 1}. ${item.title}*\n${summary}\n${url}`;
   });
 
-  return `${header}\n\n${lines.join('\n\n')}`;
+  let text = `${header}\n\n${lines.join('\n\n')}`;
+
+  // Append affiliate CTA if active
+  const affiliate = await getNewsletterAffiliate();
+  if (affiliate) {
+    const goUrl = buildGoUrl(affiliate.slug);
+    text += `\n\n---\n${affiliate.ctaDescription || affiliate.name}\n${affiliate.ctaText}: ${goUrl}`;
+    if (affiliate.disclaimer) {
+      text += `\n_${affiliate.disclaimer}_`;
+    }
+  }
+
+  return text;
 }
 
 async function sleep(ms: number) {
@@ -42,7 +72,7 @@ export async function sendNewsletterToPremiumUsers() {
   );
 
   const news = await getCuratedNews(limit, 48);
-  const message = buildNewsletterMessage(news);
+  const message = await buildNewsletterMessage(news);
 
   const now = new Date();
   const users = await prisma.user.findMany({

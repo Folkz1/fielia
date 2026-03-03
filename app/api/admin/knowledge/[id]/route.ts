@@ -27,7 +27,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.corinthiansKnowledge.delete({
+    await prisma.knowledge.delete({
       where: { id },
     });
 
@@ -50,7 +50,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const item = await prisma.corinthiansKnowledge.findUnique({
+    const item = await prisma.knowledge.findUnique({
       where: { id },
     });
 

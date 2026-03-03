@@ -25,6 +25,7 @@
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "critters": "^0.0.25",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "jsdom": "^28.1.0",
@@ -38,7 +39,9 @@
     "rss-parser": "^3.13.0",
     "swr": "^2.4.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "youtube-caption-extractor": "^1.9.1",
+    "youtubei.js": "^16.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

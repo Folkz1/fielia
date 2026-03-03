@@ -156,7 +156,7 @@ async function main() {
   console.log('✅ News created:', news.count);
 
   // Create Corinthians knowledge base
-  await prisma.corinthiansKnowledge.createMany({
+  await prisma.knowledge.createMany({
     data: [
       {
         title: 'Fundação do Corinthians',

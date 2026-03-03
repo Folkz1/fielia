@@ -5,6 +5,28 @@ import { getUserProfile, formatProfileMessage } from './services/user.service';
 import { startQuiz, processQuizAnswer } from './services/quiz.service';
 import { getChatHistory } from './services/chat-history.service';
 
+async function getAffiliateCTA(source: string): Promise<string> {
+  try {
+    const where: Record<string, boolean> = { isActive: true };
+    if (source === 'chat') where.showInChat = true;
+    else where.showInNews = true;
+
+    const aff = await prisma.affiliate.findFirst({
+      where,
+      select: { slug: true, ctaText: true, ctaDescription: true, disclaimer: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!aff) return '';
+    const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+    const url = `${base}/go/${aff.slug}?src=${source}`;
+    let text = `\n\n---\n${aff.ctaDescription || aff.ctaText}: ${url}`;
+    if (aff.disclaimer) text += `\n_${aff.disclaimer}_`;
+    return text;
+  } catch {
+    return '';
+  }
+}
+
 export interface BotResponse {
   content: string;
   type: 'text' | 'image' | 'video' | 'interactive';
@@ -15,8 +37,9 @@ export interface BotResponse {
 // Handlers
 async function handleNews(): Promise<BotResponse> {
   const news = await getCuratedNews(3);
+  const cta = await getAffiliateCTA('news');
   return {
-    content: formatNewsMessage(news),
+    content: formatNewsMessage(news) + cta,
     type: 'text'
   };
 }
@@ -95,7 +118,8 @@ async function handleChat(userId: string, message: string, platform: string = 'w
     const content = response.content?.trim();
 
     if (content) {
-      return { content, type: 'text' };
+      const cta = await getAffiliateCTA('chat');
+      return { content: content + cta, type: 'text' };
     }
   } catch (error) {
     console.error('Bot chat error:', error);

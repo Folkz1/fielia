@@ -55,14 +55,14 @@ export default async function NewsDetailPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-semibold">
-              <Tag className="w-3.5 h-3.5" />
+      <article className="max-w-3xl mx-auto">
+        <header className="mb-10">
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase tracking-wider">
+              <Tag className="w-3 h-3" />
               {resolved.category}
             </span>
-            <span className="inline-flex items-center gap-1 text-gray-400">
+            <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
               <Calendar className="w-3.5 h-3.5" />
               {formatDate(resolved.publishedAt)}
             </span>
@@ -70,43 +70,70 @@ export default async function NewsDetailPage({ params }: PageProps) {
               href={`/news/${resolved.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-gray-300 hover:text-white"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-yellow-500 transition-colors"
             >
-              Link publico <Share2 className="w-3.5 h-3.5" />
+              <Share2 className="w-3.5 h-3.5" />
+              Compartilhar
             </Link>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-3">
+          <h1 className="text-3xl md:text-5xl font-bold text-white leading-[1.15] mb-5">
             {resolved.title}
           </h1>
-          <p className="text-gray-300 text-base md:text-lg leading-relaxed">
+
+          <p className="text-lg md:text-xl text-gray-400 leading-relaxed border-l-2 border-yellow-500/40 pl-5">
             {resolved.summary}
           </p>
         </header>
 
         {resolved.imageUrl && (
-          <div className="mb-8 rounded-2xl overflow-hidden border border-white/10 bg-black/30">
-            <img
-              src={resolved.imageUrl}
-              alt={resolved.title}
-              className="w-full max-h-[440px] object-cover"
-              loading="lazy"
-            />
-          </div>
+          <figure className="mb-12 -mx-4 md:mx-0">
+            <div className="overflow-hidden rounded-2xl border border-white/10">
+              <img
+                src={resolved.imageUrl}
+                alt={resolved.title}
+                className="w-full max-h-[480px] object-cover"
+                loading="lazy"
+              />
+            </div>
+          </figure>
         )}
 
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8 space-y-5">
+        <section className="space-y-6">
           {paragraphs.length ? (
             paragraphs.map((p, idx) => (
-              <p key={idx} className="text-gray-200 leading-8">
+              <p
+                key={idx}
+                className={`text-gray-300 leading-8 md:leading-9 ${
+                  idx === 0
+                    ? 'text-lg md:text-xl text-gray-200 first-letter:text-5xl first-letter:font-bold first-letter:text-yellow-500 first-letter:float-left first-letter:mr-3 first-letter:mt-1'
+                    : 'text-base md:text-lg'
+                }`}
+              >
                 {p}
               </p>
             ))
           ) : (
-            <p className="text-gray-400">Conteudo indisponivel.</p>
+            <p className="text-gray-500 italic">Conteudo indisponivel.</p>
           )}
         </section>
-      </div>
+
+        {resolved.sourceUrl && (
+          <footer className="mt-12 pt-6 border-t border-white/10">
+            <p className="text-sm text-gray-600">
+              Fonte:{' '}
+              <a
+                href={resolved.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-yellow-500 underline underline-offset-2 decoration-gray-700 transition-colors"
+              >
+                {new URL(resolved.sourceUrl).hostname.replace('www.', '')}
+              </a>
+            </p>
+          </footer>
+        )}
+      </article>
     </div>
   );
 }

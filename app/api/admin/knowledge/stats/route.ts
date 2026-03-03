@@ -19,10 +19,10 @@ export async function GET() {
     }
 
     // Total de documentos
-    const totalDocuments = await prisma.corinthiansKnowledge.count();
+    const totalDocuments = await prisma.knowledge.count();
 
     // Contar por categoria
-    const categoryGroups = await prisma.corinthiansKnowledge.groupBy({
+    const categoryGroups = await prisma.knowledge.groupBy({
       by: ["category"],
       _count: { id: true },
     });

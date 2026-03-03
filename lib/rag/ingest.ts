@@ -117,25 +117,40 @@ export async function ingestDocument(doc: IngestDocument): Promise<IngestResult>
       const chunkId = generateChunkId(doc.title, i);
 
       try {
-        // Gerar embedding para o chunk
-        const embedding = await generateEmbedding(chunk);
+        // Tentar gerar embedding para o chunk
+        let embeddingStr: string | null = null;
+        try {
+          const embedding = await generateEmbedding(chunk);
+          embeddingStr = `[${embedding.join(",")}]`;
+        } catch (embError) {
+          console.warn(`[RAG] Embedding falhou para chunk ${i} (sem creditos?):`, embError instanceof Error ? embError.message : embError);
+          // Fallback: salvar documento sem embedding (busca por texto ainda funciona)
+        }
 
-        // Converter embedding para string para SQL raw
-        const embeddingStr = `[${embedding.join(",")}]`;
-
-        // Usar upsert raw para inserir/atualizar com embedding vector
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO corinthians_knowledge (id, title, content, category, embedding, source, "sourceUrl", "createdAt", "updatedAt")
-          VALUES ($1, $2, $3, $4, $5::vector, $6, $7, NOW(), NOW())
-          ON CONFLICT (id) DO UPDATE SET
-            content = EXCLUDED.content,
-            embedding = EXCLUDED.embedding,
-            "updatedAt" = NOW()
-        `, chunkId, `${doc.title} (parte ${i + 1}/${chunks.length})`, chunk, doc.category, embeddingStr, doc.source || null, doc.sourceUrl || null);
+        if (embeddingStr) {
+          // Inserir com embedding
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO knowledge_base (id, title, content, category, embedding, source, "sourceUrl", "createdAt", "updatedAt")
+            VALUES ($1, $2, $3, $4, $5::vector, $6, $7, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              content = EXCLUDED.content,
+              embedding = EXCLUDED.embedding,
+              "updatedAt" = NOW()
+          `, chunkId, `${doc.title} (parte ${i + 1}/${chunks.length})`, chunk, doc.category, embeddingStr, doc.source || null, doc.sourceUrl || null);
+        } else {
+          // Inserir sem embedding (fallback)
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO knowledge_base (id, title, content, category, embedding, source, "sourceUrl", "createdAt", "updatedAt")
+            VALUES ($1, $2, $3, $4, NULL, $5, $6, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              content = EXCLUDED.content,
+              "updatedAt" = NOW()
+          `, chunkId, `${doc.title} (parte ${i + 1}/${chunks.length})`, chunk, doc.category, doc.source || null, doc.sourceUrl || null);
+        }
 
         created++;
       } catch (chunkError) {
-        console.error(`Erro ao processar chunk ${i}:`, chunkError);
+        console.error(`[RAG] Erro ao processar chunk ${i}:`, chunkError);
         // Continuar com os proximos chunks
       }
     }

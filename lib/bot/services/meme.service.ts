@@ -3,12 +3,6 @@ import path from 'path';
 
 import { sendChatCompletion } from '@/lib/openrouter';
 
-type MemeResult = {
-  caption: string;
-  imageBytes?: Buffer;
-  mimeType?: string;
-};
-
 type BotResponse = {
   content: string;
   type: 'text' | 'image';
@@ -48,7 +42,6 @@ async function generateMemePrompt(userMessage: string) {
 
   const text = response.content?.trim() || '';
   try {
-    // Remove markdown code blocks if present
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     return {
@@ -72,25 +65,81 @@ function parseDataUrl(dataUrl: string) {
   };
 }
 
-async function fetchImageBytes(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`OpenRouter image fetch error: ${res.status}`);
+/**
+ * Extrai bytes de imagem da resposta do OpenRouter
+ * Suporta multiplos formatos de resposta:
+ * - images[]: array de objetos {type: "image_url", image_url: {url: "data:..."}}
+ * - images[]: array de strings data URL
+ * - content[]: array de partes com type image_url
+ */
+function extractImageFromResponse(msg: Record<string, unknown>): { bytes: Buffer; mimeType: string } | null {
+  // 1. Check images array (formato atual do Gemini via OpenRouter)
+  if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
+    for (const img of msg.images as unknown[]) {
+      // Object format: { type: "image_url", image_url: { url: "data:..." } }
+      if (typeof img === 'object' && img !== null) {
+        const imgObj = img as Record<string, unknown>;
+        const imageUrl = imgObj.image_url as Record<string, unknown> | undefined;
+        const url = imageUrl?.url as string | undefined;
+
+        if (url && typeof url === 'string') {
+          if (url.startsWith('data:')) {
+            const parsed = parseDataUrl(url);
+            if (parsed) return parsed;
+          }
+        }
+
+        // Direct url on object
+        const directUrl = imgObj.url as string | undefined;
+        if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('data:')) {
+          const parsed = parseDataUrl(directUrl);
+          if (parsed) return parsed;
+        }
+
+        // b64_json format
+        const b64 = imgObj.b64_json as string | undefined;
+        if (b64) {
+          return {
+            bytes: Buffer.from(b64, 'base64'),
+            mimeType: (imgObj.mime_type as string) || 'image/png',
+          };
+        }
+      }
+
+      // String data URL format
+      if (typeof img === 'string' && img.startsWith('data:')) {
+        const parsed = parseDataUrl(img);
+        if (parsed) return parsed;
+      }
+    }
   }
-  const mimeType = res.headers.get('content-type') || 'image/png';
-  const buffer = Buffer.from(await res.arrayBuffer());
-  return { mimeType, bytes: buffer };
+
+  // 2. Check content array
+  if (Array.isArray(msg?.content)) {
+    for (const part of msg.content as Record<string, unknown>[]) {
+      if (part.type === 'image_url' || part.type === 'image') {
+        const imageUrl = part.image_url as Record<string, unknown> | undefined;
+        const url = (imageUrl?.url || part.url || part.data) as string | undefined;
+
+        if (url && typeof url === 'string' && url.startsWith('data:')) {
+          const parsed = parseDataUrl(url);
+          if (parsed) return parsed;
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
-async function generateOpenRouterImage(prompt: string): Promise<MemeResult> {
+async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer; mimeType: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image';
+  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-3-pro-image-preview';
 
   if (!apiKey) {
     throw new Error('Missing OPENROUTER_API_KEY');
   }
 
-  // Use the correct OpenRouter API format for image generation
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -104,109 +153,33 @@ async function generateOpenRouterImage(prompt: string): Promise<MemeResult> {
       messages: [
         {
           role: 'user',
-          content: `Generate a funny Corinthians football meme image: ${prompt}`,
+          content: `Gere uma imagem de meme engracado do Corinthians: ${prompt}`,
         },
       ],
       modalities: ['image', 'text'],
-      image_config: {
-        aspect_ratio: '1:1',
-      },
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenRouter image API error:', response.status, errorText);
+    console.error('[Meme] OpenRouter API error:', response.status, errorText.slice(0, 200));
     throw new Error(`OpenRouter API error: ${response.status}`);
   }
 
   const data = await response.json();
-  console.log('OpenRouter image response:', JSON.stringify(data, null, 2));
+  const msg = data.choices?.[0]?.message;
 
-  // Extract image from response
-  const choice = data.choices?.[0];
-  const message = choice?.message;
-
-  // Check for images array in message
-  if (message?.images && message.images.length > 0) {
-    const imageData = message.images[0];
-
-    // Handle base64 data URL
-    if (typeof imageData === 'string' && imageData.startsWith('data:')) {
-      const parsed = parseDataUrl(imageData);
-      if (parsed) {
-        return {
-          caption: 'Meme da Fiel',
-          imageBytes: parsed.bytes,
-          mimeType: parsed.mimeType,
-        };
-      }
-    }
-
-    // Handle URL
-    if (typeof imageData === 'string' && imageData.startsWith('http')) {
-      const fetched = await fetchImageBytes(imageData);
-      return {
-        caption: 'Meme da Fiel',
-        imageBytes: fetched.bytes,
-        mimeType: fetched.mimeType,
-      };
-    }
-
-    // Handle object with url or data property
-    if (typeof imageData === 'object') {
-      const url = imageData.url || imageData.data;
-      if (url && url.startsWith('data:')) {
-        const parsed = parseDataUrl(url);
-        if (parsed) {
-          return {
-            caption: 'Meme da Fiel',
-            imageBytes: parsed.bytes,
-            mimeType: parsed.mimeType,
-          };
-        }
-      }
-      if (url && url.startsWith('http')) {
-        const fetched = await fetchImageBytes(url);
-        return {
-          caption: 'Meme da Fiel',
-          imageBytes: fetched.bytes,
-          mimeType: fetched.mimeType,
-        };
-      }
-    }
+  if (!msg) {
+    throw new Error('OpenRouter response missing message');
   }
 
-  // Check content array for image parts
-  if (Array.isArray(message?.content)) {
-    for (const part of message.content) {
-      if (part.type === 'image' || part.type === 'image_url') {
-        const imageUrl = part.image_url?.url || part.url || part.data;
-        if (imageUrl) {
-          if (imageUrl.startsWith('data:')) {
-            const parsed = parseDataUrl(imageUrl);
-            if (parsed) {
-              return {
-                caption: 'Meme da Fiel',
-                imageBytes: parsed.bytes,
-                mimeType: parsed.mimeType,
-              };
-            }
-          }
-          if (imageUrl.startsWith('http')) {
-            const fetched = await fetchImageBytes(imageUrl);
-            return {
-              caption: 'Meme da Fiel',
-              imageBytes: fetched.bytes,
-              mimeType: fetched.mimeType,
-            };
-          }
-        }
-      }
-    }
+  const image = extractImageFromResponse(msg as Record<string, unknown>);
+  if (!image) {
+    console.error('[Meme] No image in response. Keys:', Object.keys(msg));
+    throw new Error('OpenRouter response missing image data');
   }
 
-  throw new Error('OpenRouter image response missing image data');
+  return image;
 }
 
 export async function generateMeme(userId: string, message: string): Promise<BotResponse> {
@@ -218,16 +191,16 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
     prompt = promptResult.prompt;
     caption = promptResult.caption;
   } catch (error) {
-    console.error('Meme prompt error:', error);
+    console.error('[Meme] Prompt error:', error);
   }
 
   try {
     const result = await generateOpenRouterImage(prompt);
     const dir = await ensureMemeDir();
-    const ext = result.mimeType?.includes('jpeg') ? 'jpg' : 'png';
+    const ext = result.mimeType.includes('jpeg') || result.mimeType.includes('jpg') ? 'jpg' : 'png';
     const filename = `meme-${Date.now()}.${ext}`;
     const filepath = path.join(dir, filename);
-    await fs.writeFile(filepath, result.imageBytes || Buffer.alloc(0));
+    await fs.writeFile(filepath, result.bytes);
 
     const mediaUrl = buildPublicUrl(filename);
     if (!mediaUrl) {
@@ -240,7 +213,7 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
       mediaUrl,
     };
   } catch (error) {
-    console.error('Meme generation error:', error);
+    console.error('[Meme] Generation error:', error);
     return {
       content: `${caption}\n\nNão consegui gerar a imagem agora. Tente novamente em instantes.`,
       type: 'text',

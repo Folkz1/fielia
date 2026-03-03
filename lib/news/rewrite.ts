@@ -88,8 +88,8 @@ export async function rewriteNewsWithAI(input: RewriteNewsInput) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  if (!title || !summary || !content || content.length < 400) {
-    throw new Error('AI returned invalid payload');
+  if (!title || !summary || !content) {
+    throw new Error('AI returned invalid payload (missing title, summary or content)');
   }
 
   return { title, summary, content, model: response.model, tokensUsed: response.tokensUsed };

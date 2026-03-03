@@ -40,7 +40,7 @@ export async function searchKnowledge(
         content,
         category,
         1 - (embedding <=> $1::vector) as similarity
-      FROM corinthians_knowledge
+      FROM knowledge_base
       WHERE embedding IS NOT NULL
         AND 1 - (embedding <=> $1::vector) > $2
       ORDER BY embedding <=> $1::vector

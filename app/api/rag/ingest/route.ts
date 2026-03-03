@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestDocument, ingestDocuments, IngestDocument } from "@/lib/rag";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/rag/ingest
  * Endpoint para ingestao de documentos no sistema RAG
+ *
+ * Auth: Bearer token via RAG_INGEST_API_KEY OU session de admin
  *
  * Body (documento unico):
  * {
@@ -18,17 +22,34 @@ import { ingestDocument, ingestDocuments, IngestDocument } from "@/lib/rag";
  * {
  *   "documents": [{ title, content, category, source?, sourceUrl? }]
  * }
- *
- * Headers:
- * - Authorization: Bearer <RAG_INGEST_API_KEY>
  */
 export async function POST(req: NextRequest) {
   try {
-    // Verificar autenticacao
+    // Verificar autenticacao: API key OU session de admin
     const authHeader = req.headers.get("authorization");
     const apiKey = process.env.RAG_INGEST_API_KEY;
+    let authorized = false;
 
-    if (apiKey && authHeader !== `Bearer ${apiKey}`) {
+    // Check 1: Bearer token
+    if (apiKey && authHeader === `Bearer ${apiKey}`) {
+      authorized = true;
+    }
+
+    // Check 2: Admin session (para chamadas do painel admin)
+    if (!authorized) {
+      const session = await auth();
+      if (session?.user?.id) {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { isAdmin: true },
+        });
+        if (user?.isAdmin) {
+          authorized = true;
+        }
+      }
+    }
+
+    if (!authorized) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

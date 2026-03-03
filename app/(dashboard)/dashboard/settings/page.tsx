@@ -17,12 +17,23 @@ const fetcher = (url: string) =>
     return res.json();
   });
 
+function formatCpf(value: string) {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 function SettingsPageInner() {
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
   const searchParams = useSearchParams();
   const shouldAutoSubscribe = searchParams.get("subscribe") === "1";
   const autoSubscribeStartedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cpfInput, setCpfInput] = useState("");
+  const [needsCpf, setNeedsCpf] = useState(false);
+  const [savingCpf, setSavingCpf] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<{
     status?: string | null;
     dueDate?: string | null;
@@ -39,10 +50,10 @@ function SettingsPageInner() {
   const userId = data?.userId || "";
   const subscriptionEnd = data?.subscriptionEnd ? new Date(data.subscriptionEnd) : null;
 
-  const handleSubscribe = useCallback(async () => {
+  const handleSubscribe = useCallback(async (cpf?: string) => {
     try {
       setErrorMessage(null);
-      const result = await createSubscription();
+      const result = await createSubscription(cpf);
 
       // Redirect to Asaas hosted checkout/invoice page
       if (result?.invoiceUrl) {
@@ -50,6 +61,7 @@ function SettingsPageInner() {
         return;
       }
 
+      setNeedsCpf(false);
       setPaymentInfo({
         status: result?.status || null,
         dueDate: result?.dueDate || null,
@@ -60,9 +72,34 @@ function SettingsPageInner() {
       await mutate();
     } catch (error) {
       console.error(error);
-      setErrorMessage(error instanceof Error ? error.message : "Falha ao criar assinatura");
+      const msg = error instanceof Error ? error.message : "Falha ao criar assinatura";
+      setErrorMessage(msg);
+      // Se o erro for de CPF, mostrar formulário inline
+      if (msg.toLowerCase().includes("cpf")) {
+        setNeedsCpf(true);
+      }
     }
   }, [createSubscription, mutate]);
+
+  const handleCpfSubmit = async () => {
+    const cpf = cpfInput.replace(/\D/g, "");
+    if (cpf.length !== 11) {
+      setErrorMessage("CPF inválido. Digite os 11 dígitos.");
+      return;
+    }
+    setSavingCpf(true);
+    try {
+      // Salva o CPF no perfil e já tenta assinar
+      await fetch("/api/user/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cpfCnpj: cpf }),
+      });
+      await handleSubscribe(cpf);
+    } finally {
+      setSavingCpf(false);
+    }
+  };
 
   useEffect(() => {
     if (!shouldAutoSubscribe) return;
@@ -216,13 +253,35 @@ function SettingsPageInner() {
                      <Crown className="w-12 h-12 text-[var(--gradient-accent-start)] mb-3" />
                      <p className="text-white font-semibold mb-1">Seja Fiel de verdade!</p>
                      <p className="text-xs text-gray-400 mb-4">Apoie o desenvolvimento e ganhe vantagens.</p>
-                     <Button
-                       className="w-full btn-primary"
-                       onClick={handleSubscribe}
-                       disabled={isProcessing || isLoading}
-                     >
-                       {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar no Cartao"}
-                     </Button>
+
+                     {needsCpf ? (
+                       <div className="w-full space-y-2">
+                         <p className="text-xs text-yellow-400 font-medium">Informe seu CPF para continuar:</p>
+                         <input
+                           type="text"
+                           inputMode="numeric"
+                           value={cpfInput}
+                           onChange={(e) => setCpfInput(formatCpf(e.target.value))}
+                           placeholder="000.000.000-00"
+                           className="w-full rounded-lg border border-gray-600 bg-black/40 px-3 py-2 text-center text-white text-sm focus:outline-none focus:border-yellow-500"
+                         />
+                         <Button
+                           className="w-full btn-primary"
+                           onClick={handleCpfSubmit}
+                           disabled={isProcessing || savingCpf || cpfInput.replace(/\D/g, "").length !== 11}
+                         >
+                           {isProcessing || savingCpf ? <LoadingSpinner size="sm" /> : "Confirmar e Assinar"}
+                         </Button>
+                       </div>
+                     ) : (
+                       <Button
+                         className="w-full btn-primary"
+                         onClick={() => handleSubscribe()}
+                         disabled={isProcessing || isLoading}
+                       >
+                         {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar no Cartao"}
+                       </Button>
+                     )}
                      <p className="text-[10px] text-gray-500 mt-2">Cancelamento a qualquer momento.</p>
                    </div>
                  </div>

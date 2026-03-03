@@ -285,6 +285,29 @@ export async function POST(req: NextRequest) {
 
         const existingStatus = String(existing.subscription?.status || '').toUpperCase();
         if (!replacedLegacySubscription && ACTIVE_SUBSCRIPTION_STATUSES.has(existingStatus)) {
+          // Antes de retornar 409, verifica se temos um pagamento pendente no banco local
+          // (Asaas às vezes não retorna pagamentos pendentes na API mas eles existem)
+          const localPending = await prisma.asaasPayment.findFirst({
+            where: {
+              userId,
+              asaasSubscriptionId: user.asaasSubscriptionId!,
+              status: { in: ['PENDING', 'AWAITING_RISK_ANALYSIS', 'OVERDUE'] },
+            },
+            orderBy: { dueDate: 'asc' },
+          });
+
+          if (localPending) {
+            return NextResponse.json({
+              reusedSubscription: true,
+              billingType: SUBSCRIPTION_BILLING_TYPE,
+              subscriptionId: user.asaasSubscriptionId,
+              paymentId: localPending.asaasPaymentId,
+              status: localPending.status,
+              dueDate: localPending.dueDate?.toISOString() || null,
+              invoiceUrl: localPending.invoiceUrl || null,
+            });
+          }
+
           return NextResponse.json(
             {
               error: 'There is already an active subscription for this user',

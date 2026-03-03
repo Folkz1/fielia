@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { ArrowLeft, Calendar, Share2, Tag } from 'lucide-react';
 import { enrichNewsIfNeeded } from '@/lib/news/enrich';
-import { splitParagraphs, stripHtmlToText } from '@/lib/news/text';
+import { sanitizeAndSplit } from '@/lib/news/text';
 
 export const runtime = 'nodejs';
 
@@ -40,8 +40,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
   }
 
   const resolved = await enrichNewsIfNeeded(news);
-  const contentText = stripHtmlToText(resolved.content || resolved.summary || '');
-  const paragraphs = splitParagraphs(contentText);
+  const paragraphs = sanitizeAndSplit(resolved.content || resolved.summary || '');
 
   return (
     <div className="min-h-screen">
@@ -109,9 +108,8 @@ export default async function NewsDetailPage({ params }: PageProps) {
                     ? 'text-lg md:text-xl text-gray-200 first-letter:text-5xl first-letter:font-bold first-letter:text-yellow-500 first-letter:float-left first-letter:mr-3 first-letter:mt-1'
                     : 'text-base md:text-lg'
                 }`}
-              >
-                {p}
-              </p>
+                dangerouslySetInnerHTML={{ __html: p }}
+              />
             ))
           ) : (
             <p className="text-gray-500 italic">Conteudo indisponivel.</p>

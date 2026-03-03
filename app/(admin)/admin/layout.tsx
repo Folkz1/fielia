@@ -15,7 +15,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/usuarios", icon: Users, label: "Usuarios" },
   { href: "/admin/noticias", icon: Newspaper, label: "Noticias" },
   { href: "/admin/blog", icon: Sparkles, label: "Blog IA" },
-  { href: "/admin/afiliados", icon: Megaphone, label: "Patrocinio" },
+  { href: "/admin/divulgacao", icon: Megaphone, label: "Divulgacao" },
   { href: "/admin/rag", icon: Database, label: "Base RAG" },
   { href: "/admin/sistema", icon: Settings, label: "Sistema" },
 ];

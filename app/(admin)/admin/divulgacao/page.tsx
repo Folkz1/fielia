@@ -56,7 +56,7 @@ const EMPTY_FORM = {
   revenueDetails: "",
 };
 
-export default function PatrocinioPage() {
+export default function DivulgacaoPage() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,10 +176,10 @@ export default function PatrocinioPage() {
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Megaphone className="w-6 h-6 text-orange-500" />
-            Patrocinio
+            Divulgacao
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            Gerencie parceiros patrocinadors e CTAs no blog, chat e newsletter
+            Gerencie parceiros de divulgacao e CTAs no blog, chat e newsletter
           </p>
         </div>
         <button

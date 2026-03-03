@@ -140,7 +140,19 @@ export default async function PublicNewsPage({ params }: PageProps) {
           )}
         </section>
 
-        <AffiliateCTA source="news" referrer={`/news/${resolved.id}`} variant="banner" className="mt-10" />
+        {/* CTA Assinar FIEL.IA */}
+        <div className="mt-10 rounded-xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/10 to-orange-500/5 p-6 text-center">
+          <h3 className="text-lg font-bold text-white mb-2">Quer mais conteudo exclusivo do Timao?</h3>
+          <p className="text-sm text-gray-400 mb-4">Assine o FIEL.IA e tenha acesso a memes IA, quiz, chat inteligente e muito mais!</p>
+          <Link
+            href="/auth/register"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg transition-colors"
+          >
+            Assinar FIEL.IA
+          </Link>
+        </div>
+
+        <AffiliateCTA source="news" referrer={`/news/${resolved.id}`} variant="banner" className="mt-6" />
 
         {resolved.sourceUrl && (
           <footer className="mt-12 pt-6 border-t border-white/10">

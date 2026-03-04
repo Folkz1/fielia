@@ -1,47 +1,33 @@
 /**
  * Servico de transcricao de videos do YouTube para RAG
  *
- * Estrategia de fallback:
- *   1. youtube-transcript-plus (com proxy via custom fetch)
- *   2. youtube-caption-extractor (sem proxy, funciona local)
- *   3. youtubei.js (ultimo recurso, tem bug de decipher na v16)
+ * Usa youtube-transcript-plus com proxy residencial Webshare.
+ * Retry com proxy diferente se falhar (ate MAX_RETRIES tentativas).
  */
 
 import { fetchTranscript } from "youtube-transcript-plus";
-import { getSubtitles, getVideoDetails } from "youtube-caption-extractor";
 import { Innertube } from "youtubei.js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const MAX_RETRIES = 3;
 
 /**
- * Cria proxy agent Webshare (residencial)
- * Usa session ID para sticky IP (mesmo IP em page + timedtext)
+ * Cria proxy agent Webshare com session ID unico (sticky IP)
  */
-function getProxyAgent(sticky?: boolean): HttpsProxyAgent<string> | undefined {
-  const host = process.env.WEBSHARE_PROXY_HOST;
-  const user = process.env.WEBSHARE_PROXY_USER;
-  const pass = process.env.WEBSHARE_PROXY_PASS;
+function getProxyAgent(sessionId?: number): HttpsProxyAgent<string> {
+  const host = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
+  const baseUser = process.env.WEBSHARE_PROXY_USER || "lumgcvpn-rotate";
+  const pass = process.env.WEBSHARE_PROXY_PASS || "";
   const port = process.env.WEBSHARE_PROXY_PORT || "80";
 
-  if (!host || !user || !pass) return undefined;
-
-  // Sticky session: usar um session ID fixo por request para manter mesmo IP
-  const proxyUser = sticky
-    ? user.replace("rotate", String(Math.floor(Math.random() * 100000) + 1))
-    : user;
+  // Sticky session: trocar "rotate" por numero fixo
+  const proxyUser = sessionId
+    ? baseUser.replace("rotate", String(sessionId))
+    : baseUser;
 
   return new HttpsProxyAgent(`http://${proxyUser}:${pass}@${host}:${port}`);
-}
-
-function createProxiedFetch(sticky?: boolean): typeof globalThis.fetch | undefined {
-  const agent = getProxyAgent(sticky);
-  if (!agent) return undefined;
-
-  return ((input: any, init?: any) => {
-    return fetch(input, { ...init, agent } as any);
-  }) as typeof globalThis.fetch;
 }
 
 export interface VideoInfo {
@@ -97,17 +83,6 @@ export function extractChannelInfo(url: string): { type: "id" | "handle" | "cust
 }
 
 /**
- * Cria instancia do Innertube (reusavel)
- */
-async function createYT() {
-  const proxiedFetch = createProxiedFetch();
-  return Innertube.create({
-    generate_session_locally: true,
-    ...(proxiedFetch ? { fetch: proxiedFetch } : {}),
-  });
-}
-
-/**
  * Resolve handle/custom URL para channel ID (UC...) via page scraping
  */
 async function resolveChannelId(channelUrl: string): Promise<string> {
@@ -127,14 +102,15 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
     pageUrl = `https://www.youtube.com/c/${channelInfo.value}`;
   }
 
-  const proxiedFetch = createProxiedFetch() || fetch;
-  const res = await proxiedFetch(pageUrl, {
+  const agent = getProxyAgent();
+  const res = await fetch(pageUrl, {
     headers: {
       "User-Agent": UA,
       "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
     },
     redirect: "follow",
-  });
+    agent,
+  } as any);
 
   if (!res.ok) {
     throw new Error(`Canal nao encontrado (HTTP ${res.status}). Verifique se a URL esta correta.`);
@@ -160,7 +136,15 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
  */
 export async function getChannelVideos(channelUrl: string, limit: number = 10): Promise<VideoInfo[]> {
   const channelId = await resolveChannelId(channelUrl);
-  const yt = await createYT();
+
+  const agent = getProxyAgent();
+  const proxiedFetch = ((input: any, init?: any) =>
+    fetch(input, { ...init, agent } as any)) as typeof globalThis.fetch;
+
+  const yt = await Innertube.create({
+    generate_session_locally: true,
+    fetch: proxiedFetch,
+  });
   const channel = await yt.getChannel(channelId);
 
   const videos = await channel.getVideos();
@@ -183,248 +167,126 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
   return results;
 }
 
-// ===== METODO 1: youtube-transcript-plus (com proxy) =====
-
 /**
- * Usa youtube-transcript-plus com custom fetch para proxy
- * Faz page fetch, player fetch e transcript fetch via proxy
+ * Faz UMA tentativa com um proxy + idioma especifico.
  */
-async function transcriptViaTranscriptPlus(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
-  // Usar sticky session para manter mesmo IP em todas as requests
-  const agent = getProxyAgent(true);
+async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[] }> {
+  const agent = getProxyAgent(sessionId);
 
-  const proxyFetchFn = agent
-    ? async ({ url, lang, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
-        return fetch(url, {
-          headers: { "User-Agent": userAgent || UA },
-          agent,
-        } as any);
-      }
-    : undefined;
+  const proxyFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
+    return fetch(url, { headers: { "User-Agent": userAgent || UA }, agent } as any);
+  };
 
-  const proxyPostFn = agent
-    ? async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
-        return fetch(url, {
-          method,
-          body,
-          headers,
-          agent,
-        } as any);
-      }
-    : undefined;
+  const proxyPostFn = async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
+    return fetch(url, { method, body, headers, agent } as any);
+  };
 
-  const languages = [preferredLang, "pt", "pt-BR", "en"];
-
-  for (const lang of languages) {
-    try {
-      const result = await fetchTranscript(videoId, {
-        lang,
-        ...(proxyFetchFn ? {
-          videoFetch: proxyFetchFn,
-          playerFetch: proxyPostFn as any,
-          transcriptFetch: proxyFetchFn,
-        } : {}),
-      });
-
-      if (result && result.length > 0) {
-        const text = result
-          .map((s: { text: string }) => s.text)
-          .join(" ")
-          .replace(/\n/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        if (text.length > 50) {
-          console.log(`[YouTube] transcript-plus OK (lang=${lang}, ${text.length} chars)`);
-          return text;
-        }
-      }
-    } catch (err) {
-      console.log(`[YouTube] transcript-plus falhou (lang=${lang}):`, err instanceof Error ? err.message : err);
-    }
-  }
-
-  return null;
-}
-
-// ===== METODO 2: youtube-caption-extractor (sem proxy) =====
-
-/**
- * Tenta extrair legendas usando youtube-caption-extractor
- * Nao suporta proxy - funciona melhor em ambiente local
- */
-async function transcriptViaCaptionExtractor(videoId: string, lang: string = "pt"): Promise<string | null> {
-  const languages = [lang, "pt", "pt-BR", "en", ""];
-
-  for (const tryLang of languages) {
-    try {
-      const subtitles = await getSubtitles({ videoID: videoId, lang: tryLang || undefined });
-
-      if (subtitles && subtitles.length > 0) {
-        const text = subtitles
-          .map((s: { text: string }) => s.text)
-          .join(" ")
-          .replace(/\n/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        if (text.length > 50) {
-          console.log(`[YouTube] Caption extractor OK (lang=${tryLang || 'auto'}, ${text.length} chars)`);
-          return text;
-        }
-      }
-    } catch (err) {
-      console.log(`[YouTube] Caption extractor falhou (lang=${tryLang || 'auto'}):`, err instanceof Error ? err.message : err);
-    }
-  }
-
-  return null;
-}
-
-// ===== METODO 3: youtubei.js timedtext (ultimo fallback) =====
-
-interface TimedTextEvent {
-  segs?: { utf8: string }[];
-}
-
-interface TimedTextResponse {
-  events?: TimedTextEvent[];
-}
-
-/**
- * Tenta extrair legendas via youtubei.js + timedtext API
- * NOTA: youtubei.js v16 tem bug com decipher - warnings sao esperados
- */
-async function transcriptViaInnertube(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
   try {
-    const yt = await createYT();
-    const info = await yt.getInfo(videoId);
+    const result = await fetchTranscript(videoId, {
+      lang,
+      videoFetch: proxyFetchFn,
+      playerFetch: proxyPostFn as any,
+      transcriptFetch: proxyFetchFn,
+    });
 
-    if (!info.captions) {
-      console.log("[YouTube] Innertube: sem captions no response");
-      return null;
+    if (result && result.length > 0) {
+      const text = result
+        .map((s: { text: string }) => s.text)
+        .join(" ")
+        .replace(/\n/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (text.length > 50) return { text };
     }
-
-    const tracks = info.captions.caption_tracks;
-    if (!tracks || tracks.length === 0) {
-      console.log("[YouTube] Innertube: caption_tracks vazio");
-      return null;
-    }
-
-    console.log(`[YouTube] Innertube: ${tracks.length} tracks encontradas: ${tracks.map(t => `${t.language_code}(${t.kind || 'manual'})`).join(', ')}`);
-
-    const priority = [
-      tracks.find(t => t.language_code === 'pt' && t.kind !== 'asr'),
-      tracks.find(t => t.language_code === 'pt-BR' && t.kind !== 'asr'),
-      tracks.find(t => t.language_code?.startsWith('pt')),
-      tracks.find(t => t.language_code === preferredLang && t.kind !== 'asr'),
-      tracks.find(t => t.language_code === preferredLang),
-      tracks.find(t => t.language_code === 'en' && t.kind !== 'asr'),
-      tracks.find(t => t.language_code === 'en'),
-      tracks[0],
-    ];
-
-    const selectedTrack = priority.find(Boolean);
-    if (!selectedTrack?.base_url) {
-      console.log("[YouTube] Innertube: nenhum track com base_url");
-      return null;
-    }
-
-    const url = selectedTrack.base_url + '&fmt=json3';
-    const timedtextFetch = createProxiedFetch() || fetch;
-    const res = await timedtextFetch(url);
-
-    if (!res.ok) {
-      console.log(`[YouTube] Innertube: timedtext HTTP ${res.status}`);
-      return null;
-    }
-
-    const data: TimedTextResponse = await res.json();
-
-    if (!data.events || data.events.length === 0) {
-      console.log("[YouTube] Innertube: events vazio");
-      return null;
-    }
-
-    const transcript = data.events
-      .filter(e => e.segs)
-      .map(e => e.segs!.map(s => s.utf8).join(''))
-      .join(' ')
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (transcript.length > 50) {
-      console.log(`[YouTube] Innertube OK (${transcript.length} chars)`);
-      return transcript;
-    }
-
-    return null;
+    return { text: null };
   } catch (err) {
-    console.log("[YouTube] Innertube falhou:", err instanceof Error ? err.message : err);
-    return null;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`[YouTube] lang=${lang} session=${sessionId}: ${msg.substring(0, 120)}`);
+
+    // Extrair idiomas disponiveis do erro
+    const availMatch = msg.match(/Available languages?: (.+?)\.?\s*(?:Please|$)/i);
+    if (availMatch) {
+      const available = availMatch[1].split(",").map(s => s.trim()).filter(Boolean);
+      return { text: null, availableLangs: available };
+    }
+    return { text: null };
   }
 }
 
 /**
- * Busca legendas de um video com fallback chain
- * 1. youtube-transcript-plus (com proxy, mais robusto)
- * 2. youtube-caption-extractor (sem proxy, funciona local)
- * 3. youtubei.js + timedtext API (ultimo recurso)
+ * Busca legendas de um video usando proxy residencial.
+ * Cada tentativa usa um proxy diferente (IP diferente).
+ * Se o idioma nao existe, extrai a lista de disponiveis e tenta cada um.
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Metodo 1: youtube-transcript-plus (com proxy)
-  const result1 = await transcriptViaTranscriptPlus(videoId, preferredLang);
-  if (result1) return result1;
+  // Sempre portugues - priorizar pt-BR > pt
+  const langQueue = ["pt-BR", "pt", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
+  const tried = new Set<string>();
+  let lastError = "";
 
-  // Metodo 2: youtube-caption-extractor (sem proxy)
-  const result2 = await transcriptViaCaptionExtractor(videoId, preferredLang);
-  if (result2) return result2;
+  for (let i = 0; i < langQueue.length && i < MAX_RETRIES * 3; i++) {
+    const lang = langQueue[i];
+    if (tried.has(lang)) continue;
+    tried.add(lang);
 
-  // Metodo 3: youtubei.js + timedtext (ultimo recurso)
-  const result3 = await transcriptViaInnertube(videoId, preferredLang);
-  if (result3) return result3;
+    // Proxy novo para cada tentativa (IP diferente = evita 429)
+    const sessionId = Math.floor(Math.random() * 200000) + 1;
+    console.log(`[YouTube] Tentando lang=${lang} (proxy ${sessionId})`);
+
+    const { text, availableLangs } = await singleAttempt(videoId, lang, sessionId);
+
+    if (text) {
+      console.log(`[YouTube] OK lang=${lang} (${text.length} chars)`);
+      return text;
+    }
+
+    // Se a lib retornou idiomas disponiveis, adicionar so os PT na fila
+    if (availableLangs) {
+      const ptLangs = availableLangs.filter(l => l.startsWith("pt"));
+      for (const avail of ptLangs) {
+        if (!tried.has(avail) && !langQueue.includes(avail)) {
+          langQueue.push(avail);
+        }
+      }
+    }
+
+    lastError = `lang=${lang} falhou`;
+
+    // Pequeno delay entre tentativas
+    if (i < langQueue.length - 1) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
 
   throw new Error(
-    "Nao foi possivel obter legendas deste video. " +
-    "Verifique se o video possui legendas (manuais ou automaticas) habilitadas. " +
-    "Videos sem legendas nao podem ser transcritos."
+    `Nao foi possivel obter legendas apos ${tried.size} tentativas. ` +
+    `Ultimo erro: ${lastError}. ` +
+    "Verifique se o video possui legendas habilitadas."
   );
 }
 
 /**
- * Busca info basica do video (titulo, etc)
+ * Busca info basica do video (titulo, etc) via HTML scraping com proxy
  */
 export async function getVideoInfo(videoId: string): Promise<{ title: string; hasCaptions: boolean }> {
-  // Tentar youtube-caption-extractor primeiro
   try {
-    const details = await getVideoDetails({ videoID: videoId, lang: "pt" });
-    if (details?.title) {
-      const hasCaptions = details.subtitles && details.subtitles.length > 0;
-      return {
-        title: details.title,
-        hasCaptions: hasCaptions ?? false,
-      };
-    }
-  } catch {
-    // fallback para innertube
-  }
+    const agent = getProxyAgent();
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { "User-Agent": UA, "Accept-Language": "pt-BR" },
+      agent,
+    } as any);
+    const html = await res.text();
 
-  // Fallback: youtubei.js
-  try {
-    const yt = await createYT();
-    const info = await yt.getInfo(videoId);
-    return {
-      title: info.basic_info.title || `Video ${videoId}`,
-      hasCaptions: !!info.captions && (info.captions.caption_tracks?.length || 0) > 0,
-    };
+    const titleMatch = html.match(/<title>(.+?)<\/title>/);
+    const title = titleMatch?.[1]?.replace(" - YouTube", "").trim() || `Video ${videoId}`;
+    const hasCaptions = html.includes("captionTracks");
+
+    return { title, hasCaptions };
   } catch {
-    return {
-      title: `Video ${videoId}`,
-      hasCaptions: true,
-    };
+    return { title: `Video ${videoId}`, hasCaptions: true };
   }
 }
 

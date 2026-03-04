@@ -24,7 +24,7 @@ async function fix() {
 
     // 2. Verificar tipo atual da coluna embedding
     const col = await client.query(
-      "SELECT udt_name FROM information_schema.columns WHERE table_name = 'corinthians_knowledge' AND column_name = 'embedding'"
+      "SELECT udt_name FROM information_schema.columns WHERE table_name = 'knowledge_base' AND column_name = 'embedding'"
     );
     const currentType = col.rows[0]?.udt_name || 'NOT_FOUND';
     console.log(`[FIX] Tipo atual da coluna embedding: ${currentType}`);
@@ -37,13 +37,13 @@ async function fix() {
 
       // Primeiro, limpar embeddings invalidos (null ou vazios)
       await client.query(`
-        UPDATE corinthians_knowledge
+        UPDATE knowledge_base
         SET embedding = NULL
         WHERE embedding IS NOT NULL AND array_length(embedding, 1) != 1536
       `);
 
       await client.query(`
-        ALTER TABLE corinthians_knowledge
+        ALTER TABLE knowledge_base
         ALTER COLUMN embedding TYPE vector(1536)
         USING embedding::vector(1536)
       `);
@@ -52,7 +52,7 @@ async function fix() {
       console.log(`[FIX] Tipo inesperado: ${currentType}. Tentando alterar...`);
       try {
         await client.query(`
-          ALTER TABLE corinthians_knowledge
+          ALTER TABLE knowledge_base
           ALTER COLUMN embedding TYPE vector(1536)
           USING CASE WHEN embedding IS NULL THEN NULL ELSE embedding::vector(1536) END
         `);
@@ -61,8 +61,8 @@ async function fix() {
         console.error('[FIX] Falha ao alterar coluna:', e.message);
         // Fallback: dropar e recriar a coluna
         console.log('[FIX] Tentando dropar e recriar coluna...');
-        await client.query('ALTER TABLE corinthians_knowledge DROP COLUMN IF EXISTS embedding');
-        await client.query('ALTER TABLE corinthians_knowledge ADD COLUMN embedding vector(1536)');
+        await client.query('ALTER TABLE knowledge_base DROP COLUMN IF EXISTS embedding');
+        await client.query('ALTER TABLE knowledge_base ADD COLUMN embedding vector(1536)');
         console.log('[FIX] Coluna recriada como vector(1536).');
       }
     }
@@ -71,17 +71,17 @@ async function fix() {
     console.log('[FIX] Criando indice HNSW...');
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_ck_embedding_hnsw
-      ON corinthians_knowledge
+      ON knowledge_base
       USING hnsw (embedding vector_cosine_ops)
     `);
     console.log('[FIX] Indice HNSW criado.');
 
     // Verificacao final
     const finalCol = await client.query(
-      "SELECT udt_name FROM information_schema.columns WHERE table_name = 'corinthians_knowledge' AND column_name = 'embedding'"
+      "SELECT udt_name FROM information_schema.columns WHERE table_name = 'knowledge_base' AND column_name = 'embedding'"
     );
-    const cnt = await client.query('SELECT count(*) as c FROM corinthians_knowledge');
-    const withEmb = await client.query('SELECT count(*) as c FROM corinthians_knowledge WHERE embedding IS NOT NULL');
+    const cnt = await client.query('SELECT count(*) as c FROM knowledge_base');
+    const withEmb = await client.query('SELECT count(*) as c FROM knowledge_base WHERE embedding IS NOT NULL');
 
     console.log('\n=== RESULTADO ===');
     console.log(`Tipo coluna embedding: ${finalCol.rows[0]?.udt_name}`);

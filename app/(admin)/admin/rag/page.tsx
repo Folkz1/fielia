@@ -220,7 +220,7 @@ export default function AdminRAGPage() {
 
   // YouTube: detectar tipo de URL e processar
   function isVideoUrl(url: string): boolean {
-    return /(?:youtube\.com\/watch|youtu\.be\/)/.test(url);
+    return /(?:youtube\.com\/watch|youtu\.be\/|^[a-zA-Z0-9_-]{11}$)/.test(url.trim());
   }
 
   function isChannelUrl(url: string): boolean {
@@ -694,15 +694,15 @@ export default function AdminRAGPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">URL do YouTube *</label>
+                <label className="block text-sm font-medium mb-1">URL ou ID do YouTube *</label>
                 <input
-                  type="url"
+                  type="text"
                   value={ytUrl}
                   onChange={(e) => {
                     setYtUrl(e.target.value);
                     setYtVideos([]);
                   }}
-                  placeholder="https://youtube.com/watch?v=... ou https://youtube.com/@canal"
+                  placeholder="https://youtube.com/watch?v=... ou ID do video ou https://youtube.com/@canal"
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
                 />
                 {ytUrl && (

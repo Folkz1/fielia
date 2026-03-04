@@ -210,7 +210,7 @@ async function transcriptViaCaptionExtractor(videoId: string, lang: string = "pt
   return null;
 }
 
-// ===== METODO 2: youtubei.js timedtext (fallback) =====
+// ===== METODO 2: HTML scraping direto (mais robusto) =====
 
 interface TimedTextEvent {
   segs?: { utf8: string }[];
@@ -220,9 +220,126 @@ interface TimedTextResponse {
   events?: TimedTextEvent[];
 }
 
+interface CaptionTrackRaw {
+  baseUrl: string;
+  languageCode: string;
+  kind?: string;
+  name?: { simpleText?: string };
+}
+
+/**
+ * Extrai legendas direto do HTML da pagina do YouTube
+ * Nao depende de Innertube/decipher - pega captionTracks do ytInitialPlayerResponse
+ * Usa proxy para evitar bloqueio de datacenter
+ */
+async function transcriptViaHtmlScraping(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
+  try {
+    const proxiedFetch = createProxiedFetch() || fetch;
+    const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    const res = await proxiedFetch(pageUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+
+    if (!res.ok) {
+      console.log(`[YouTube] HTML scraping: HTTP ${res.status}`);
+      return null;
+    }
+
+    const html = await res.text();
+
+    // Extrair ytInitialPlayerResponse do HTML
+    const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s)
+      || html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+
+    if (!playerMatch) {
+      console.log("[YouTube] HTML scraping: ytInitialPlayerResponse nao encontrado");
+      return null;
+    }
+
+    let playerData: any;
+    try {
+      playerData = JSON.parse(playerMatch[1]);
+    } catch {
+      console.log("[YouTube] HTML scraping: falha ao parsear playerResponse");
+      return null;
+    }
+
+    const captionTracks: CaptionTrackRaw[] =
+      playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+    if (!captionTracks || captionTracks.length === 0) {
+      console.log("[YouTube] HTML scraping: sem captionTracks");
+      return null;
+    }
+
+    console.log(`[YouTube] HTML scraping: ${captionTracks.length} tracks: ${captionTracks.map(t => `${t.languageCode}(${t.kind || 'manual'})`).join(', ')}`);
+
+    // Priorizar tracks
+    const priority = [
+      captionTracks.find(t => t.languageCode === 'pt' && t.kind !== 'asr'),
+      captionTracks.find(t => t.languageCode === 'pt-BR' && t.kind !== 'asr'),
+      captionTracks.find(t => t.languageCode?.startsWith('pt')),
+      captionTracks.find(t => t.languageCode === preferredLang && t.kind !== 'asr'),
+      captionTracks.find(t => t.languageCode === preferredLang),
+      captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr'),
+      captionTracks.find(t => t.languageCode === 'en'),
+      captionTracks[0],
+    ];
+
+    const selectedTrack = priority.find(Boolean);
+    if (!selectedTrack?.baseUrl) {
+      console.log("[YouTube] HTML scraping: nenhum track com baseUrl");
+      return null;
+    }
+
+    // Buscar timedtext JSON
+    const ttUrl = selectedTrack.baseUrl + '&fmt=json3';
+    const ttRes = await proxiedFetch(ttUrl);
+
+    if (!ttRes.ok) {
+      console.log(`[YouTube] HTML scraping: timedtext HTTP ${ttRes.status}`);
+      return null;
+    }
+
+    const data: TimedTextResponse = await ttRes.json();
+
+    if (!data.events || data.events.length === 0) {
+      console.log("[YouTube] HTML scraping: events vazio");
+      return null;
+    }
+
+    const transcript = data.events
+      .filter(e => e.segs)
+      .map(e => e.segs!.map(s => s.utf8).join(''))
+      .join(' ')
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (transcript.length > 50) {
+      console.log(`[YouTube] HTML scraping OK (lang=${selectedTrack.languageCode}, ${transcript.length} chars)`);
+      return transcript;
+    }
+
+    return null;
+  } catch (err) {
+    console.log("[YouTube] HTML scraping falhou:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ===== METODO 3: youtubei.js timedtext (ultimo fallback) =====
+
 /**
  * Tenta extrair legendas via youtubei.js + timedtext API
  * Pode falhar em servidores cloud (YouTube bloqueia IPs de datacenter)
+ * NOTA: youtubei.js v16 tem bug com decipher - warnings sao esperados
  */
 async function transcriptViaInnertube(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
   try {
@@ -297,19 +414,24 @@ async function transcriptViaInnertube(videoId: string, preferredLang: string = "
 
 /**
  * Busca legendas de um video com fallback chain
- * Metodo 1: youtube-caption-extractor (mais robusto)
- * Metodo 2: youtubei.js + timedtext API (fallback)
+ * Metodo 1: HTML scraping direto + proxy (mais robusto, sem decipher)
+ * Metodo 2: youtube-caption-extractor (sem proxy, funciona local)
+ * Metodo 3: youtubei.js + timedtext API (ultimo recurso)
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Metodo 1: youtube-caption-extractor
-  const result1 = await transcriptViaCaptionExtractor(videoId, preferredLang);
+  // Metodo 1: HTML scraping direto (usa proxy, sem decipher)
+  const result1 = await transcriptViaHtmlScraping(videoId, preferredLang);
   if (result1) return result1;
 
-  // Metodo 2: youtubei.js + timedtext
-  const result2 = await transcriptViaInnertube(videoId, preferredLang);
+  // Metodo 2: youtube-caption-extractor (sem proxy)
+  const result2 = await transcriptViaCaptionExtractor(videoId, preferredLang);
   if (result2) return result2;
+
+  // Metodo 3: youtubei.js + timedtext (ultimo recurso)
+  const result3 = await transcriptViaInnertube(videoId, preferredLang);
+  if (result3) return result3;
 
   throw new Error(
     "Nao foi possivel obter legendas deste video. " +

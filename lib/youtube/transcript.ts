@@ -1,23 +1,25 @@
 /**
  * Servico de transcricao de videos do YouTube para RAG
  *
- * Estrategia de fallback (YouTube bloqueia bots em IPs de datacenter):
- *   1. youtube-caption-extractor (dual method: XML + engagement panel)
- *   2. youtubei.js timedtext API (fallback)
- *
- * Ref: https://github.com/LuanRT/YouTube.js/issues/1102
+ * Estrategia de fallback:
+ *   1. youtube-transcript-plus (com proxy via custom fetch)
+ *   2. youtube-caption-extractor (sem proxy, funciona local)
+ *   3. youtubei.js (ultimo recurso, tem bug de decipher na v16)
  */
 
+import { fetchTranscript } from "youtube-transcript-plus";
 import { getSubtitles, getVideoDetails } from "youtube-caption-extractor";
 import { Innertube } from "youtubei.js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 /**
- * Cria fetch com proxy Webshare (residencial) para evitar bloqueio YouTube
- * Env vars: WEBSHARE_PROXY_HOST, WEBSHARE_PROXY_USER, WEBSHARE_PROXY_PASS, WEBSHARE_PROXY_PORT
+ * Cria proxy agent Webshare (residencial)
+ * Usa session ID para sticky IP (mesmo IP em page + timedtext)
  */
-function getProxyAgent(): HttpsProxyAgent<string> | undefined {
+function getProxyAgent(sticky?: boolean): HttpsProxyAgent<string> | undefined {
   const host = process.env.WEBSHARE_PROXY_HOST;
   const user = process.env.WEBSHARE_PROXY_USER;
   const pass = process.env.WEBSHARE_PROXY_PASS;
@@ -25,11 +27,16 @@ function getProxyAgent(): HttpsProxyAgent<string> | undefined {
 
   if (!host || !user || !pass) return undefined;
 
-  return new HttpsProxyAgent(`http://${user}:${pass}@${host}:${port}`);
+  // Sticky session: usar um session ID fixo por request para manter mesmo IP
+  const proxyUser = sticky
+    ? user.replace("rotate", String(Math.floor(Math.random() * 100000) + 1))
+    : user;
+
+  return new HttpsProxyAgent(`http://${proxyUser}:${pass}@${host}:${port}`);
 }
 
-function createProxiedFetch(): typeof globalThis.fetch | undefined {
-  const agent = getProxyAgent();
+function createProxiedFetch(sticky?: boolean): typeof globalThis.fetch | undefined {
+  const agent = getProxyAgent(sticky);
   if (!agent) return undefined;
 
   return ((input: any, init?: any) => {
@@ -123,7 +130,7 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
   const proxiedFetch = createProxiedFetch() || fetch;
   const res = await proxiedFetch(pageUrl, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "User-Agent": UA,
       "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
     },
     redirect: "follow",
@@ -176,11 +183,75 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
   return results;
 }
 
-// ===== METODO 1: youtube-caption-extractor (primario) =====
+// ===== METODO 1: youtube-transcript-plus (com proxy) =====
+
+/**
+ * Usa youtube-transcript-plus com custom fetch para proxy
+ * Faz page fetch, player fetch e transcript fetch via proxy
+ */
+async function transcriptViaTranscriptPlus(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
+  // Usar sticky session para manter mesmo IP em todas as requests
+  const agent = getProxyAgent(true);
+
+  const proxyFetchFn = agent
+    ? async ({ url, lang, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
+        return fetch(url, {
+          headers: { "User-Agent": userAgent || UA },
+          agent,
+        } as any);
+      }
+    : undefined;
+
+  const proxyPostFn = agent
+    ? async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
+        return fetch(url, {
+          method,
+          body,
+          headers,
+          agent,
+        } as any);
+      }
+    : undefined;
+
+  const languages = [preferredLang, "pt", "pt-BR", "en"];
+
+  for (const lang of languages) {
+    try {
+      const result = await fetchTranscript(videoId, {
+        lang,
+        ...(proxyFetchFn ? {
+          videoFetch: proxyFetchFn,
+          playerFetch: proxyPostFn as any,
+          transcriptFetch: proxyFetchFn,
+        } : {}),
+      });
+
+      if (result && result.length > 0) {
+        const text = result
+          .map((s: { text: string }) => s.text)
+          .join(" ")
+          .replace(/\n/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (text.length > 50) {
+          console.log(`[YouTube] transcript-plus OK (lang=${lang}, ${text.length} chars)`);
+          return text;
+        }
+      }
+    } catch (err) {
+      console.log(`[YouTube] transcript-plus falhou (lang=${lang}):`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  return null;
+}
+
+// ===== METODO 2: youtube-caption-extractor (sem proxy) =====
 
 /**
  * Tenta extrair legendas usando youtube-caption-extractor
- * Mais robusto contra bloqueios do YouTube (dual method)
+ * Nao suporta proxy - funciona melhor em ambiente local
  */
 async function transcriptViaCaptionExtractor(videoId: string, lang: string = "pt"): Promise<string | null> {
   const languages = [lang, "pt", "pt-BR", "en", ""];
@@ -210,7 +281,7 @@ async function transcriptViaCaptionExtractor(videoId: string, lang: string = "pt
   return null;
 }
 
-// ===== METODO 2: HTML scraping direto (mais robusto) =====
+// ===== METODO 3: youtubei.js timedtext (ultimo fallback) =====
 
 interface TimedTextEvent {
   segs?: { utf8: string }[];
@@ -220,125 +291,8 @@ interface TimedTextResponse {
   events?: TimedTextEvent[];
 }
 
-interface CaptionTrackRaw {
-  baseUrl: string;
-  languageCode: string;
-  kind?: string;
-  name?: { simpleText?: string };
-}
-
-/**
- * Extrai legendas direto do HTML da pagina do YouTube
- * Nao depende de Innertube/decipher - pega captionTracks do ytInitialPlayerResponse
- * Usa proxy para evitar bloqueio de datacenter
- */
-async function transcriptViaHtmlScraping(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
-  try {
-    const proxiedFetch = createProxiedFetch() || fetch;
-    const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-    const res = await proxiedFetch(pageUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        "Accept": "text/html,application/xhtml+xml",
-      },
-      redirect: "follow",
-    });
-
-    if (!res.ok) {
-      console.log(`[YouTube] HTML scraping: HTTP ${res.status}`);
-      return null;
-    }
-
-    const html = await res.text();
-
-    // Extrair ytInitialPlayerResponse do HTML
-    const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s)
-      || html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
-
-    if (!playerMatch) {
-      console.log("[YouTube] HTML scraping: ytInitialPlayerResponse nao encontrado");
-      return null;
-    }
-
-    let playerData: any;
-    try {
-      playerData = JSON.parse(playerMatch[1]);
-    } catch {
-      console.log("[YouTube] HTML scraping: falha ao parsear playerResponse");
-      return null;
-    }
-
-    const captionTracks: CaptionTrackRaw[] =
-      playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-    if (!captionTracks || captionTracks.length === 0) {
-      console.log("[YouTube] HTML scraping: sem captionTracks");
-      return null;
-    }
-
-    console.log(`[YouTube] HTML scraping: ${captionTracks.length} tracks: ${captionTracks.map(t => `${t.languageCode}(${t.kind || 'manual'})`).join(', ')}`);
-
-    // Priorizar tracks
-    const priority = [
-      captionTracks.find(t => t.languageCode === 'pt' && t.kind !== 'asr'),
-      captionTracks.find(t => t.languageCode === 'pt-BR' && t.kind !== 'asr'),
-      captionTracks.find(t => t.languageCode?.startsWith('pt')),
-      captionTracks.find(t => t.languageCode === preferredLang && t.kind !== 'asr'),
-      captionTracks.find(t => t.languageCode === preferredLang),
-      captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr'),
-      captionTracks.find(t => t.languageCode === 'en'),
-      captionTracks[0],
-    ];
-
-    const selectedTrack = priority.find(Boolean);
-    if (!selectedTrack?.baseUrl) {
-      console.log("[YouTube] HTML scraping: nenhum track com baseUrl");
-      return null;
-    }
-
-    // Buscar timedtext JSON
-    const ttUrl = selectedTrack.baseUrl + '&fmt=json3';
-    const ttRes = await proxiedFetch(ttUrl);
-
-    if (!ttRes.ok) {
-      console.log(`[YouTube] HTML scraping: timedtext HTTP ${ttRes.status}`);
-      return null;
-    }
-
-    const data: TimedTextResponse = await ttRes.json();
-
-    if (!data.events || data.events.length === 0) {
-      console.log("[YouTube] HTML scraping: events vazio");
-      return null;
-    }
-
-    const transcript = data.events
-      .filter(e => e.segs)
-      .map(e => e.segs!.map(s => s.utf8).join(''))
-      .join(' ')
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (transcript.length > 50) {
-      console.log(`[YouTube] HTML scraping OK (lang=${selectedTrack.languageCode}, ${transcript.length} chars)`);
-      return transcript;
-    }
-
-    return null;
-  } catch (err) {
-    console.log("[YouTube] HTML scraping falhou:", err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
-// ===== METODO 3: youtubei.js timedtext (ultimo fallback) =====
-
 /**
  * Tenta extrair legendas via youtubei.js + timedtext API
- * Pode falhar em servidores cloud (YouTube bloqueia IPs de datacenter)
  * NOTA: youtubei.js v16 tem bug com decipher - warnings sao esperados
  */
 async function transcriptViaInnertube(videoId: string, preferredLang: string = "pt"): Promise<string | null> {
@@ -414,15 +368,15 @@ async function transcriptViaInnertube(videoId: string, preferredLang: string = "
 
 /**
  * Busca legendas de um video com fallback chain
- * Metodo 1: HTML scraping direto + proxy (mais robusto, sem decipher)
- * Metodo 2: youtube-caption-extractor (sem proxy, funciona local)
- * Metodo 3: youtubei.js + timedtext API (ultimo recurso)
+ * 1. youtube-transcript-plus (com proxy, mais robusto)
+ * 2. youtube-caption-extractor (sem proxy, funciona local)
+ * 3. youtubei.js + timedtext API (ultimo recurso)
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Metodo 1: HTML scraping direto (usa proxy, sem decipher)
-  const result1 = await transcriptViaHtmlScraping(videoId, preferredLang);
+  // Metodo 1: youtube-transcript-plus (com proxy)
+  const result1 = await transcriptViaTranscriptPlus(videoId, preferredLang);
   if (result1) return result1;
 
   // Metodo 2: youtube-caption-extractor (sem proxy)
@@ -442,14 +396,12 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
 
 /**
  * Busca info basica do video (titulo, etc)
- * Usa youtube-caption-extractor primeiro (mais confiavel)
  */
 export async function getVideoInfo(videoId: string): Promise<{ title: string; hasCaptions: boolean }> {
   // Tentar youtube-caption-extractor primeiro
   try {
     const details = await getVideoDetails({ videoID: videoId, lang: "pt" });
     if (details?.title) {
-      // Se retornou detalhes, provavelmente tem legendas
       const hasCaptions = details.subtitles && details.subtitles.length > 0;
       return {
         title: details.title,
@@ -471,7 +423,7 @@ export async function getVideoInfo(videoId: string): Promise<{ title: string; ha
   } catch {
     return {
       title: `Video ${videoId}`,
-      hasCaptions: true, // Assumir que tem - vai tentar transcrever de qualquer forma
+      hasCaptions: true,
     };
   }
 }
@@ -485,7 +437,6 @@ export async function transcribeAndIngest(
   category: string = "general"
 ): Promise<TranscriptResult> {
   try {
-    // Se nao tem titulo, buscar do video
     if (!title || title.startsWith('Video ')) {
       try {
         const vInfo = await getVideoInfo(videoId);

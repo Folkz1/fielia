@@ -170,7 +170,7 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 /**
  * Faz UMA tentativa com um proxy + idioma especifico.
  */
-async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[] }> {
+async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean }> {
   const agent = getProxyAgent(sessionId);
 
   const proxyFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
@@ -204,13 +204,16 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
     const msg = err instanceof Error ? err.message : String(err);
     console.log(`[YouTube] lang=${lang} session=${sessionId}: ${msg.substring(0, 120)}`);
 
+    // Detectar rate limit (429) para retry com proxy diferente
+    const isRateLimit = msg.includes("too many requests") || msg.includes("429");
+
     // Extrair idiomas disponiveis do erro
     const availMatch = msg.match(/Available languages?: (.+?)\.?\s*(?:Please|$)/i);
     if (availMatch) {
       const available = availMatch[1].split(",").map(s => s.trim()).filter(Boolean);
-      return { text: null, availableLangs: available };
+      return { text: null, availableLangs: available, isRateLimit };
     }
-    return { text: null };
+    return { text: null, isRateLimit };
   }
 }
 
@@ -222,12 +225,14 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Sempre portugues - priorizar pt-BR > pt
+  // Prioridade: pt-BR > pt > preferido
   const langQueue = ["pt-BR", "pt", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
   const tried = new Set<string>();
   let lastError = "";
+  let rateLimitRetries = 0;
+  const MAX_RATE_LIMIT_RETRIES = 3;
 
-  for (let i = 0; i < langQueue.length && i < MAX_RETRIES * 3; i++) {
+  for (let i = 0; i < langQueue.length && i < 15; i++) {
     const lang = langQueue[i];
     if (tried.has(lang)) continue;
     tried.add(lang);
@@ -236,17 +241,36 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
     const sessionId = Math.floor(Math.random() * 200000) + 1;
     console.log(`[YouTube] Tentando lang=${lang} (proxy ${sessionId})`);
 
-    const { text, availableLangs } = await singleAttempt(videoId, lang, sessionId);
+    const { text, availableLangs, isRateLimit } = await singleAttempt(videoId, lang, sessionId);
 
     if (text) {
       console.log(`[YouTube] OK lang=${lang} (${text.length} chars)`);
       return text;
     }
 
-    // Se a lib retornou idiomas disponiveis, adicionar so os PT na fila
+    // Se rate limit, retry mesmo idioma com proxy diferente
+    if (isRateLimit && rateLimitRetries < MAX_RATE_LIMIT_RETRIES) {
+      rateLimitRetries++;
+      tried.delete(lang); // permitir retry do mesmo idioma
+      i--; // voltar no loop
+      console.log(`[YouTube] Rate limit, aguardando 2s antes de retry ${rateLimitRetries}/${MAX_RATE_LIMIT_RETRIES}...`);
+      await new Promise(r => setTimeout(r, 2000));
+      continue;
+    }
+
+    // Se a lib retornou idiomas disponiveis, adicionar PT primeiro, depois outros
     if (availableLangs) {
-      const ptLangs = availableLangs.filter(l => l.startsWith("pt"));
+      const ptLangs = availableLangs.filter(l => l.toLowerCase().startsWith("pt"));
+      const otherLangs = availableLangs.filter(l => !l.toLowerCase().startsWith("pt"));
+
+      // PT primeiro
       for (const avail of ptLangs) {
+        if (!tried.has(avail) && !langQueue.includes(avail)) {
+          langQueue.push(avail);
+        }
+      }
+      // Fallback: qualquer idioma (melhor ter legenda em ES/EN que nenhuma)
+      for (const avail of otherLangs) {
         if (!tried.has(avail) && !langQueue.includes(avail)) {
           langQueue.push(avail);
         }
@@ -255,9 +279,9 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
 
     lastError = `lang=${lang} falhou`;
 
-    // Pequeno delay entre tentativas
+    // Delay entre tentativas
     if (i < langQueue.length - 1) {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 

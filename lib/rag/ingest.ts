@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { generateEmbedding, EMBEDDING_DIMENSION } from "./embeddings";
+import { cleanTextForRAG, smartChunk, isQualityChunk, simpleHash } from "./preprocess";
 
 // Configuracoes de chunking (baseado no workflow n8n Dentaly)
 const CHUNK_SIZE = 600; // caracteres
@@ -100,20 +101,32 @@ export async function ingestDocument(doc: IngestDocument): Promise<IngestResult>
       };
     }
 
-    const chunks = chunkText(doc.content);
+    // Pre-processar texto antes do chunking
+    const cleanedContent = cleanTextForRAG(doc.content);
+    const rawChunks = smartChunk(cleanedContent, CHUNK_SIZE, CHUNK_OVERLAP);
+    const chunks = rawChunks.filter(isQualityChunk);
 
-    if (chunks.length === 0) {
+    // Deduplicar chunks por hash
+    const seenHashes = new Set<string>();
+    const dedupedChunks = chunks.filter((chunk) => {
+      const hash = simpleHash(chunk);
+      if (seenHashes.has(hash)) return false;
+      seenHashes.add(hash);
+      return true;
+    });
+
+    if (dedupedChunks.length === 0) {
       return {
         success: false,
         chunksCreated: 0,
-        error: "Nenhum chunk gerado do conteudo",
+        error: "Nenhum chunk gerado do conteudo (filtrado por qualidade)",
       };
     }
 
     let created = 0;
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    for (let i = 0; i < dedupedChunks.length; i++) {
+      const chunk = dedupedChunks[i];
       const chunkId = generateChunkId(doc.title, i);
 
       try {
@@ -136,7 +149,7 @@ export async function ingestDocument(doc: IngestDocument): Promise<IngestResult>
               content = EXCLUDED.content,
               embedding = EXCLUDED.embedding,
               "updatedAt" = NOW()
-          `, chunkId, `${doc.title} (parte ${i + 1}/${chunks.length})`, chunk, doc.category, embeddingStr, doc.source || null, doc.sourceUrl || null);
+          `, chunkId, `${doc.title} (parte ${i + 1}/${dedupedChunks.length})`, chunk, doc.category, embeddingStr, doc.source || null, doc.sourceUrl || null);
         } else {
           // Inserir sem embedding (fallback)
           await prisma.$executeRawUnsafe(`
@@ -145,7 +158,7 @@ export async function ingestDocument(doc: IngestDocument): Promise<IngestResult>
             ON CONFLICT (id) DO UPDATE SET
               content = EXCLUDED.content,
               "updatedAt" = NOW()
-          `, chunkId, `${doc.title} (parte ${i + 1}/${chunks.length})`, chunk, doc.category, doc.source || null, doc.sourceUrl || null);
+          `, chunkId, `${doc.title} (parte ${i + 1}/${dedupedChunks.length})`, chunk, doc.category, doc.source || null, doc.sourceUrl || null);
         }
 
         created++;

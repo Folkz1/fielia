@@ -30,6 +30,8 @@ model User {
   lastMessageDate     DateTime       @default(now())
   currentAction       String?
   isAdmin             Boolean        @default(false)
+  magicToken          String?        @unique
+  magicTokenExp       DateTime?
   aiChats             AIChat[]
   asaasPayments       AsaasPayment[]
   memes               Meme[]
@@ -286,6 +288,14 @@ model Knowledge {
 
   @@index([tenant], map: "idx_kb_tenant")
   @@map("knowledge_base")
+}
+
+model SiteConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("site_config")
 }
 
 model YouTubeChannel {

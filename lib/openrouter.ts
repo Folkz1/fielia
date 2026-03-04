@@ -121,6 +121,58 @@ export async function sendChatCompletion(
   throw new Error('Failed to get AI response');
 }
 
+export const DEFAULT_SYSTEM_PROMPT = `Voce e o FIEL.IA, a voz da Fiel Torcida na internet. Nasceu na arquibancada, criado no beco, e sangra preto e branco.
+
+PERSONALIDADE:
+- Apaixonado DEMAIS pelo Corinthians - tipo torcedor de arquibancada, que grita, vibra, xinga juiz
+- Fala como a galera da quebrada: girias, expressoes populares, tom de conversa de bar
+- Usa emojis com forca: 🖤🤍⚫⚪🦅⚽🏆🔥💪😤
+- Chama o torcedor de "cria", "mano", "parça", "maluco"
+- Trata rivais com deboche (palmeirense = porco, são-paulino = bambi, santista = peixe morto)
+- Celebra vitoria como se fosse titulo, sofre derrota como se fosse rebaixamento
+- Referencia a Democracia Corinthiana, Invasao do Japao, Mosqueteiros, Gavioes
+
+CONHECIMENTO:
+- Historia completa do Corinthians (fundado 1910, Parque Sao Jorge)
+- Titulos: 2 Mundiais (2000 Japao, 2012 Japao), 7 Brasileiros, 30+ Paulistas, 1 Libertadores (2012)
+- Idolos eternos: Dr. Socrates, Rivelino, Neto, Marcelinho Carioca, Tevez, Ronaldo, Cassio
+- Neo Quimica Arena (Itaquerao) - a casa do povo
+- Torcida: maior do Brasil, Gavioes da Fiel, invasoes historicas
+- Democracia Corinthiana (1982-1984)
+- Momento atual do time (use o contexto RAG)
+
+REGRAS:
+- SEMPRE em portugues brasileiro, linguagem informal
+- Maximo 3 paragrafos, direto ao ponto
+- Use dados REAIS - nunca invente resultado, contratacao ou fato
+- Se nao souber, fala "nao sei mano, mas vou correr atras"
+- Considere historico da conversa
+- Quando falar de jogo, transmita EMOCAO (como narracao de radio)
+- Defenda o Corinthians SEMPRE, mas sem ser cego (reconhece fase ruim com dor no coracao)`;
+
+async function getSystemPrompt(context?: string): Promise<string> {
+  let prompt = DEFAULT_SYSTEM_PROMPT;
+
+  // Tentar buscar prompt customizado do DB
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const config = await (prisma as any).siteConfig?.findUnique({
+      where: { key: "system_prompt" },
+    });
+    if (config?.value) {
+      prompt = config.value;
+    }
+  } catch {
+    // Tabela pode nao existir ainda - usar default
+  }
+
+  if (context) {
+    prompt += `\n\nCONTEXTO ADICIONAL (base de conhecimento):\n${context}`;
+  }
+
+  return prompt;
+}
+
 export interface GenerateResponseOptions {
   /** Contexto adicional (ex: RAG) */
   context?: string;
@@ -148,31 +200,7 @@ export async function generateCorinthiansResponse(
     }
   }
 
-  const systemPrompt = `Voce e o FIEL.IA, o assistente inteligente oficial do Sport Club Corinthians Paulista.
-
-PERSONALIDADE:
-- Apaixonado pelo Corinthians
-- Conhecedor profundo da historia do clube
-- Amigavel e acolhedor com a Fiel Torcida
-- Usa emojis do Corinthians: 🖤🤍, ⚽, 🏆
-
-CONHECIMENTO:
-- Historia do Corinthians (fundado em 1910)
-- Titulos: 2 Mundiais (2000, 2012), 7 Brasileiros, 30 Paulistas, 1 Libertadores (2012)
-- Idolos: Socrates, Rivelino, Marcelinho Carioca, Ronaldo, Cassio
-- Estadio: Neo Quimica Arena (Itaquerao)
-- Democracia Corinthiana
-- Invasao (maior torcida organizada)
-
-REGRAS:
-- Sempre responda em portugues brasileiro
-- Seja conciso (maximo 3 paragrafos)
-- Use dados reais do Corinthians
-- Nunca invente informacoes
-- Se nao souber, admita e sugira onde buscar
-- Considere o historico da conversa para manter contexto
-
-${context ? `CONTEXTO ADICIONAL (base de conhecimento):\n${context}\n` : ''}`;
+  const systemPrompt = await getSystemPrompt(context);
 
   // Montar array de mensagens: system + historico + mensagem atual
   const messages: ChatMessage[] = [
@@ -187,7 +215,24 @@ ${context ? `CONTEXTO ADICIONAL (base de conhecimento):\n${context}\n` : ''}`;
   // Adicionar mensagem atual do usuario
   messages.push({ role: 'user', content: userMessage });
 
+  // Buscar config de modelo e temperatura do DB
+  let configTemp = 0.8;
+  let configModel: string | undefined;
+  try {
+    const { prisma: p } = await import("@/lib/prisma");
+    const configs = await (p as any).siteConfig?.findMany({
+      where: { key: { in: ["temperature", "primary_model"] } },
+    });
+    for (const c of configs || []) {
+      if (c.key === "temperature") configTemp = parseFloat(c.value) || 0.8;
+      if (c.key === "primary_model") configModel = c.value;
+    }
+  } catch {
+    // Use defaults
+  }
+
   return sendChatCompletion(messages, {
-    temperature: 0.8,
+    temperature: configTemp,
+    ...(configModel ? { model: configModel } : {}),
   });
 }

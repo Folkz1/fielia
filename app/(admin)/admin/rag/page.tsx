@@ -33,7 +33,7 @@ interface VideoPreview {
   thumbnailUrl?: string;
 }
 
-type ActiveTab = "documents" | "youtube";
+type ActiveTab = "documents" | "youtube" | "pdf";
 
 export default function AdminRAGPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("documents");
@@ -66,6 +66,13 @@ export default function AdminRAGPage() {
   const [newChannelUrl, setNewChannelUrl] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
   const [addingChannel, setAddingChannel] = useState(false);
+
+  // PDF state
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfTitle, setPdfTitle] = useState("");
+  const [pdfCategory, setPdfCategory] = useState("general");
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfResult, setPdfResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Batch delete state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -329,6 +336,40 @@ export default function AdminRAGPage() {
     }
   }
 
+  async function handlePdfUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pdfFile) return;
+    setPdfUploading(true);
+    setPdfResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+      if (pdfTitle) formData.append("title", pdfTitle);
+      formData.append("category", pdfCategory);
+
+      const res = await fetch("/api/admin/pdf", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setPdfResult({
+          success: true,
+          message: `PDF processado! ${data.chunksCreated} chunks criados (${data.textLength} chars extraidos).`,
+        });
+        setPdfFile(null);
+        setPdfTitle("");
+        fetchKnowledge();
+        fetchStats();
+      } else {
+        setPdfResult({ success: false, message: data.error || "Erro ao processar PDF" });
+      }
+    } catch {
+      setPdfResult({ success: false, message: "Erro de conexao" });
+    } finally {
+      setPdfUploading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -373,6 +414,17 @@ export default function AdminRAGPage() {
         >
           <Youtube className="w-4 h-4" />
           YouTube
+        </button>
+        <button
+          onClick={() => setActiveTab("pdf")}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "pdf"
+              ? "bg-blue-600 text-white"
+              : "text-gray-400 hover:text-white hover:bg-white/10"
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          PDF
         </button>
       </div>
 
@@ -818,6 +870,94 @@ export default function AdminRAGPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* ==================== TAB: PDF ==================== */}
+      {activeTab === "pdf" && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Upload className="w-5 h-5 text-blue-500" />
+            Upload de PDF para RAG
+          </h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Faca upload de um arquivo PDF. O texto sera extraido e adicionado a base de conhecimento.
+          </p>
+
+          {pdfResult && (
+            <div
+              className={`p-4 rounded-lg mb-4 ${
+                pdfResult.success
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+              }`}
+            >
+              {pdfResult.message}
+            </div>
+          )}
+
+          <form onSubmit={handlePdfUpload} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Arquivo PDF *</label>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg file:mr-4 file:py-1 file:px-4 file:rounded file:border-0 file:bg-orange-500 file:text-white file:text-sm"
+              />
+              {pdfFile && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {pdfFile.name} ({(pdfFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Titulo (opcional)</label>
+                <input
+                  type="text"
+                  value={pdfTitle}
+                  onChange={(e) => setPdfTitle(e.target.value)}
+                  placeholder="Titulo do documento (usa nome do arquivo se vazio)"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Categoria</label>
+                <select
+                  value={pdfCategory}
+                  onChange={(e) => setPdfCategory(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                >
+                  <option value="general">Geral</option>
+                  <option value="history">Historia</option>
+                  <option value="players">Jogadores</option>
+                  <option value="titles">Titulos</option>
+                  <option value="stadium">Estadio</option>
+                  <option value="torcida">Torcida</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={pdfUploading || !pdfFile}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {pdfUploading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Processando PDF...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Extrair e Adicionar ao RAG
+                </>
+              )}
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

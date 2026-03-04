@@ -10,7 +10,32 @@
 
 import { getSubtitles, getVideoDetails } from "youtube-caption-extractor";
 import { Innertube } from "youtubei.js";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
+
+/**
+ * Cria fetch com proxy Webshare (residencial) para evitar bloqueio YouTube
+ * Env vars: WEBSHARE_PROXY_HOST, WEBSHARE_PROXY_USER, WEBSHARE_PROXY_PASS, WEBSHARE_PROXY_PORT
+ */
+function getProxyAgent(): HttpsProxyAgent<string> | undefined {
+  const host = process.env.WEBSHARE_PROXY_HOST;
+  const user = process.env.WEBSHARE_PROXY_USER;
+  const pass = process.env.WEBSHARE_PROXY_PASS;
+  const port = process.env.WEBSHARE_PROXY_PORT || "80";
+
+  if (!host || !user || !pass) return undefined;
+
+  return new HttpsProxyAgent(`http://${user}:${pass}@${host}:${port}`);
+}
+
+function createProxiedFetch(): typeof globalThis.fetch | undefined {
+  const agent = getProxyAgent();
+  if (!agent) return undefined;
+
+  return ((input: any, init?: any) => {
+    return fetch(input, { ...init, agent } as any);
+  }) as typeof globalThis.fetch;
+}
 
 export interface VideoInfo {
   id: string;
@@ -68,7 +93,11 @@ export function extractChannelInfo(url: string): { type: "id" | "handle" | "cust
  * Cria instancia do Innertube (reusavel)
  */
 async function createYT() {
-  return Innertube.create({ generate_session_locally: true });
+  const proxiedFetch = createProxiedFetch();
+  return Innertube.create({
+    generate_session_locally: true,
+    ...(proxiedFetch ? { fetch: proxiedFetch } : {}),
+  });
 }
 
 /**
@@ -91,7 +120,8 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
     pageUrl = `https://www.youtube.com/c/${channelInfo.value}`;
   }
 
-  const res = await fetch(pageUrl, {
+  const proxiedFetch = createProxiedFetch() || fetch;
+  const res = await proxiedFetch(pageUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
@@ -230,7 +260,8 @@ async function transcriptViaInnertube(videoId: string, preferredLang: string = "
     }
 
     const url = selectedTrack.base_url + '&fmt=json3';
-    const res = await fetch(url);
+    const timedtextFetch = createProxiedFetch() || fetch;
+    const res = await timedtextFetch(url);
 
     if (!res.ok) {
       console.log(`[YouTube] Innertube: timedtext HTTP ${res.status}`);

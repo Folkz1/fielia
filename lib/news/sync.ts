@@ -185,8 +185,8 @@ export async function syncNewsFromFreshRSS() {
 
     // Defaults when AI is disabled/unavailable: keep a short neutral snippet.
     let finalTitle = baseTitle;
-    let finalSummary = truncate(compactWhitespace(baseSummaryRaw), 220) || baseTitle;
-    let finalContent = finalSummary;
+    let finalSummary = truncate(compactWhitespace(stripHtmlToText(baseSummaryRaw)), 220) || baseTitle;
+    let finalContent = stripHtmlToText(baseSummaryRaw);
 
     if (rewriteEnabled && process.env.OPENROUTER_API_KEY && sourceTextForAI.length >= 250) {
       try {

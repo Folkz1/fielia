@@ -41,6 +41,7 @@
     "react-dom": "19.2.3",
     "rss-parser": "^3.13.0",
     "swr": "^2.4.0",
+    "t-youtube-transcript-fetcher": "^1.0.6",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "unpdf": "^1.4.0",

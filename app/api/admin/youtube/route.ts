@@ -8,6 +8,7 @@ import {
   getVideoInfo,
   transcribeAndIngest,
   transcribeBatch,
+  diagProxy,
 } from "@/lib/youtube/transcript";
 
 /**
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const category = body.category || "general";
+
+    // Modo: diagnostico
+    if (body.diag) {
+      const diagResult = await diagProxy(body.videoId || "Y00T8a--3gc");
+      return NextResponse.json(diagResult);
+    }
 
     // Modo: video unico
     if (body.videoUrl) {

@@ -188,7 +188,7 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
  * Faz UMA tentativa com um proxy + idioma especifico.
  * Usa undici.fetch com ProxyAgent (dispatcher) + consent cookie.
  */
-async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean }> {
+async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean; error?: string }> {
   const dispatcher = getProxyDispatcher(sessionId);
 
   // undici.fetch com dispatcher para TODAS as requests (critico!)
@@ -247,9 +247,9 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
     const availMatch = msg.match(/Available languages?: (.+?)\.?\s*(?:Please|$)/i);
     if (availMatch) {
       const available = availMatch[1].split(",").map(s => s.trim()).filter(Boolean);
-      return { text: null, availableLangs: available, isRateLimit };
+      return { text: null, availableLangs: available, isRateLimit, error: msg.substring(0, 200) };
     }
-    return { text: null, isRateLimit };
+    return { text: null, isRateLimit, error: msg.substring(0, 200) };
   }
 }
 
@@ -261,10 +261,10 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Prioridade: pt > pt-BR > preferido (pt funciona melhor que pt-BR para auto-generated)
-  const langQueue = ["pt", "pt-BR", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
+  // Prioridade: pt > pt-BR > en > preferido
+  const langQueue = ["pt", "pt-BR", "en", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
   const tried = new Set<string>();
-  let lastError = "";
+  const errors: string[] = [];
   let rateLimitRetries = 0;
   const MAX_RATE_LIMIT_RETRIES = 3;
 
@@ -276,12 +276,14 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
     const sessionId = Math.floor(Math.random() * 200000) + 1;
     console.log(`[YouTube] Tentando lang=${lang} (proxy ${sessionId})`);
 
-    const { text, availableLangs, isRateLimit } = await singleAttempt(videoId, lang, sessionId);
+    const { text, availableLangs, isRateLimit, error } = await singleAttempt(videoId, lang, sessionId);
 
     if (text) {
       console.log(`[YouTube] OK lang=${lang} (${text.length} chars)`);
       return text;
     }
+
+    errors.push(`${lang}: ${error || "sem resultado"}`);
 
     if (isRateLimit && rateLimitRetries < MAX_RATE_LIMIT_RETRIES) {
       rateLimitRetries++;
@@ -308,8 +310,6 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
       }
     }
 
-    lastError = `lang=${lang} falhou`;
-
     if (i < langQueue.length - 1) {
       await new Promise(r => setTimeout(r, 1000));
     }
@@ -317,7 +317,7 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
 
   throw new Error(
     `Nao foi possivel obter legendas apos ${tried.size} tentativas. ` +
-    `Ultimo erro: ${lastError}. ` +
+    `Erros: [${errors.join(" | ")}]. ` +
     "Verifique se o video possui legendas habilitadas."
   );
 }
@@ -407,6 +407,67 @@ export async function transcribeAndIngest(
       error: error instanceof Error ? error.message : "Erro desconhecido",
     };
   }
+}
+
+/**
+ * Diagnostico: testa proxy e YouTube connectivity
+ */
+export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record<string, unknown>> {
+  const results: Record<string, unknown> = { videoId, timestamp: new Date().toISOString() };
+
+  // Test 1: proxy env vars
+  results.proxyHost = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
+  results.proxyUser = process.env.WEBSHARE_PROXY_USER || "lumgcvpn-rotate";
+  results.proxyPassSet = !!(process.env.WEBSHARE_PROXY_PASS);
+  results.proxyPort = process.env.WEBSHARE_PROXY_PORT || "80";
+  results.nodeVersion = process.version;
+
+  // Test 2: direct fetch to youtube (no proxy)
+  try {
+    const directRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { "User-Agent": UA, "Accept-Language": "pt-BR" },
+    });
+    results.directFetch = { status: directRes.status, ok: directRes.ok };
+  } catch (e) {
+    results.directFetch = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  // Test 3: proxy fetch to youtube
+  try {
+    const dispatcher = getProxyDispatcher();
+    const proxyRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      dispatcher,
+      headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE, "Accept-Language": "pt-BR" },
+    });
+    const html = await proxyRes.text();
+    results.proxyFetch = {
+      status: proxyRes.status,
+      ok: proxyRes.ok,
+      htmlLength: html.length,
+      hasTitle: html.includes("<title>"),
+      hasCaptions: html.includes("captionTracks"),
+      titleSnippet: html.match(/<title>(.+?)<\/title>/)?.[1]?.substring(0, 80),
+    };
+  } catch (e) {
+    results.proxyFetch = { error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
+  }
+
+  // Test 4: transcript attempt
+  try {
+    const sessionId = Math.floor(Math.random() * 200000) + 1;
+    const attempt = await singleAttempt(videoId, "en", sessionId);
+    results.transcriptAttempt = {
+      hasText: !!attempt.text,
+      textLength: attempt.text?.length || 0,
+      availableLangs: attempt.availableLangs,
+      isRateLimit: attempt.isRateLimit,
+      error: attempt.error,
+    };
+  } catch (e) {
+    results.transcriptAttempt = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  return results;
 }
 
 /**

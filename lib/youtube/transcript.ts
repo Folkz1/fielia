@@ -2,22 +2,22 @@
  * Servico de transcricao de videos do YouTube para RAG
  *
  * Usa youtube-transcript-plus com proxy residencial Webshare.
- * CRITICO: usar fetch + ProxyAgent do MESMO pacote undici (mesma versao = compativel).
+ * CRITICO: usar globalThis.fetch com undici ProxyAgent (dispatcher).
  * CRITICO: enviar cookie SOCS de consent em TODAS as requests (bypass consent wall).
  *
- * Importar fetch do npm undici (nao globalThis.fetch) para garantir compatibilidade
- * com ProxyAgent do mesmo pacote. globalThis.fetch usa undici built-in do Node que
- * pode ser versao diferente.
+ * IMPORTANTE: em Alpine/Docker, undici npm fetch NAO resolve DNS (ENOTFOUND).
+ * Usar globalThis.fetch (Node built-in) que resolve DNS corretamente.
+ * globalThis.fetch aceita { dispatcher } porque e baseado em undici internamente.
  */
 
 import { fetchTranscript } from "youtube-transcript-plus";
 import { Innertube, Platform } from "youtubei.js";
-import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { ProxyAgent } from "undici";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
-// undici.fetch retorna undici.Response (compativel mas tipo diferente do globalThis.Response)
-// Cast para any para compatibilidade com libs que esperam globalThis.Response
-const proxyFetch = undiciFetch as (url: string | URL | Request, init?: any) => Promise<any>;
+// globalThis.fetch aceita { dispatcher } em Node 18+ (baseado em undici internamente)
+// Cast para any porque os TS types nao incluem a opcao dispatcher
+const proxyFetch = globalThis.fetch as (url: string | URL | Request, init?: any) => Promise<Response>;
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const MAX_RETRIES = 3;
@@ -422,7 +422,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
   results.proxyPort = process.env.WEBSHARE_PROXY_PORT || "80";
   results.nodeVersion = process.version;
 
-  // Test 2: direct fetch to youtube (no proxy)
+  // Test 2: direct fetch to youtube (no proxy, globalThis.fetch)
   try {
     const directRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: { "User-Agent": UA, "Accept-Language": "pt-BR" },
@@ -432,7 +432,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
     results.directFetch = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  // Test 3: proxy fetch to youtube
+  // Test 3: globalThis.fetch + undici ProxyAgent dispatcher
   try {
     const dispatcher = getProxyDispatcher();
     const proxyRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
@@ -441,6 +441,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
     });
     const html = await proxyRes.text();
     results.proxyFetch = {
+      method: "globalThis.fetch+dispatcher",
       status: proxyRes.status,
       ok: proxyRes.ok,
       htmlLength: html.length,
@@ -449,7 +450,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
       titleSnippet: html.match(/<title>(.+?)<\/title>/)?.[1]?.substring(0, 80),
     };
   } catch (e) {
-    results.proxyFetch = { error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
+    results.proxyFetch = { method: "globalThis.fetch+dispatcher", error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
   }
 
   // Test 4: transcript attempt

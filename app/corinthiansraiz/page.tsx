@@ -55,7 +55,7 @@ function useCounterAnimation(target: number, isVisible: boolean, duration = 2000
 
 /* ─── constants ─── */
 
-const SUBSCRIBE_URL = "/auth/login?callbackUrl=/dashboard/settings?subscribe=1";
+const SUBSCRIBE_URL = "/assinar";
 
 /* ─── page ─── */
 

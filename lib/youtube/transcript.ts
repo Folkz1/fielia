@@ -13,6 +13,7 @@
 import { fetchTranscript } from "youtube-transcript-plus";
 import { Innertube, Platform } from "youtubei.js";
 import { ProxyAgent } from "undici";
+import { lookup } from "node:dns/promises";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
 // globalThis.fetch aceita { dispatcher } em Node 18+ (baseado em undici internamente)
@@ -28,7 +29,30 @@ const CONSENT_COOKIE = "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlfZnJvbnRlbmRfdWlzZXJ2ZXJ
 /**
  * Cria undici ProxyAgent Webshare com session ID unico (sticky IP)
  */
-function getProxyDispatcher(sessionId?: number): ProxyAgent {
+// Cache do IP resolvido do proxy (evita DNS lookup a cada request)
+let resolvedProxyIp: string | null = null;
+let resolvedProxyAt = 0;
+const DNS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+async function resolveProxyHost(host: string): Promise<string> {
+  const now = Date.now();
+  if (resolvedProxyIp && (now - resolvedProxyAt) < DNS_CACHE_TTL) {
+    return resolvedProxyIp;
+  }
+  try {
+    const result = await lookup(host);
+    resolvedProxyIp = result.address;
+    resolvedProxyAt = now;
+    console.log(`[YouTube] DNS resolved ${host} -> ${resolvedProxyIp}`);
+    return resolvedProxyIp;
+  } catch (e) {
+    console.error(`[YouTube] DNS lookup failed for ${host}:`, e instanceof Error ? e.message : e);
+    // Fallback: tentar usar hostname direto (pode funcionar em alguns ambientes)
+    return host;
+  }
+}
+
+async function getProxyDispatcher(sessionId?: number): Promise<ProxyAgent> {
   const host = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
   const baseUser = process.env.WEBSHARE_PROXY_USER || "lumgcvpn-rotate";
   const pass = process.env.WEBSHARE_PROXY_PASS || "";
@@ -42,8 +66,11 @@ function getProxyDispatcher(sessionId?: number): ProxyAgent {
     ? baseUser.replace("rotate", String(sessionId))
     : baseUser;
 
-  const proxyUrl = `http://${proxyUser}:${pass}@${host}:${port}`;
-  console.log(`[YouTube] Proxy: ${proxyUser}@${host}:${port} (pass=${pass ? "SET" : "EMPTY"})`);
+  // Resolver DNS do proxy com Node built-in (funciona em Alpine/musl)
+  // ProxyAgent do npm undici faz DNS interno que falha em Alpine
+  const resolvedHost = await resolveProxyHost(host);
+  const proxyUrl = `http://${proxyUser}:${pass}@${resolvedHost}:${port}`;
+  console.log(`[YouTube] Proxy: ${proxyUser}@${resolvedHost}:${port} (pass=${pass ? "SET" : "EMPTY"})`);
   return new ProxyAgent(proxyUrl);
 }
 
@@ -119,7 +146,7 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
     pageUrl = `https://www.youtube.com/c/${channelInfo.value}`;
   }
 
-  const dispatcher = getProxyDispatcher();
+  const dispatcher = await getProxyDispatcher();
   const res = await proxyFetch(pageUrl, {
     dispatcher,
     headers: {
@@ -154,7 +181,7 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
 export async function getChannelVideos(channelUrl: string, limit: number = 10): Promise<VideoInfo[]> {
   const channelId = await resolveChannelId(channelUrl);
 
-  const dispatcher = getProxyDispatcher();
+  const dispatcher = await getProxyDispatcher();
   const yt = await Innertube.create({
     fetch(input: any, init?: any) {
       const h = new Headers(init?.headers || {});
@@ -189,7 +216,7 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
  * Usa undici.fetch com ProxyAgent (dispatcher) + consent cookie.
  */
 async function singleAttempt(videoId: string, lang: string, sessionId: number): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean; error?: string }> {
-  const dispatcher = getProxyDispatcher(sessionId);
+  const dispatcher = await getProxyDispatcher(sessionId);
 
   // undici.fetch com dispatcher para TODAS as requests (critico!)
   const proxyFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
@@ -327,7 +354,7 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
  */
 export async function getVideoInfo(videoId: string): Promise<{ title: string; hasCaptions: boolean }> {
   try {
-    const dispatcher = getProxyDispatcher();
+    const dispatcher = await getProxyDispatcher();
     const res = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
       dispatcher,
       headers: {
@@ -422,6 +449,15 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
   results.proxyPort = process.env.WEBSHARE_PROXY_PORT || "80";
   results.nodeVersion = process.version;
 
+  // Test 1.5: DNS resolution
+  try {
+    const host = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
+    const dnsResult = await lookup(host);
+    results.dnsResolve = { host, ip: dnsResult.address, family: dnsResult.family };
+  } catch (e) {
+    results.dnsResolve = { error: e instanceof Error ? e.message : String(e) };
+  }
+
   // Test 2: direct fetch to youtube (no proxy, globalThis.fetch)
   try {
     const directRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
@@ -432,9 +468,9 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
     results.directFetch = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  // Test 3: globalThis.fetch + undici ProxyAgent dispatcher
+  // Test 3: globalThis.fetch + undici ProxyAgent dispatcher (DNS pre-resolved)
   try {
-    const dispatcher = getProxyDispatcher();
+    const dispatcher = await getProxyDispatcher();
     const proxyRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
       dispatcher,
       headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE, "Accept-Language": "pt-BR" },
@@ -450,7 +486,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
       titleSnippet: html.match(/<title>(.+?)<\/title>/)?.[1]?.substring(0, 80),
     };
   } catch (e) {
-    results.proxyFetch = { method: "globalThis.fetch+dispatcher", error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
+    results.proxyFetch = { method: "globalThis.fetch+dispatcher+dnsPreResolved", error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
   }
 
   // Test 4: transcript attempt

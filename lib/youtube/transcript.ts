@@ -29,12 +29,21 @@ const CONSENT_COOKIE = "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlfZnJvbnRlbmRfdWlzZXJ2ZXJ
 /**
  * Cria undici ProxyAgent Webshare com session ID unico (sticky IP)
  */
-// Cache do IP resolvido do proxy (evita DNS lookup a cada request)
+// Fallback IPs para p.webshare.io (Alpine Docker nao resolve DNS deste dominio)
+const WEBSHARE_FALLBACK_IPS = [
+  "170.80.109.44", "45.250.252.25", "103.14.27.67", "103.88.235.135",
+  "177.54.157.203", "170.80.110.53", "103.88.235.78", "189.1.168.120",
+];
+
+// Cache do IP resolvido do proxy
 let resolvedProxyIp: string | null = null;
 let resolvedProxyAt = 0;
 const DNS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 async function resolveProxyHost(host: string): Promise<string> {
+  // Se ja e um IP, retorna direto
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return host;
+
   const now = Date.now();
   if (resolvedProxyIp && (now - resolvedProxyAt) < DNS_CACHE_TTL) {
     return resolvedProxyIp;
@@ -46,9 +55,12 @@ async function resolveProxyHost(host: string): Promise<string> {
     console.log(`[YouTube] DNS resolved ${host} -> ${resolvedProxyIp}`);
     return resolvedProxyIp;
   } catch (e) {
-    console.error(`[YouTube] DNS lookup failed for ${host}:`, e instanceof Error ? e.message : e);
-    // Fallback: tentar usar hostname direto (pode funcionar em alguns ambientes)
-    return host;
+    // DNS falhou (comum em Alpine Docker) - usar fallback IP
+    const fallbackIp = WEBSHARE_FALLBACK_IPS[Math.floor(Math.random() * WEBSHARE_FALLBACK_IPS.length)];
+    console.warn(`[YouTube] DNS failed for ${host}, using fallback IP: ${fallbackIp}`);
+    resolvedProxyIp = fallbackIp;
+    resolvedProxyAt = now;
+    return fallbackIp;
   }
 }
 

@@ -44,6 +44,7 @@
     "t-youtube-transcript-fetcher": "^1.0.6",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "undici": "^7.22.0",
     "unpdf": "^1.4.0",
     "youtube-caption-extractor": "^1.9.1",
     "youtube-transcript-plus": "^1.2.0",

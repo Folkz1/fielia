@@ -2,14 +2,22 @@
  * Servico de transcricao de videos do YouTube para RAG
  *
  * Usa youtube-transcript-plus com proxy residencial Webshare.
- * CRITICO: usar undici.fetch com ProxyAgent (dispatcher) - node:fetch com HttpsProxyAgent NAO funciona.
+ * CRITICO: usar fetch + ProxyAgent do MESMO pacote undici (mesma versao = compativel).
  * CRITICO: enviar cookie SOCS de consent em TODAS as requests (bypass consent wall).
+ *
+ * Importar fetch do npm undici (nao globalThis.fetch) para garantir compatibilidade
+ * com ProxyAgent do mesmo pacote. globalThis.fetch usa undici built-in do Node que
+ * pode ser versao diferente.
  */
 
 import { fetchTranscript } from "youtube-transcript-plus";
 import { Innertube, Platform } from "youtubei.js";
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
+
+// undici.fetch retorna undici.Response (compativel mas tipo diferente do globalThis.Response)
+// Cast para any para compatibilidade com libs que esperam globalThis.Response
+const proxyFetch = undiciFetch as (url: string | URL | Request, init?: any) => Promise<any>;
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const MAX_RETRIES = 3;
@@ -26,11 +34,17 @@ function getProxyDispatcher(sessionId?: number): ProxyAgent {
   const pass = process.env.WEBSHARE_PROXY_PASS || "";
   const port = process.env.WEBSHARE_PROXY_PORT || "80";
 
+  if (!pass) {
+    console.warn("[YouTube] AVISO: WEBSHARE_PROXY_PASS vazio! Proxy nao vai autenticar.");
+  }
+
   const proxyUser = sessionId
     ? baseUser.replace("rotate", String(sessionId))
     : baseUser;
 
-  return new ProxyAgent(`http://${proxyUser}:${pass}@${host}:${port}`);
+  const proxyUrl = `http://${proxyUser}:${pass}@${host}:${port}`;
+  console.log(`[YouTube] Proxy: ${proxyUser}@${host}:${port} (pass=${pass ? "SET" : "EMPTY"})`);
+  return new ProxyAgent(proxyUrl);
 }
 
 export interface VideoInfo {
@@ -106,7 +120,7 @@ async function resolveChannelId(channelUrl: string): Promise<string> {
   }
 
   const dispatcher = getProxyDispatcher();
-  const res = await undiciFetch(pageUrl, {
+  const res = await proxyFetch(pageUrl, {
     dispatcher,
     headers: {
       "User-Agent": UA,
@@ -179,7 +193,7 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 
   // undici.fetch com dispatcher para TODAS as requests (critico!)
   const proxyFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
-    return undiciFetch(url, {
+    return proxyFetch(url, {
       dispatcher,
       headers: {
         "User-Agent": userAgent || UA,
@@ -190,7 +204,7 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
   };
 
   const proxyPostFn = async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
-    return undiciFetch(url, {
+    return proxyFetch(url, {
       method,
       body,
       dispatcher,
@@ -222,7 +236,11 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
     return { text: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.log(`[YouTube] lang=${lang} session=${sessionId}: ${msg.substring(0, 120)}`);
+    const stack = err instanceof Error ? err.stack?.split("\n").slice(0, 3).join(" | ") : "";
+    const cause = err instanceof Error && (err as any).cause ? String((err as any).cause) : "";
+    console.log(`[YouTube] lang=${lang} session=${sessionId}: ${msg.substring(0, 200)}`);
+    if (cause) console.log(`[YouTube] cause: ${cause.substring(0, 200)}`);
+    if (stack && msg.includes("fetch failed")) console.log(`[YouTube] stack: ${stack.substring(0, 300)}`);
 
     const isRateLimit = msg.includes("too many requests") || msg.includes("429");
 
@@ -310,7 +328,7 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
 export async function getVideoInfo(videoId: string): Promise<{ title: string; hasCaptions: boolean }> {
   try {
     const dispatcher = getProxyDispatcher();
-    const res = await undiciFetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const res = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
       dispatcher,
       headers: {
         "User-Agent": UA,

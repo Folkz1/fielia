@@ -85,6 +85,32 @@ export async function generatePodcastScript(news: NewsItem[]): Promise<{ script:
   return { script: response.content.trim(), model: response.model || 'unknown' };
 }
 
+function pcm16ToWav(pcmData: Buffer): Buffer {
+  const sampleRate = 24000;
+  const channels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * channels * bitsPerSample / 8;
+  const blockAlign = channels * bitsPerSample / 8;
+  const dataSize = pcmData.length;
+  const header = Buffer.alloc(44);
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmData]);
+}
+
 export async function generateAudio(text: string): Promise<Buffer> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY nao configurada');
@@ -103,15 +129,15 @@ export async function generateAudio(text: string): Promise<Buffer> {
     body: JSON.stringify({
       model,
       modalities: ['text', 'audio'],
-      audio: { voice, format: 'wav' },
+      audio: { voice, format: 'pcm16' },
       messages: [
         {
           role: 'system',
-          content: 'Voce e um narrador de podcast brasileiro. Leia o texto a seguir em voz alta com entonacao natural, energia e emocao de torcedor apaixonado. NAO adicione comentarios, NAO mude o texto - apenas narre exatamente o que esta escrito, com boa dicao e ritmo.',
+          content: 'Voce e um narrador. Sua UNICA funcao e ler em voz alta EXATAMENTE o texto que o usuario enviar. NAO responda, NAO comente, NAO adicione nada. Apenas leia o texto palavra por palavra com boa entonacao, energia e emocao.',
         },
         {
           role: 'user',
-          content: text.slice(0, 4096),
+          content: `Leia este texto em voz alta agora: ${text.slice(0, 4096)}`,
         },
       ],
       stream: true,
@@ -123,7 +149,7 @@ export async function generateAudio(text: string): Promise<Buffer> {
     throw new Error(`TTS falhou: HTTP ${response.status} - ${errorText.slice(0, 300)}`);
   }
 
-  // Parse SSE stream to collect base64 audio chunks
+  // Parse SSE stream to collect base64 audio chunks (pcm16)
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   const audioChunks: string[] = [];
@@ -154,8 +180,11 @@ export async function generateAudio(text: string): Promise<Buffer> {
   }
 
   console.log(`[Podcast TTS] Audio recebido: ${audioChunks.length} chunks`);
-  const fullBase64 = audioChunks.join('');
-  return Buffer.from(fullBase64, 'base64');
+  const pcmBase64 = audioChunks.join('');
+  const pcmBuffer = Buffer.from(pcmBase64, 'base64');
+
+  // Convert PCM16 raw to WAV (24kHz mono 16-bit)
+  return pcm16ToWav(pcmBuffer);
 }
 
 export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> {

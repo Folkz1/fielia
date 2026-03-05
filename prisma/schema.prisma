@@ -12,7 +12,8 @@ model User {
   id                  String         @id @default(cuid())
   email               String         @unique
   name                String
-  password            String
+  password            String         @default("")
+  image               String?
   phone               String?        @unique
   whatsappId          String?        @unique
   totalPoints         Int            @default(0)
@@ -32,12 +33,33 @@ model User {
   isAdmin             Boolean        @default(false)
   magicToken          String?        @unique
   magicTokenExp       DateTime?
+  resetToken          String?        @unique
+  resetTokenExp       DateTime?
+  accounts            Account[]
   aiChats             AIChat[]
   asaasPayments       AsaasPayment[]
   memes               Meme[]
   quizAttempts        QuizAttempt[]
 
   @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
 }
 
 model AsaasPayment {

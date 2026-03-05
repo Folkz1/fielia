@@ -4,7 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { generatePodcast } from '@/lib/podcast/generate';
 import { getCuratedNews } from '@/lib/bot/services/news.service';
 
-async function checkAdmin() {
+function checkSecret(req: NextRequest): boolean {
+  const secret = req.headers.get('x-news-sync-secret') || req.headers.get('authorization')?.replace('Bearer ', '');
+  return secret === process.env.NEWS_SYNC_SECRET;
+}
+
+async function checkAdminOrSecret(req: NextRequest): Promise<boolean> {
+  if (checkSecret(req)) return true;
   const session = await auth();
   if (!session?.user?.id) return false;
   const user = await prisma.user.findUnique({
@@ -15,8 +21,8 @@ async function checkAdmin() {
 }
 
 // GET - Listar podcasts
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(req: NextRequest) {
+  if (!(await checkAdminOrSecret(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -51,8 +57,8 @@ export async function GET() {
 }
 
 // POST - Gerar novo podcast
-export async function POST() {
-  if (!(await checkAdmin())) {
+export async function POST(req: NextRequest) {
+  if (!(await checkAdminOrSecret(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

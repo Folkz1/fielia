@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Shield, BarChart3, Trophy, Database, Newspaper, Users,
-  Settings, ChevronLeft, Menu, X, Sparkles, Megaphone, Bot
+  Settings, ChevronLeft, Menu, X, Sparkles, Megaphone, Bot, Mic
 } from "lucide-react";
 import Image from "next/image";
 
@@ -18,6 +18,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/divulgacao", icon: Megaphone, label: "Divulgacao" },
   { href: "/admin/rag", icon: Database, label: "Base RAG" },
   { href: "/admin/ia", icon: Bot, label: "IA Chat" },
+  { href: "/admin/podcast", icon: Mic, label: "Podcast" },
   { href: "/admin/sistema", icon: Settings, label: "Sistema" },
 ];
 

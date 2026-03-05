@@ -43,6 +43,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema for migrations in production if needed
 COPY --from=builder /app/prisma ./prisma
 
+# Copy node_modules for serverExternalPackages (not included in standalone trace)
+COPY --from=builder /app/node_modules/undici ./node_modules/undici
+COPY --from=builder /app/node_modules/youtube-transcript-plus ./node_modules/youtube-transcript-plus
+COPY --from=builder /app/node_modules/youtubei.js ./node_modules/youtubei.js
+COPY --from=builder /app/node_modules/unpdf ./node_modules/unpdf
+COPY --from=builder /app/node_modules/@bufbuild ./node_modules/@bufbuild
+COPY --from=builder /app/node_modules/meriyah ./node_modules/meriyah
+
 USER nextjs
 
 EXPOSE 3000

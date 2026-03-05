@@ -124,10 +124,15 @@ export async function ingestDocument(doc: IngestDocument): Promise<IngestResult>
     }
 
     let created = 0;
+    const embeddingDelayMs = Math.max(0, Number.parseInt(process.env.EMBEDDING_DELAY_MS || '200', 10) || 200);
 
     for (let i = 0; i < dedupedChunks.length; i++) {
       const chunk = dedupedChunks[i];
       const chunkId = generateChunkId(doc.title, i);
+
+      if (i > 0 && embeddingDelayMs > 0) {
+        await new Promise(r => setTimeout(r, embeddingDelayMs));
+      }
 
       try {
         // Tentar gerar embedding para o chunk

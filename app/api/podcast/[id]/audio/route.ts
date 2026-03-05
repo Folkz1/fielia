@@ -22,9 +22,9 @@ export async function GET(
     const safeName = title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
     return new NextResponse(audio as unknown as BodyInit, {
       headers: {
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': 'audio/wav',
         'Content-Length': String(audio.length),
-        'Content-Disposition': `inline; filename="${safeName}.mp3"`,
+        'Content-Disposition': `inline; filename="${safeName}.wav"`,
         'Cache-Control': 'public, max-age=86400',
       },
     });

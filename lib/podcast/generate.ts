@@ -86,14 +86,15 @@ export async function generatePodcastScript(news: NewsItem[]): Promise<{ script:
 }
 
 export async function generateAudio(text: string): Promise<Buffer> {
-  // Precisa de OPENAI_API_KEY direta (OpenRouter nao tem endpoint /audio/speech)
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY nao configurada (necessaria para TTS)');
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY nao configurada');
 
   const voice = await getPodcastVoice();
-  const model = process.env.TTS_MODEL || 'tts-1';
+  const model = process.env.TTS_MODEL || 'openai/gpt-audio-mini';
 
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+  console.log(`[Podcast TTS] Gerando audio: modelo=${model}, voz=${voice}, chars=${text.length}`);
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -101,9 +102,19 @@ export async function generateAudio(text: string): Promise<Buffer> {
     },
     body: JSON.stringify({
       model,
-      input: text.slice(0, 4096),
-      voice,
-      response_format: 'mp3',
+      modalities: ['text', 'audio'],
+      audio: { voice, format: 'wav' },
+      messages: [
+        {
+          role: 'system',
+          content: 'Voce e um narrador de podcast brasileiro. Leia o texto a seguir em voz alta com entonacao natural, energia e emocao de torcedor apaixonado. NAO adicione comentarios, NAO mude o texto - apenas narre exatamente o que esta escrito, com boa dicao e ritmo.',
+        },
+        {
+          role: 'user',
+          content: text.slice(0, 4096),
+        },
+      ],
+      stream: true,
     }),
   });
 
@@ -112,8 +123,39 @@ export async function generateAudio(text: string): Promise<Buffer> {
     throw new Error(`TTS falhou: HTTP ${response.status} - ${errorText.slice(0, 300)}`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  // Parse SSE stream to collect base64 audio chunks
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  const audioChunks: string[] = [];
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        const audioData = data.choices?.[0]?.delta?.audio?.data;
+        if (audioData) audioChunks.push(audioData);
+      } catch {
+        // skip malformed chunks
+      }
+    }
+  }
+
+  if (!audioChunks.length) {
+    throw new Error('Nenhum audio recebido do modelo. Verifique se o modelo suporta audio output.');
+  }
+
+  console.log(`[Podcast TTS] Audio recebido: ${audioChunks.length} chunks`);
+  const fullBase64 = audioChunks.join('');
+  return Buffer.from(fullBase64, 'base64');
 }
 
 export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> {
@@ -130,7 +172,7 @@ export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> 
   const title = `Voz da Fiel - ${today}`;
   const newsIds = news.map(n => n.id);
   const voice = await getPodcastVoice();
-  const ttsModel = process.env.TTS_MODEL || 'tts-1';
+  const ttsModel = process.env.TTS_MODEL || 'openai/gpt-audio-mini';
 
   // Usar $queryRawUnsafe para pegar o id de volta
   const rows: any[] = await prisma.$queryRawUnsafe(`

@@ -25,7 +25,7 @@ export async function POST() {
         script TEXT NOT NULL,
         audio BYTEA,
         news_ids TEXT[] DEFAULT '{}',
-        tts_model TEXT DEFAULT 'tts-1',
+        tts_model TEXT DEFAULT 'openai/gpt-audio-mini',
         tts_voice TEXT DEFAULT 'nova',
         created_at TIMESTAMPTZ DEFAULT NOW()
       )

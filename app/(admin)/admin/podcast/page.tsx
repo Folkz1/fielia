@@ -273,15 +273,15 @@ export default function AdminPodcastPage() {
             ))}
           </select>
           <p className="text-xs text-gray-500">
-            Vozes OpenAI TTS. Recomendado: Nova (energetica) ou Ash (jovem).
+            Vozes via OpenRouter (gpt-audio-mini). Recomendado: Nova ou Ash.
           </p>
 
           <div className="pt-4 border-t border-white/10">
             <h3 className="text-sm font-bold mb-2">Estimativa de Custo</h3>
             <div className="space-y-1 text-xs text-gray-400">
-              <p>~2000 chars / podcast = ~$0.03</p>
-              <p>1 podcast/dia = ~$0.90/mes</p>
-              <p>Modelo: tts-1 (OpenAI)</p>
+              <p>~2000 chars / podcast</p>
+              <p>Modelo: gpt-audio-mini (OpenRouter)</p>
+              <p>Usa mesma API key do chat</p>
             </div>
           </div>
 

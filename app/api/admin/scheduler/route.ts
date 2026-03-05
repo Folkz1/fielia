@@ -27,6 +27,7 @@ export async function GET() {
       schedules: {
         newsSync: process.env.CRON_NEWS_SYNC_SCHEDULE || '0 */6 * * *',
         newsCuration: process.env.CRON_NEWS_CURATION_SCHEDULE || '30 7 * * *',
+        podcast: process.env.CRON_PODCAST_SCHEDULE || '0 8 * * *',
         newsletter: process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *',
         weeklyQuiz: process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1',
       },

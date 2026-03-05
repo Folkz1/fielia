@@ -3,6 +3,7 @@ import { syncNewsFromFreshRSS } from '@/lib/news/sync';
 import { runNewsCuration } from '@/lib/news/curation';
 import { sendNewsletterToPremiumUsers } from '@/lib/news/newsletter';
 import { generateWeeklyQuizIfMissing } from '@/lib/quiz/generator';
+import { generateDailyPodcast } from '@/lib/podcast/daily';
 
 let started = false;
 
@@ -33,11 +34,13 @@ export function startScheduler() {
 
   const syncSchedule = process.env.CRON_NEWS_SYNC_SCHEDULE || '0 */6 * * *';
   const curateSchedule = process.env.CRON_NEWS_CURATION_SCHEDULE || '30 7 * * *';
+  const podcastSchedule = process.env.CRON_PODCAST_SCHEDULE || '0 8 * * *';
   const newsletterSchedule = process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *';
   const quizSchedule = process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1';
 
   cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
   cron.schedule(curateSchedule, () => runTaskSafe('news curation', runNewsCuration));
+  cron.schedule(podcastSchedule, () => runTaskSafe('daily podcast', generateDailyPodcast));
   cron.schedule(newsletterSchedule, () =>
     runTaskSafe('newsletter', sendNewsletterToPremiumUsers)
   );
@@ -47,6 +50,7 @@ export function startScheduler() {
 
   log(`sync schedule: ${syncSchedule}`);
   log(`curation schedule: ${curateSchedule}`);
+  log(`podcast schedule: ${podcastSchedule}`);
   log(`newsletter schedule: ${newsletterSchedule}`);
   log(`weekly quiz schedule: ${quizSchedule}`);
 }

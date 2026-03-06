@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Apenas arquivos PDF sao aceitos" }, { status: 400 });
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "Arquivo muito grande (max 10MB)" }, { status: 400 });
+      return NextResponse.json({ error: "Arquivo muito grande (max 100MB)" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());

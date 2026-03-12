@@ -64,7 +64,7 @@ export async function sendPasswordResetEmail({
 </html>`.trim();
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"FIEL.IA" <contato@fielchat.com>',
+    from: process.env.SMTP_FROM || '"FIEL.IA" <suporte@fielchat.com>',
     to,
     subject: "Redefinir sua senha — FIEL.IA",
     html,
@@ -185,7 +185,7 @@ export async function sendMagicLinkEmail({
   `.trim();
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || '"FIEL.IA" <contato@fielchat.com>',
+    from: process.env.SMTP_FROM || '"FIEL.IA" <suporte@fielchat.com>',
     to,
     subject: "🎉 Bem-vindo ao FIEL.IA Premium! Acesse aqui",
     html,

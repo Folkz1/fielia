@@ -134,7 +134,7 @@ function extractImageFromResponse(msg: Record<string, unknown>): { bytes: Buffer
 
 async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer; mimeType: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-preview-image-generation';
+  const model = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-3.1-flash-image-preview';
 
   if (!apiKey) {
     throw new Error('Missing OPENROUTER_API_KEY');
@@ -153,7 +153,7 @@ async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer;
       messages: [
         {
           role: 'user',
-          content: `Gere uma imagem de meme de alta qualidade sobre o Corinthians. O texto no meme deve estar em PORTUGUÊS e sem erros de ortografia. Estilo: meme de internet, engracado, com boa resolucao. Tema: ${prompt}`,
+          content: `Gere uma imagem de meme de alta qualidade sobre o Corinthians. OBRIGATÓRIO: todo texto na imagem DEVE estar em PORTUGUÊS BRASILEIRO correto, com acentuação (ç, ã, é, ô, etc). NUNCA use espanhol, inglês ou texto sem acentos. Estilo: meme de internet brasileiro, engraçado, alta resolução. Tema: ${prompt}`,
         },
       ],
       modalities: ['image', 'text'],

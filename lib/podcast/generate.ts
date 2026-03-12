@@ -17,32 +17,34 @@ interface PodcastResult {
   script: string;
   newsIds: string[];
   model: string;
+  ttsModel: string;
+  estimatedCostUsd: number;
 }
 
 function getDefaultPodcastPrompt(): string {
-  return `Voce e o locutor do "Voz da Fiel" - boletim diario relampago da torcida do Corinthians.
+  return `Você é o locutor do "Voz da Fiel" - boletim diário relâmpago da torcida do Corinthians.
 
-FORMATO: BOLETIM DE RADIO RAPIDO (maximo 1 minuto de audio)
+FORMATO: BOLETIM DE RÁDIO RÁPIDO (máximo 30 segundos de áudio)
 
 ESTILO:
-- Energia de radio esportiva: direto, rapido, impactante
-- Tom: torcedor apaixonado mas informativo, como narrador de radio
-- Girias naturais: "Fiel", "Timao", "mano", "bora"
-- Frases CURTAS e DIRETAS - cada noticia em 2-3 frases no maximo
-- Emocao na medida certa: vibre sem exagerar
+- Energia de rádio esportiva profissional, estilo Jovem Pan Esportes
+- Tom: vibrante, carismático, ritmo dinâmico
+- Gírias naturais: "Fiel", "Timão", "mano", "bora"
+- Frases CURTAS e IMPACTANTES - cada notícia em 1-2 frases
+- Ênfase dramática nas manchetes, pausas estratégicas
 
-ESTRUTURA OBRIGATORIA:
-1. ABERTURA (1 frase): "Salve Fiel! Boletim Voz da Fiel, [data ou referencia do dia]."
-2. NOTICIAS (2-3 frases cada, maximo 4 noticias): Fato + contexto rapido + opiniao curta
-3. FECHAMENTO (1 frase): Recado motivacional curto. "Vai Corinthians!"
+ESTRUTURA OBRIGATÓRIA:
+1. ABERTURA (1 frase curta): "Salve Fiel! Boletim Voz da Fiel!"
+2. NOTÍCIAS (1-2 frases cada, máximo 3 notícias): Fato + opinião rápida
+3. FECHAMENTO (1 frase): "Vai Corinthians!"
 
 REGRAS:
-- MAXIMO 800 caracteres total (ideal 60 segundos de audio)
-- NUNCA invente fatos - use SOMENTE o que esta nas noticias
-- Nao mencione fontes, sites ou "segundo"
-- Texto corrido para ser LIDO EM VOZ ALTA (sem marcadores, bullets ou emojis)
-- Transicoes rapidas entre noticias: "E mais:", "Destaque:", "Olha so:"
-- Se tiver noticia ruim, seja realista mas nao dramatico`;
+- MÁXIMO 450 caracteres total (ideal 30 segundos de áudio)
+- NUNCA invente fatos - use SOMENTE o que está nas notícias
+- Não mencione fontes, sites ou "segundo"
+- Texto corrido para ser NARRADO EM VOZ ALTA (sem marcadores, bullets ou emojis)
+- Transições rápidas: "E mais:", "Destaque:", "Olha só:"
+- Se tiver notícia ruim, seja realista mas motivacional`;
 }
 
 async function getPodcastPrompt(): Promise<string> {
@@ -80,9 +82,9 @@ export async function generatePodcastScript(news: NewsItem[]): Promise<{ script:
   const response = await sendChatCompletion(
     [
       { role: 'system', content: prompt },
-      { role: 'user', content: `Gere o boletim relampago de hoje com base nestas noticias (maximo 4 noticias, maximo 800 caracteres total):\n\n${newsText}` },
+      { role: 'user', content: `Gere o boletim relâmpago de hoje com base nestas notícias (máximo 3 notícias, máximo 450 caracteres total para 30 segundos de áudio):\n\n${newsText}` },
     ],
-    { temperature: 0.8, maxTokens: 600, model }
+    { temperature: 0.8, maxTokens: 400, model }
   );
 
   return { script: response.content.trim(), model: response.model || 'unknown' };
@@ -119,7 +121,7 @@ export async function generateAudio(text: string): Promise<Buffer> {
   if (!apiKey) throw new Error('OPENROUTER_API_KEY nao configurada');
 
   const voice = await getPodcastVoice();
-  const model = process.env.TTS_MODEL || 'openai/gpt-audio-mini';
+  const model = process.env.TTS_MODEL || 'openai/gpt-4o-audio-preview';
 
   console.log(`[Podcast TTS] Gerando audio: modelo=${model}, voz=${voice}, chars=${text.length}`);
 
@@ -136,11 +138,11 @@ export async function generateAudio(text: string): Promise<Buffer> {
       messages: [
         {
           role: 'system',
-          content: 'Voce e um locutor de radio esportiva brasileira. Leia o texto EXATAMENTE como esta, palavra por palavra, com entonacao energetica e ritmo de boletim de radio. NAO adicione nada. NAO comente. Apenas leia com energia e clareza.',
+          content: 'Você é um locutor profissional de rádio esportiva brasileira, estilo Jovem Pan Esportes. Sua voz é vibrante, carismática, com ritmo dinâmico. Leia o texto EXATAMENTE como está escrito, palavra por palavra. Use entonação natural de rádio: ênfase nas manchetes, pausas dramáticas antes de resultados, aceleração na narração de jogadas. NÃO adicione nada, NÃO comente, NÃO improvise. Apenas narre com energia, clareza e profissionalismo de rádio ao vivo.',
         },
         {
           role: 'user',
-          content: `Leia este boletim esportivo agora: ${text.slice(0, 2048)}`,
+          content: `Narre este boletim esportivo ao vivo agora: ${text.slice(0, 2048)}`,
         },
       ],
       stream: true,
@@ -203,7 +205,17 @@ export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> 
   const title = `Voz da Fiel - ${today}`;
   const newsIds = news.map(n => n.id);
   const voice = await getPodcastVoice();
-  const ttsModel = process.env.TTS_MODEL || 'openai/gpt-audio-mini';
+  const ttsModel = process.env.TTS_MODEL || 'openai/gpt-4o-audio-preview';
+
+  // Estimate cost (gpt-4o-audio-preview: ~$2.40/M input, ~$9.60/M output audio tokens)
+  // Rough: ~1 token per 4 chars input, audio output ~150 tokens per second at 24kHz
+  const inputChars = text.length;
+  const estimatedInputTokens = Math.ceil(inputChars / 4);
+  const estimatedAudioSeconds = Math.ceil(inputChars / 15); // ~15 chars/sec speech
+  const estimatedOutputTokens = estimatedAudioSeconds * 150;
+  const estimatedCostUsd =
+    (estimatedInputTokens * 2.4 / 1_000_000) +
+    (estimatedOutputTokens * 9.6 / 1_000_000);
 
   const rows: any[] = await prisma.$queryRawUnsafe(`
     INSERT INTO podcasts (id, title, script, audio, news_ids, tts_model, tts_voice, created_at)
@@ -213,7 +225,7 @@ export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> 
 
   const id = rows[0]?.id || 'unknown';
 
-  return { id, title, script, newsIds, model };
+  return { id, title, script, newsIds, model, ttsModel, estimatedCostUsd };
 }
 
 export { getDefaultPodcastPrompt };

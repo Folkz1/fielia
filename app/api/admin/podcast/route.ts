@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
         script: result.script,
         newsIds: result.newsIds,
         model: result.model,
+        ttsModel: result.ttsModel,
+        estimatedCostUsd: result.estimatedCostUsd,
       },
     });
   } catch (error) {

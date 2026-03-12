@@ -39,13 +39,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const dailyLimit = isPremiumActive ? 15 : 3;
+    // Block non-premium users entirely
+    if (!isPremiumActive) {
+      return NextResponse.json(
+        {
+          error: 'Geração de imagens é exclusiva para assinantes Fiel Premium. Assine para desbloquear!',
+          remaining: 0,
+          requiresPremium: true,
+        },
+        { status: 403 }
+      );
+    }
+
+    const dailyLimit = 15;
     if (memesToday >= dailyLimit) {
       return NextResponse.json(
         {
-          error: `Limite diario atingido (${dailyLimit} memes/dia). ${
-            isPremiumActive ? '' : 'Assine Premium para gerar ate 15!'
-          }`,
+          error: `Limite diário atingido (${dailyLimit} memes/dia).`,
           remaining: 0,
         },
         { status: 429 }

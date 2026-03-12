@@ -32,10 +32,10 @@ export default async function BlogIndexPage({ searchParams }: Props) {
               Blog FIEL.IA
             </div>
             <h1 className="mt-4 text-4xl font-semibold text-white md:text-6xl">
-              Blog em preparacao
+              Blog em preparação
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-gray-400 md:text-base">
-              Estamos configurando as noticias reescritas dentro da plataforma. Volte em breve.
+              Estamos preparando o conteúdo editorial da plataforma. Volte em breve.
             </p>
           </header>
 
@@ -90,10 +90,10 @@ export default async function BlogIndexPage({ searchParams }: Props) {
             Blog FIEL.IA
           </div>
           <h1 className="mt-4 text-4xl font-semibold text-white md:text-6xl">
-            Noticias reescritas para a Fiel
+            Blog da Fiel
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-gray-400 md:text-base">
-            Conteudos editoriais criados a partir das fontes originais, com linguagem focada na torcida do Corinthians.
+            Conteúdo editorial exclusivo para a torcida do Corinthians — análises, bastidores e opinião.
           </p>
         </header>
 

@@ -33,17 +33,18 @@ REGRAS:
 - Defenda o Corinthians SEMPRE, mas sem ser cego (reconhece fase ruim com dor no coracao)`;
 
 const MODEL_OPTIONS = [
-  { value: "google/gemini-2.0-flash-exp:free", label: "Gemini 2.0 Flash (Free)" },
+  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast (Recomendado)" },
   { value: "google/gemini-2.5-pro-exp-03-25:free", label: "Gemini 2.5 Pro (Free)" },
-  { value: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (Free)" },
-  { value: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3 (Free)" },
-  { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet" },
+  { value: "google/gemini-2.0-flash-exp:free", label: "Gemini 2.0 Flash (Free)" },
+  { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
   { value: "openai/gpt-4o", label: "GPT-4o" },
+  { value: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3 (Free)" },
+  { value: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (Free)" },
 ];
 
 export default function AdminIAPage() {
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
-  const [primaryModel, setPrimaryModel] = useState("google/gemini-2.0-flash-exp:free");
+  const [primaryModel, setPrimaryModel] = useState("x-ai/grok-4.1-fast");
   const [fallbackModel, setFallbackModel] = useState("");
   const [temperature, setTemperature] = useState(0.8);
   const [saving, setSaving] = useState(false);

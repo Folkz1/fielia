@@ -10,12 +10,20 @@ interface Message {
   timestamp: Date;
 }
 
+// Sanitize any raw HTML tags from bot responses before formatting
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
+}
+
 // Format bot messages with markdown-style formatting
 function formatBotMessage(content: string): string {
-  return content
+  // First strip any raw HTML that might come from the API
+  const clean = stripHtml(content);
+
+  return clean
     // Bold text: *text* -> <strong>text</strong>
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-    // Links: [text](url) -> <a href="url">text</a>
+    // Links: [text](url) -> <a>
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">$1</a>')
     // Plain text URLs -> clickable links (not already inside href="")
     .replace(/(?<![="'])https?:\/\/[^\s<>"']+/g, (url) =>

@@ -43,6 +43,7 @@ type Podcast = {
   ttsVoice?: string;
   audioSize: number;
   createdAt: string;
+  estimatedCostUsd?: number;
 };
 
 export default function AdminPodcastPage() {
@@ -273,15 +274,16 @@ export default function AdminPodcastPage() {
             ))}
           </select>
           <p className="text-xs text-gray-500">
-            Vozes via OpenRouter (gpt-audio-mini). Recomendado: Nova ou Ash.
+            Vozes via OpenRouter (gpt-4o-audio-preview). Recomendado: Ash ou Echo.
           </p>
 
           <div className="pt-4 border-t border-white/10">
-            <h3 className="text-sm font-bold mb-2">Estimativa de Custo</h3>
+            <h3 className="text-sm font-bold mb-2">Modelo TTS</h3>
             <div className="space-y-1 text-xs text-gray-400">
-              <p>~2000 chars / podcast</p>
-              <p>Modelo: gpt-audio-mini (OpenRouter)</p>
-              <p>Usa mesma API key do chat</p>
+              <p className="font-mono text-orange-400">openai/gpt-4o-audio-preview</p>
+              <p>~800 chars / boletim (30-60s áudio)</p>
+              <p>Custo estimado: ~$0.01-0.02 / podcast</p>
+              <p>Qualidade máxima de voz</p>
             </div>
           </div>
 
@@ -316,7 +318,9 @@ export default function AdminPodcastPage() {
                       <h3 className="font-bold text-white">{podcast.title}</h3>
                       <p className="text-xs text-gray-400">
                         {formatDate(podcast.createdAt)} | {formatSize(podcast.audioSize)} |
-                        {podcast.ttsVoice || "?"} | {(podcast.newsIds || []).length} noticias
+                        {podcast.ttsVoice || "?"} | {(podcast.newsIds || []).length} notícias
+                        {podcast.ttsModel && <span className="text-orange-400"> | {podcast.ttsModel}</span>}
+                        {podcast.estimatedCostUsd != null && <span className="text-green-400"> | ~${podcast.estimatedCostUsd.toFixed(3)}</span>}
                       </p>
                     </div>
                   </div>

@@ -209,7 +209,7 @@ export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> 
 
   // Estimate cost (gpt-4o-audio-preview: ~$2.40/M input, ~$9.60/M output audio tokens)
   // Rough: ~1 token per 4 chars input, audio output ~150 tokens per second at 24kHz
-  const inputChars = text.length;
+  const inputChars = script.length;
   const estimatedInputTokens = Math.ceil(inputChars / 4);
   const estimatedAudioSeconds = Math.ceil(inputChars / 15); // ~15 chars/sec speech
   const estimatedOutputTokens = estimatedAudioSeconds * 150;

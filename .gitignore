@@ -48,3 +48,5 @@ next-env.d.ts
 
 # Windows reserved file name that sometimes gets created by mistake
 nul
+playwright-report/
+test-results/

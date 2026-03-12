@@ -1,7 +1,7 @@
 import { sendChatCompletion } from '@/lib/openrouter';
 import { prisma } from '@/lib/prisma';
 
-const TTS_VOICE = process.env.TTS_VOICE || 'nova';
+const TTS_VOICE = process.env.TTS_VOICE || 'echo';
 
 interface NewsItem {
   id: string;
@@ -20,26 +20,29 @@ interface PodcastResult {
 }
 
 function getDefaultPodcastPrompt(): string {
-  return `Voce e o narrador do podcast "Voz da Fiel" - o podcast diario da torcida do Corinthians.
+  return `Voce e o locutor do "Voz da Fiel" - boletim diario relampago da torcida do Corinthians.
+
+FORMATO: BOLETIM DE RADIO RAPIDO (maximo 1 minuto de audio)
 
 ESTILO:
-- Fale como torcedor apaixonado do Corinthians numa mesa de bar
-- Use girias: "mano", "cria", "maluco", "e nois", "vai corinthians"
-- Transmita EMOCAO - vibre com boas noticias, sofra com as ruins
-- Tom de conversa entre amigos, nao de jornalista
-- Paragrafos curtos, frases diretas
+- Energia de radio esportiva: direto, rapido, impactante
+- Tom: torcedor apaixonado mas informativo, como narrador de radio
+- Girias naturais: "Fiel", "Timao", "mano", "bora"
+- Frases CURTAS e DIRETAS - cada noticia em 2-3 frases no maximo
+- Emocao na medida certa: vibre sem exagerar
 
-ESTRUTURA:
-1. Abertura (1-2 frases): Saudacao energetica, "E ai Fiel! Aqui e o Voz da Fiel..."
-2. Noticias (1 paragrafo cada): Conte cada noticia com emocao e opiniao
-3. Encerramento (1-2 frases): Mensagem motivacional pro torcedor, "Vai Corinthians!"
+ESTRUTURA OBRIGATORIA:
+1. ABERTURA (1 frase): "Salve Fiel! Boletim Voz da Fiel, [data ou referencia do dia]."
+2. NOTICIAS (2-3 frases cada, maximo 4 noticias): Fato + contexto rapido + opiniao curta
+3. FECHAMENTO (1 frase): Recado motivacional curto. "Vai Corinthians!"
 
 REGRAS:
+- MAXIMO 800 caracteres total (ideal 60 segundos de audio)
 - NUNCA invente fatos - use SOMENTE o que esta nas noticias
-- Nao mencione fontes ou sites
-- Maximo 2000 caracteres total (ideal para 2-3 minutos de audio)
-- Escreva como texto corrido para ser NARRADO em voz alta (sem marcadores, sem bullets)
-- Nao use emojis (e audio, nao texto)`;
+- Nao mencione fontes, sites ou "segundo"
+- Texto corrido para ser LIDO EM VOZ ALTA (sem marcadores, bullets ou emojis)
+- Transicoes rapidas entre noticias: "E mais:", "Destaque:", "Olha so:"
+- Se tiver noticia ruim, seja realista mas nao dramatico`;
 }
 
 async function getPodcastPrompt(): Promise<string> {
@@ -70,16 +73,16 @@ export async function generatePodcastScript(news: NewsItem[]): Promise<{ script:
   const prompt = await getPodcastPrompt();
 
   const newsText = news.map((n, i) => {
-    return `NOTICIA ${i + 1}: ${n.title}\n${n.content.slice(0, 1500)}`;
+    return `NOTICIA ${i + 1}: ${n.title}\n${n.content.slice(0, 800)}`;
   }).join('\n\n---\n\n');
 
   const model = process.env.OPENROUTER_MODEL;
   const response = await sendChatCompletion(
     [
       { role: 'system', content: prompt },
-      { role: 'user', content: `Gere o roteiro do podcast de hoje com base nestas noticias:\n\n${newsText}` },
+      { role: 'user', content: `Gere o boletim relampago de hoje com base nestas noticias (maximo 4 noticias, maximo 800 caracteres total):\n\n${newsText}` },
     ],
-    { temperature: 0.7, maxTokens: 1500, model }
+    { temperature: 0.8, maxTokens: 600, model }
   );
 
   return { script: response.content.trim(), model: response.model || 'unknown' };
@@ -133,11 +136,11 @@ export async function generateAudio(text: string): Promise<Buffer> {
       messages: [
         {
           role: 'system',
-          content: 'Voce e um narrador. Sua UNICA funcao e ler em voz alta EXATAMENTE o texto que o usuario enviar. NAO responda, NAO comente, NAO adicione nada. Apenas leia o texto palavra por palavra com boa entonacao, energia e emocao.',
+          content: 'Voce e um locutor de radio esportiva brasileira. Leia o texto EXATAMENTE como esta, palavra por palavra, com entonacao energetica e ritmo de boletim de radio. NAO adicione nada. NAO comente. Apenas leia com energia e clareza.',
         },
         {
           role: 'user',
-          content: `Leia este texto em voz alta agora: ${text.slice(0, 4096)}`,
+          content: `Leia este boletim esportivo agora: ${text.slice(0, 2048)}`,
         },
       ],
       stream: true,
@@ -183,14 +186,13 @@ export async function generateAudio(text: string): Promise<Buffer> {
   const pcmBase64 = audioChunks.join('');
   const pcmBuffer = Buffer.from(pcmBase64, 'base64');
 
-  // Convert PCM16 raw to WAV (24kHz mono 16-bit)
   return pcm16ToWav(pcmBuffer);
 }
 
 export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> {
   if (!news.length) throw new Error('Nenhuma noticia para gerar podcast');
 
-  // 1. Gerar script narrado
+  // 1. Gerar script (boletim rapido)
   const { script, model } = await generatePodcastScript(news);
 
   // 2. Gerar audio
@@ -203,7 +205,6 @@ export async function generatePodcast(news: NewsItem[]): Promise<PodcastResult> 
   const voice = await getPodcastVoice();
   const ttsModel = process.env.TTS_MODEL || 'openai/gpt-audio-mini';
 
-  // Usar $queryRawUnsafe para pegar o id de volta
   const rows: any[] = await prisma.$queryRawUnsafe(`
     INSERT INTO podcasts (id, title, script, audio, news_ids, tts_model, tts_voice, created_at)
     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())

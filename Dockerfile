@@ -51,6 +51,7 @@ COPY --from=builder /app/node_modules/youtubei.js ./node_modules/youtubei.js
 COPY --from=builder /app/node_modules/unpdf ./node_modules/unpdf
 COPY --from=builder /app/node_modules/@bufbuild ./node_modules/@bufbuild
 COPY --from=builder /app/node_modules/meriyah ./node_modules/meriyah
+COPY --from=builder /app/node_modules/node-cron ./node_modules/node-cron
 
 USER nextjs
 

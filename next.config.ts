@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["unpdf", "undici", "youtube-transcript-plus", "youtubei.js"],
+  serverExternalPackages: ["unpdf", "undici", "youtube-transcript-plus", "youtubei.js", "node-cron"],
 
   // Otimizacao de imagens
   images: {

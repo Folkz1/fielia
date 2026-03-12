@@ -32,11 +32,21 @@ function getWebhookDebugPayload(body: any) {
   };
 }
 
+async function trySend(fn: () => Promise<unknown>, context: string): Promise<boolean> {
+  try {
+    await fn();
+    return true;
+  } catch (error) {
+    console.error(`[Webhook] Evolution send failed (${context}):`, error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     startScheduler();
     const body = await req.json();
-    
+
     // Evolution API webhook payload structure
     const { data, event } = body;
 
@@ -60,7 +70,7 @@ export async function POST(req: NextRequest) {
         // v1 structure or wrapper where message is nested
         message = data?.message || data;
       }
-      
+
       const key = message?.key;
       const fromJid = key?.remoteJid;
 
@@ -110,18 +120,17 @@ export async function POST(req: NextRequest) {
       const normalizedText = messageText.trim().toLowerCase();
       if (isNewUser || normalizedText === '/menu' || normalizedText === 'menu') {
         if (isNewUser) {
-            await evolutionAPI.sendTextMessage({
-                number: fromNumber,
-                text: WELCOME_MESSAGE,
-                delay: 1000,
-            });
+            await trySend(
+              () => evolutionAPI.sendTextMessage({ number: fromNumber, text: WELCOME_MESSAGE, delay: 1000 }),
+              'welcome'
+            );
         }
-        
+
         const menuResponse = await routeMessage(user.id, '/menu');
-        await evolutionAPI.sendTextMessage({
-          number: fromNumber,
-          text: menuResponse.content,
-        });
+        await trySend(
+          () => evolutionAPI.sendTextMessage({ number: fromNumber, text: menuResponse.content }),
+          'menu'
+        );
 
         return NextResponse.json({ status: 'processed_menu' });
       }
@@ -131,84 +140,87 @@ export async function POST(req: NextRequest) {
       const limitResult = await checkUserLimit(fromJid);
 
       if (!limitResult.allowed) {
-        await evolutionAPI.sendTextMessage({
-          number: fromNumber,
-          text: limitResult.message || 'Limite diário atingido.',
-        });
+        await trySend(
+          () => evolutionAPI.sendTextMessage({ number: fromNumber, text: limitResult.message || 'Limite diário atingido.' }),
+          'rate_limit'
+        );
         return NextResponse.json({ status: 'blocked', reason: 'daily_limit' });
       }
 
       // Process message through router
       const botResponse = await routeMessage(user.id, messageText);
 
-      // Save chat history
-      let chat = await prisma.aIChat.findFirst({
-        where: {
-          userId: user.id,
-          platform: 'whatsapp',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-
-      if (!chat) {
-        chat = await prisma.aIChat.create({
-          data: {
+      // Save chat history (non-blocking - don't let save failures block response)
+      try {
+        let chat = await prisma.aIChat.findFirst({
+          where: {
             userId: user.id,
             platform: 'whatsapp',
-            sessionId: `whatsapp-${fromJid}-${Date.now()}`,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         });
-      }
 
-      // Save messages
-      await prisma.aIMessage.createMany({
-        data: [
-          {
-            chatId: chat.id,
-            role: 'user',
-            content: messageText,
-          },
-          {
-            chatId: chat.id,
-            role: 'assistant',
-            content: botResponse.content,
-            // Only track tokens if it was an LLM response (this is a simplified assumption for now)
-            tokensUsed: 0, 
-            model: 'fiel-ia-router',
-          },
-        ],
-      });
+        if (!chat) {
+          chat = await prisma.aIChat.create({
+            data: {
+              userId: user.id,
+              platform: 'whatsapp',
+              sessionId: `whatsapp-${fromJid}-${Date.now()}`,
+            },
+          });
+        }
+
+        await prisma.aIMessage.createMany({
+          data: [
+            {
+              chatId: chat.id,
+              role: 'user',
+              content: messageText,
+            },
+            {
+              chatId: chat.id,
+              role: 'assistant',
+              content: botResponse.content,
+              tokensUsed: 0,
+              model: 'fiel-ia-router',
+            },
+          ],
+        });
+      } catch (historyError) {
+        console.error('[Webhook] Failed to save chat history:', historyError instanceof Error ? historyError.message : historyError);
+      }
 
       // Send response via WhatsApp
       if (botResponse.type === 'image' && botResponse.mediaUrl) {
-        await evolutionAPI.sendMediaMessage({
-          number: fromNumber,
-          mediaUrl: botResponse.mediaUrl,
-          caption: botResponse.content,
-        });
+        await trySend(
+          () => evolutionAPI.sendMediaMessage({ number: fromNumber, mediaUrl: botResponse.mediaUrl!, caption: botResponse.content }),
+          'image_response'
+        );
       } else {
-        await evolutionAPI.sendTextMessage({
-          number: fromNumber,
-          text: botResponse.content,
-        });
+        await trySend(
+          () => evolutionAPI.sendTextMessage({ number: fromNumber, text: botResponse.content }),
+          'text_response'
+        );
       }
 
-      // Update user activity
-      await prisma.user.update({
+      // Update user activity (non-blocking)
+      prisma.user.update({
         where: { id: user.id },
         data: { lastActive: new Date() },
-      });
+      }).catch((err) => console.error('[Webhook] Failed to update lastActive:', err instanceof Error ? err.message : err));
 
       return NextResponse.json({ status: 'processed' });
     }
 
     return NextResponse.json({ status: 'ignored' });
   } catch (error) {
-    console.error('WhatsApp Webhook Error:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    console.error('WhatsApp Webhook Error:', errMsg, errStack || '');
     return NextResponse.json(
-      { error: 'Failed to process webhook' },
+      { error: 'Failed to process webhook', detail: errMsg },
       { status: 500 }
     );
   }

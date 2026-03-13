@@ -115,7 +115,7 @@ export default function AdminNewsPage() {
               <span>
                 Sincronizado! {syncResult.fetched} buscadas, {syncResult.created} novas, {syncResult.skipped} duplicadas.
                 {typeof syncResult.rewritten === 'number' && (
-                  <> | reescritas: {syncResult.rewritten}</>
+                  <> | editadas pela IA: {syncResult.rewritten}</>
                 )}
                 {typeof syncResult.rewriteFailed === 'number' && syncResult.rewriteFailed > 0 && (
                   <> | falhas IA: {syncResult.rewriteFailed}</>

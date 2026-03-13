@@ -51,7 +51,7 @@ export default function AdminBlogPage() {
       const data = await res.json();
       if (data?.success) {
         const rewritten =
-          typeof data?.rewritten === "number" ? ` | reescritas: ${data.rewritten}` : "";
+          typeof data?.rewritten === "number" ? ` | editadas pela IA: ${data.rewritten}` : "";
         const rewriteFailed =
           typeof data?.rewriteFailed === "number" && data.rewriteFailed > 0
             ? ` | falhas IA: ${data.rewriteFailed}`

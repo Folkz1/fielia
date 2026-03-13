@@ -151,7 +151,8 @@ export async function syncNewsFromFreshRSS() {
   let rewritten = 0;
   let rewriteFailed = 0;
   const createdNewsIds: string[] = [];
-  const rewriteEnabled = (process.env.NEWS_REWRITE_USE_AI || 'true').toLowerCase() === 'true';
+  // Reescrita SEMPRE ativa - conteúdo deve ser 100% original da FIEL.IA
+  const rewriteEnabled = true;
 
   for (const item of items.slice(0, limit)) {
     if (!item.title) {

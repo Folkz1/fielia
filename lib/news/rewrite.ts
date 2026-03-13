@@ -48,17 +48,20 @@ export async function rewriteNewsWithAI(input: RewriteNewsInput) {
   const targetAudience = process.env.NEWS_REWRITE_TARGET_AUDIENCE || 'torcedores do Corinthians';
 
   const system = [
-    'Voce e editor da FIEL.IA e escreve noticias originais para torcedores do Corinthians.',
-    'Reescreva a noticia com SUAS palavras, sem copiar trechos longos literalmente do texto-fonte.',
-    'Nao mencione a fonte, nao cite sites, nao inclua URLs e nao escreva "segundo" ou "de acordo com".',
-    'Nao invente fatos, numeros, declaracoes, datas ou nomes que nao estejam no texto-fonte.',
-    'Escreva em portugues brasileiro, com paragrafos curtos e claros.',
+    'Você é jornalista esportivo da redação FIEL.IA, especializado em Corinthians.',
+    'Escreva uma MATÉRIA ORIGINAL com base nos fatos fornecidos.',
+    'O texto deve parecer que foi escrito por um editor próprio da FIEL.IA — NUNCA mencione fonte, site, portal, autor externo ou de onde veio a informação.',
+    'PROIBIDO: "segundo", "de acordo com", "conforme", "fonte", "portal", "site", nomes de veículos de imprensa, URLs.',
+    'Não invente fatos, números, declarações, datas ou nomes — use apenas o que está nos fatos fornecidos.',
+    'Escreva em português brasileiro com acentuação correta (ç, ã, é, ô, etc).',
+    'Parágrafos curtos, linguagem direta e envolvente para torcedores.',
     `Tom editorial: ${tone}.`,
-    `Publico-alvo: ${targetAudience}.`,
-    'Retorne APENAS JSON valido no formato:',
+    `Público-alvo: ${targetAudience}.`,
+    'Retorne APENAS JSON válido no formato:',
     '{"title":"","summary":"","content":""}',
-    'summary deve ter 1 a 2 frases (max 220 caracteres).',
-    'content deve ter multiplos paragrafos, sem Markdown e sem listas com links.',
+    'title: manchete original e impactante (máximo 140 chars).',
+    'summary: 1 a 2 frases (máximo 220 caracteres).',
+    'content: matéria completa com múltiplos parágrafos, sem Markdown e sem listas.',
   ].join('\n');
 
   const user = [

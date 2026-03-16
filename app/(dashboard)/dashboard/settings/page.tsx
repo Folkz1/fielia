@@ -299,7 +299,7 @@ function SettingsPageInner() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">Nome</label>
-                <p className="text-gray-300">Torcedor Fiel</p>
+                <p className="text-gray-300">{data?.name || "Carregando..."}</p>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">ID</label>
@@ -307,7 +307,7 @@ function SettingsPageInner() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-500">Email</label>
-                <p className="text-gray-300">torcedor@fiel.ia</p>
+                <p className="text-gray-300">{data?.email || "Carregando..."}</p>
               </div>
             </div>
             

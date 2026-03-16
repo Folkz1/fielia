@@ -81,6 +81,23 @@ export default async function DashboardPage() {
         <p className="text-gray-400">Continue jogando e suba no ranking da Fiel Torcida!</p>
       </div>
 
+      {/* WhatsApp Bot Banner */}
+      <a
+        href="https://wa.me/5511982129134?text=Ol%C3%A1%20FIEL%20IA!"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-4 bg-green-600/10 border border-green-600/30 rounded-2xl p-4 hover:bg-green-600/20 transition-colors"
+      >
+        <div className="p-2.5 rounded-xl bg-green-600/20 flex-shrink-0">
+          <MessageSquare className="w-5 h-5 text-green-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm">Converse com a FIEL IA no WhatsApp!</p>
+          <p className="text-xs text-gray-400">Toque para abrir o chat e perguntar qualquer coisa sobre o Timão</p>
+        </div>
+        <ChevronRight className="w-5 h-5 text-green-500 flex-shrink-0" />
+      </a>
+
       {/* Cards do Torcedor */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Pontos */}

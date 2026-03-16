@@ -312,6 +312,19 @@ model Knowledge {
   @@map("knowledge_base")
 }
 
+model Podcast {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  script    String
+  audio     Bytes?
+  newsIds   String[] @map("news_ids")
+  ttsModel  String?  @map("tts_model")
+  ttsVoice  String?  @map("tts_voice")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("podcasts")
+}
+
 model SiteConfig {
   key       String   @id
   value     String

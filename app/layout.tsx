@@ -16,21 +16,35 @@ const bebas = Bebas_Neue({
   display: "swap",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fielchat.com";
+
 export const metadata: Metadata = {
   title: "FIEL.IA - O Assistente do Torcedor Corinthiano",
-  description: "Quizzes semanais, notícias personalizadas e assistente inteligente no WhatsApp para a Fiel Torcida.",
-  keywords: ["Corinthians", "SCCP", "Fiel", "Quiz", "Notícias", "WhatsApp", "IA"],
-  authors: [{ name: "Diego Fernandes" }],
+  description: "Quizzes semanais com prêmios reais, notícias verificadas e assistente inteligente no WhatsApp para a Fiel Torcida. Chat com IA especialista no Corinthians 24/7.",
+  keywords: ["Corinthians", "SCCP", "Fiel", "Quiz", "Notícias", "WhatsApp", "IA", "Inteligência Artificial", "Torcedor", "Timão"],
+  authors: [{ name: "FIEL.IA" }],
+  metadataBase: new URL(siteUrl),
   openGraph: {
     title: "FIEL.IA - O Assistente do Torcedor Corinthiano",
-    description: "Quizzes semanais, notícias personalizadas e assistente inteligente no WhatsApp.",
+    description: "Chat com IA especialista no Timão. Notícias verificadas. Quiz com prêmios reais. Tudo no site e WhatsApp.",
     type: "website",
     locale: "pt_BR",
+    url: siteUrl,
+    siteName: "FIEL.IA",
+    images: [
+      {
+        url: "/images/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "FIEL.IA - A Inteligência Artificial do Torcedor Fiel",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "FIEL.IA - O Assistente do Torcedor Corinthiano",
-    description: "Quizzes semanais, notícias personalizadas e assistente inteligente no WhatsApp.",
+    description: "Chat com IA especialista no Timão. Quiz com prêmios reais. Notícias verificadas.",
+    images: ["/images/og-image.png"],
   },
   icons: {
     icon: "/favicon.ico",

@@ -317,11 +317,12 @@ model Podcast {
   title     String
   script    String
   audio     Bytes?
-  newsIds   String[] @map("news_ids")
-  ttsModel  String?  @map("tts_model")
-  ttsVoice  String?  @map("tts_voice")
-  createdAt DateTime @default(now()) @map("created_at")
+  newsIds   String[] @default([]) @map("news_ids")
+  ttsModel  String?  @default("") @map("tts_model")
+  ttsVoice  String?  @default("") @map("tts_voice")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
+  @@index([createdAt], map: "idx_podcasts_created_at")
   @@map("podcasts")
 }
 

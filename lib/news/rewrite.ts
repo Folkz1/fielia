@@ -61,7 +61,7 @@ export async function rewriteNewsWithAI(input: RewriteNewsInput) {
     '{"title":"","summary":"","content":""}',
     'title: manchete original e impactante (máximo 140 chars).',
     'summary: 1 a 2 frases (máximo 220 caracteres).',
-    'content: matéria completa com múltiplos parágrafos, sem Markdown e sem listas.',
+    'content: matéria editorial completa e bem estruturada. Use subtítulos em CAPS para separar seções (ex: "REFORÇOS DO TIMÃO", "O QUE DISSE DORIVAL"). Parágrafos curtos de 2-3 frases. Mínimo 4 parágrafos. Feche com frase de efeito pro torcedor. Sem Markdown, sem bullets — apenas texto com subtítulos em CAPS e quebras de parágrafo.',
   ].join('\n');
 
   const user = [

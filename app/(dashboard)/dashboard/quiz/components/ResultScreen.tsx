@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Trophy, Target, Award, ArrowLeft, Share2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface ResultScreenProps {
   result: any;
@@ -13,7 +14,8 @@ interface ResultScreenProps {
 }
 
 export function ResultScreen({ result, attempt, onBack }: ResultScreenProps) {
-  
+  const router = useRouter();
+
   // Confetti effect on mount
   useEffect(() => {
     const duration = 3 * 1000;
@@ -88,7 +90,7 @@ export function ResultScreen({ result, attempt, onBack }: ResultScreenProps) {
                 <Button
                     className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
                     size="lg"
-                    onClick={() => window.location.href = '/dashboard/ranking'}
+                    onClick={() => router.push('/dashboard/ranking')}
                 >
                     <Award className="w-4 h-4 mr-2" />
                     Ver Ranking

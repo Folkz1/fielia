@@ -63,6 +63,19 @@ export async function PATCH(req: NextRequest) {
     if (body.name && typeof body.name === 'string') {
       updates.name = body.name.trim().slice(0, 100);
     }
+    if (body.email && typeof body.email === 'string') {
+      const email = body.email.trim().toLowerCase();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        // Check if email is already in use by another user
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing && existing.id !== session.user.id) {
+          return NextResponse.json({ error: 'Este email já está em uso' }, { status: 409 });
+        }
+        updates.email = email;
+      } else {
+        return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+      }
+    }
     if (body.phone && typeof body.phone === 'string') {
       updates.phone = body.phone.replace(/\D/g, '').slice(0, 15);
     }

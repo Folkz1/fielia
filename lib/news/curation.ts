@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { sendChatCompletion } from '@/lib/openrouter';
+import { rewriteNewsWithAI } from '@/lib/news/rewrite';
 
 type NewsItem = {
   id: string;
@@ -108,5 +109,45 @@ export async function runNewsCuration() {
     create: { date: today, topIds },
   });
 
-  return { created: true, topIds };
+  // Rewrite top curated news with AI if enabled
+  let rewritten = 0;
+  if (useAI && process.env.OPENROUTER_API_KEY) {
+    const topNews = await prisma.news.findMany({
+      where: { id: { in: topIds } },
+      select: { id: true, title: true, summary: true, content: true, category: true, sourceUrl: true },
+    });
+
+    for (const item of topNews) {
+      // Skip if content looks already well-written (>500 chars, no raw HTML)
+      const content = (item.content || '').trim();
+      const hasRawHtml = /<[a-z][\s\S]*>/i.test(content);
+      const isTooShort = content.length < 500;
+      if (!hasRawHtml && !isTooShort) continue;
+
+      try {
+        const sourceText = content || item.summary || item.title;
+        if (sourceText.length < 100) continue;
+
+        const result = await rewriteNewsWithAI({
+          title: item.title,
+          category: item.category,
+          sourceText,
+        });
+
+        await prisma.news.update({
+          where: { id: item.id },
+          data: {
+            title: result.title,
+            summary: result.summary,
+            content: result.content,
+          },
+        });
+        rewritten++;
+      } catch (error) {
+        console.warn(`[curation] Rewrite failed for news ${item.id}:`, error);
+      }
+    }
+  }
+
+  return { created: true, topIds, rewritten };
 }

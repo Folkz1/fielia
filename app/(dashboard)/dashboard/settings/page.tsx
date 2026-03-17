@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Check, AlertTriangle, Palette } from "lucide-react";
+import { Crown, Check, AlertTriangle, Palette, Save } from "lucide-react";
 import { useSubscription } from "@/hooks/use-api";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ThemeSelector } from "@/lib/theme-context";
@@ -291,34 +291,123 @@ function SettingsPageInner() {
         </Card>
 
         {/* User Info */}
-        <Card className="bg-corinthians-gray-dark border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white">Seus Dados</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Nome</label>
-                <p className="text-gray-300">{data?.name || "Carregando..."}</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">ID</label>
-                <p className="text-gray-300 font-mono text-xs">{userId || "-"}</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500">Email</label>
-                <p className="text-gray-300">{data?.email || "Carregando..."}</p>
-              </div>
-            </div>
-            
-            <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg flex gap-3 items-start">
-               <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-               <p className="text-xs text-yellow-500">Para alterar seus dados, entre em contato com o suporte através do WhatsApp.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <UserDataCard data={data} userId={userId} onSaved={() => mutate()} />
       </div>
     </div>
+  );
+}
+
+function UserDataCard({ data, userId, onSaved }: { data: any; userId: string; onSaved: () => void }) {
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (data && !initialized) {
+      setEditName(data.name || "");
+      setEditEmail(data.email || "");
+      setInitialized(true);
+    }
+  }, [data, initialized]);
+
+  const hasChanges =
+    (editName.trim() !== (data?.name || "")) ||
+    (editEmail.trim().toLowerCase() !== (data?.email || "").toLowerCase());
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const body: Record<string, string> = {};
+      if (editName.trim() !== (data?.name || "")) body.name = editName.trim();
+      if (editEmail.trim().toLowerCase() !== (data?.email || "").toLowerCase()) body.email = editEmail.trim();
+
+      const res = await fetch("/api/user/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao salvar");
+      }
+
+      setSaveMsg({ type: "ok", text: "Dados atualizados com sucesso!" });
+      onSaved();
+    } catch (error) {
+      setSaveMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao salvar" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="bg-corinthians-gray-dark border-gray-800">
+      <CardHeader>
+        <CardTitle className="text-white">Seus Dados</CardTitle>
+        <CardDescription className="text-gray-400">
+          Edite seu nome e email abaixo
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Nome</label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full rounded-lg border border-gray-600 bg-black/40 px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 transition-colors"
+              placeholder="Seu nome"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Email</label>
+            <input
+              type="email"
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              className="w-full rounded-lg border border-gray-600 bg-black/40 px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 transition-colors"
+              placeholder="seu@email.com"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">ID</label>
+            <p className="text-gray-400 font-mono text-xs py-2">{userId || "-"}</p>
+          </div>
+        </div>
+
+        {saveMsg && (
+          <div className={`rounded-lg border p-3 text-sm ${
+            saveMsg.type === "ok"
+              ? "border-green-500/30 bg-green-500/10 text-green-300"
+              : "border-red-500/30 bg-red-500/10 text-red-300"
+          }`}>
+            {saveMsg.text}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+            className="btn-primary"
+          >
+            {saving ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Salvar Alterações
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

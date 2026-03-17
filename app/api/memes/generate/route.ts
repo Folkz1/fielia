@@ -62,6 +62,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Monthly limit: 20 memes/month for premium users
+    const monthlyLimit = 20;
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const memesThisMonth = await prisma.meme.count({
+      where: {
+        userId,
+        createdAt: { gte: startOfMonth },
+      },
+    });
+
+    if (memesThisMonth >= monthlyLimit) {
+      return NextResponse.json(
+        {
+          error: `Limite mensal atingido (${monthlyLimit} memes/mês). Seu limite renova no próximo mês.`,
+          remaining: 0,
+          monthlyRemaining: 0,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { prompt, newsId } = body as { prompt?: string; newsId?: string };
 
@@ -109,6 +133,7 @@ export async function POST(req: NextRequest) {
           createdAt: meme.createdAt,
         },
         remaining: dailyLimit - memesToday - 1,
+        monthlyRemaining: monthlyLimit - memesThisMonth - 1,
       });
     }
 

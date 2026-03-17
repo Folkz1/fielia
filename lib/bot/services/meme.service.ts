@@ -153,7 +153,7 @@ async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer;
       messages: [
         {
           role: 'user',
-          content: `Gere uma imagem de meme de alta qualidade sobre o Corinthians. OBRIGATÓRIO: todo texto na imagem DEVE estar em PORTUGUÊS BRASILEIRO correto, com acentuação (ç, ã, é, ô, etc). NUNCA use espanhol, inglês ou texto sem acentos. Estilo: meme de internet brasileiro, engraçado, alta resolução. Tema: ${prompt}`,
+          content: `Gere uma imagem de meme QUADRADA (aspect ratio 1:1, 1024x1024) de alta qualidade sobre o Corinthians. OBRIGATÓRIO: todo texto na imagem DEVE estar em PORTUGUÊS BRASILEIRO correto, com acentuação (ç, ã, é, ô, etc). NUNCA use espanhol, inglês ou texto sem acentos. A imagem DEVE ser quadrada. Estilo: meme de internet brasileiro, engraçado, alta resolução. Tema: ${prompt}`,
         },
       ],
       modalities: ['image', 'text'],

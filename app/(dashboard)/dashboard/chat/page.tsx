@@ -29,10 +29,12 @@ function formatBotMessage(content: string): string {
     .replace(/(?<![="'])https?:\/\/[^\s<>"']+/g, (url) =>
       `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">${url}</a>`
     )
-    // Relative /news/ URLs -> clickable links
-    .replace(/(?<![="'\/])\/news\/[^\s<>"']+/g, (url) =>
-      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">Ler mais</a>`
-    )
+    // Relative /news/ URLs -> clickable links (standalone, not inside quotes or attributes)
+    .replace(/(?<![="'\/a-zA-Z])\/news\/[^\s<>"')]+/g, (url) => {
+      // Clean any trailing punctuation that might have been captured
+      const cleanUrl = url.replace(/[.,;:!?]+$/, '');
+      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">Ler mais</a>`;
+    })
     // Line breaks
     .replace(/\n/g, '<br />');
 }

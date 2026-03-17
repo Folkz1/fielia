@@ -177,11 +177,11 @@ function HeroSection() {
 
       <div className="relative z-10 text-center max-w-5xl mx-auto px-6">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6">
-          A INTELIGENCIA ARTIFICIAL DO TORCEDOR FIEL
+          A INTELIGÊNCIA ARTIFICIAL DO TORCEDOR FIEL
         </p>
 
         <h1 className="font-heading text-[48px] md:text-[88px] leading-none text-white">
-          Voce esta pronto
+          Você está pronto
           <br />
           para saber tudo
           <br />
@@ -189,9 +189,9 @@ function HeroSection() {
         </h1>
 
         <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mt-6 leading-relaxed">
-          Chat com IA especialista no Timao. Noticias verificadas em tempo real.
-          Quiz com premios em dinheiro. Memes pra zoar o rival.
-          Tudo no site e no WhatsApp — na palma da sua mao.
+          Chat com IA especialista no Timão. Notícias verificadas em tempo real.
+          Quiz com prêmios em dinheiro. Memes pra zoar o rival.
+          Tudo no site e no WhatsApp — na palma da sua mão.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
@@ -199,7 +199,7 @@ function HeroSection() {
             href={SUBSCRIBE_URL}
             className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
           >
-            Assinar por R$ 56,90/mes →
+            Assinar por R$ 56,90/mês →
           </Link>
           <a
             href="#como-funciona"
@@ -210,7 +210,7 @@ function HeroSection() {
         </div>
 
         <p className="text-white/50 text-sm mt-8">
-          ⭐⭐⭐⭐⭐ Mais de 12.000 torcedores fieis ja assinaram
+          ⭐⭐⭐⭐⭐ Mais de 12.000 torcedores fiéis já assinaram
         </p>
       </div>
 
@@ -224,9 +224,9 @@ function HeroSection() {
 /* ─── FakeNewsProblem ─── */
 
 const problemCards = [
-  { icon: Search, title: "Fontes nao confiaveis", body: "Sites sensacionalistas e perfis anonimos espalhando boatos como se fossem verdade." },
-  { icon: Clock, title: "Informacao atrasada", body: "Voce descobre o que aconteceu horas depois, quando todo mundo no grupo ja sabe." },
-  { icon: AlertTriangle, title: "Conteudo generico", body: "Noticias que nao falam a sua lingua nem respeitam o que voce realmente quer saber." },
+  { icon: Search, title: "Fontes não confiáveis", body: "Sites sensacionalistas e perfis anônimos espalhando boatos como se fossem verdade." },
+  { icon: Clock, title: "Informação atrasada", body: "Você descobre o que aconteceu horas depois, quando todo mundo no grupo já sabe." },
+  { icon: AlertTriangle, title: "Conteúdo genérico", body: "Notícias que não falam a sua língua nem respeitam o que você realmente quer saber." },
 ];
 
 function FakeNewsProblem() {
@@ -237,18 +237,18 @@ function FakeNewsProblem() {
     <section className="py-36 px-6" style={{ background: "#111" }} ref={ref}>
       <div className="max-w-5xl mx-auto text-center">
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>
-          VOCE JA PASSOU POR ISSO
+          VOCÊ JÁ PASSOU POR ISSO
         </p>
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white fade-up stagger-1 ${v}`}>
           Cansado de ficar
-          <br />procurando noticias
-          <br />e verificando se sao
+          <br />procurando notícias
+          <br />e verificando se são
           <br />verdadeiras?
         </h2>
         <p className={`text-lg md:text-xl text-white/70 max-w-2xl mx-auto mt-6 leading-relaxed fade-up stagger-2 ${v}`}>
-          A cada rumor de contratacao, demissao de tecnico ou resultado, voce passa minutos —
-          as vezes horas — vasculhando Twitter, Google e grupos de WhatsApp tentando entender
-          o que e real e o que e fake.
+          A cada rumor de contratação, demissão de técnico ou resultado, você passa minutos —
+          às vezes horas — vasculhando Twitter, Google e grupos de WhatsApp tentando entender
+          o que é real e o que é fake.
         </p>
 
         <div className="grid md:grid-cols-3 gap-6 mt-16">
@@ -267,8 +267,8 @@ function FakeNewsProblem() {
           A FIEL IA resolve isso de uma vez.
         </h3>
         <p className={`text-lg text-white/60 mt-4 fade-up stagger-1 ${v}`}>
-          Noticias verificadas, em tempo real, personalizadas para voce.
-          <br />Direto no site ou no WhatsApp. Sem fake news. Sem enrolacao.
+          Notícias verificadas, em tempo real, personalizadas para você.
+          <br />Direto no site ou no WhatsApp. Sem fake news. Sem enrolação.
         </p>
       </div>
     </section>
@@ -289,7 +289,7 @@ function ProductReveal() {
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>APRESENTANDO</p>
         <h2 className={`font-heading text-[60px] md:text-[100px] leading-none text-white fade-up stagger-1 ${v}`}>FIEL IA.</h2>
         <p className={`text-xl md:text-2xl font-light text-white/80 mt-6 fade-up stagger-2 ${v}`}>
-          A primeira inteligencia artificial criada
+          A primeira inteligência artificial criada
           <br />exclusivamente para quem tem o
           <br />Corinthians no sangue.
         </p>
@@ -303,10 +303,10 @@ function ProductReveal() {
                 <span className="text-sm text-white font-semibold">FIEL IA · WhatsApp</span>
               </div>
               <div className="bg-white/10 rounded-2xl rounded-bl-sm p-3 max-w-[80%]">
-                <p className="text-sm text-white/80">Quem foi artilheiro do Corinthians no Brasileirao 2023?</p>
+                <p className="text-sm text-white/80">Quem foi artilheiro do Corinthians no Brasileirão 2023?</p>
               </div>
               <div className="rounded-2xl rounded-br-sm p-3 max-w-[85%] ml-auto" style={{ background: "#1A1A1A" }}>
-                <p className="text-sm text-white/80">O artilheiro do Corinthians no Brasileirao 2023 foi Yuri Alberto, com 13 gols marcados na competicao. ⚽</p>
+                <p className="text-sm text-white/80">O artilheiro do Corinthians no Brasileirão 2023 foi Yuri Alberto, com 13 gols marcados na competição. ⚽</p>
               </div>
             </div>
           </div>
@@ -323,17 +323,17 @@ function ProductReveal() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <div className="bg-white/5 rounded-xl p-3">
-                    <p className="text-xs text-orange-500 font-semibold">ULTIMA HORA</p>
-                    <p className="text-sm text-white/80 mt-1">Corinthians anuncia reforco para o meio-campo</p>
+                    <p className="text-xs text-orange-500 font-semibold">ÚLTIMA HORA</p>
+                    <p className="text-sm text-white/80 mt-1">Corinthians anuncia reforço para o meio-campo</p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
                     <p className="text-xs text-orange-500 font-semibold">VERIFICADO</p>
-                    <p className="text-sm text-white/80 mt-1">Escalacao confirmada para o classico</p>
+                    <p className="text-sm text-white/80 mt-1">Escalação confirmada para o clássico</p>
                   </div>
                 </div>
                 <div className="bg-white/5 rounded-xl p-3">
                   <p className="text-xs text-orange-500 font-semibold mb-2">QUIZ DA SEMANA</p>
-                  <p className="text-sm text-white/80">Quem marcou o gol do titulo em 2012?</p>
+                  <p className="text-sm text-white/80">Quem marcou o gol do título em 2012?</p>
                   <div className="space-y-1.5 mt-2">
                     <div className="bg-white/10 rounded-lg px-3 py-1.5 text-xs text-white/70">Guerrero</div>
                     <div className="bg-orange-600/20 border border-orange-600/40 rounded-lg px-3 py-1.5 text-xs text-white">Paolo Guerrero ✓</div>
@@ -345,7 +345,7 @@ function ProductReveal() {
         </div>
 
         <p className={`text-xl md:text-2xl italic text-orange-500 mt-10 fade-up stagger-3 ${v}`}>
-          "Nao e um app de futebol. E a sua IA particular do Timao."
+          "Não é um app de futebol. É a sua IA particular do Timão."
         </p>
       </div>
     </section>
@@ -355,10 +355,10 @@ function ProductReveal() {
 /* ─── Features ─── */
 
 const features = [
-  { icon: MessageCircle, title: "Pergunte qualquer coisa sobre o Timao.", body: "Historico, jogadores, titulos, escalacoes, curiosidades, bastidores — a IA Fiel sabe tudo e responde na hora, em linguagem de torcedor.", badge: "Chat 24/7 · Site e WhatsApp", highlighted: false },
-  { icon: Newspaper, title: "Noticias reais. Verificadas. No momento certo.", body: "Chega de fake news. A FIEL IA filtra, verifica e entrega apenas informacoes confirmadas — personalizadas com o que voce quer acompanhar.", badge: "Verificado em tempo real", highlighted: false },
-  { icon: Trophy, title: "Voce sabe tudo sobre o Timao?", body: "Agora seu conhecimento pode virar dinheiro. Responda quizzes sobre o Corinthians, suba no ranking e ganhe premios reais toda semana.", badge: "Premiacao semanal", highlighted: true, urgency: "Torcedores do Timao ja estao ganhando premios — e voce vai ficar de fora?", pills: ["💰 PIX", "🎟️ Ingressos", "👕 Camisas", "🏅 Artigos"] },
-  { icon: Laugh, title: "Crie o meme perfeito em segundos.", body: "Nossa IA gera imagens e memes prontos pra voce arrasar no grupo e nas redes. Zoar com estilo e coisa de Fiel.", badge: "IA Generativa", highlighted: false },
+  { icon: MessageCircle, title: "Pergunte qualquer coisa sobre o Timão.", body: "Histórico, jogadores, títulos, escalações, curiosidades, bastidores — a IA Fiel sabe tudo e responde na hora, em linguagem de torcedor.", badge: "Chat 24/7 · Site e WhatsApp", highlighted: false },
+  { icon: Newspaper, title: "Notícias reais. Verificadas. No momento certo.", body: "Chega de fake news. A FIEL IA filtra, verifica e entrega apenas informações confirmadas — personalizadas com o que você quer acompanhar.", badge: "Verificado em tempo real", highlighted: false },
+  { icon: Trophy, title: "Você sabe tudo sobre o Timão?", body: "Agora seu conhecimento pode virar dinheiro. Responda quizzes sobre o Corinthians, suba no ranking e ganhe prêmios reais toda semana.", badge: "Premiação semanal", highlighted: true, urgency: "Torcedores do Timão já estão ganhando prêmios — e você vai ficar de fora?", pills: ["💰 PIX", "🎟️ Ingressos", "👕 Camisas", "🏅 Artigos"] },
+  { icon: Laugh, title: "Crie o meme perfeito em segundos.", body: "Nossa IA gera imagens e memes prontos pra você arrasar no grupo e nas redes. Zoar com estilo é coisa de Fiel.", badge: "IA Generativa", highlighted: false },
 ];
 
 function FeaturesSection() {
@@ -371,8 +371,8 @@ function FeaturesSection() {
         <div className="text-center mb-16">
           <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>RECURSOS</p>
           <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white fade-up stagger-1 ${v}`}>
-            Tudo que um torcedor fanatico
-            <br />precisa. Em um lugar so.
+            Tudo que um torcedor fanático
+            <br />precisa. Em um lugar só.
           </h2>
         </div>
 
@@ -423,16 +423,16 @@ function QuizSpotlight() {
       <div className="max-w-5xl mx-auto text-center relative z-10">
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>QUIZ FIEL IA</p>
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white fade-up stagger-1 ${v}`}>
-          Voce sabe tudo<br />sobre o Timao?
+          Você sabe tudo<br />sobre o Timão?
         </h2>
         <p className={`text-lg md:text-xl text-white/70 mt-4 fade-up stagger-2 ${v}`}>Agora seu conhecimento pode virar dinheiro.</p>
 
         <div className={`border border-orange-600/40 rounded-3xl p-8 md:p-12 max-w-2xl mx-auto mt-12 fade-up stagger-2 ${v}`} style={{ background: "#1A1A1A" }}>
           <Trophy className="text-orange-500 mx-auto mb-6" size={56} />
           <p className="text-lg text-white leading-relaxed">
-            Toda semana, novos quizzes sobre a historia, os jogadores, as conquistas e as polemicas
-            do Corinthians. Voce responde, acumula pontos e sobe no ranking. Os melhores ganham
-            premios enviados automaticamente.
+            Toda semana, novos quizzes sobre a história, os jogadores, as conquistas e as polêmicas
+            do Corinthians. Você responde, acumula pontos e sobe no ranking. Os melhores ganham
+            prêmios enviados automaticamente.
           </p>
 
           <div className="grid grid-cols-2 gap-4 mt-8">
@@ -447,8 +447,8 @@ function QuizSpotlight() {
           <div className="bg-orange-600/10 border border-orange-600/30 rounded-xl p-5 flex items-center gap-3 mt-8">
             <Zap className="text-orange-500 flex-shrink-0" size={24} />
             <p className="text-sm text-white/80 text-left">
-              Torcedores do Timao ja estao ganhando premios —{" "}
-              <span className="text-orange-500 font-bold">e voce vai ficar de fora?</span>
+              Torcedores do Timão já estão ganhando prêmios —{" "}
+              <span className="text-orange-500 font-bold">e você vai ficar de fora?</span>
             </p>
           </div>
 
@@ -467,9 +467,9 @@ function QuizSpotlight() {
 /* ─── HowItWorks ─── */
 
 const steps = [
-  { num: "01", icon: CreditCard, title: "Assine o plano Fiel Fanatico", body: "Acesse pelo site ou escaneie o QR Code para entrar no WhatsApp da FIEL IA." },
-  { num: "02", icon: SlidersHorizontal, title: "Configure seus interesses", body: "Diga pra IA quais jogadores voce acompanha, que noticias quer e como prefere ser notificado." },
-  { num: "03", icon: Zap, title: "Viva o Timao como nunca antes", body: "Chat, noticias verificadas, quiz com premios, memes — tudo 24/7 no site e no WhatsApp." },
+  { num: "01", icon: CreditCard, title: "Assine o plano Fiel Fanático", body: "Acesse pelo site ou escaneie o QR Code para entrar no WhatsApp da FIEL IA." },
+  { num: "02", icon: SlidersHorizontal, title: "Configure seus interesses", body: "Diga pra IA quais jogadores você acompanha, que notícias quer e como prefere ser notificado." },
+  { num: "03", icon: Zap, title: "Viva o Timão como nunca antes", body: "Chat, notícias verificadas, quiz com prêmios, memes — tudo 24/7 no site e no WhatsApp." },
 ];
 
 function HowItWorks() {
@@ -507,9 +507,9 @@ function HowItWorks() {
 /* ─── Testimonials ─── */
 
 const testimonials = [
-  { quote: "Ganhei R$ 200 de PIX no quiz e ainda recebi ingresso pro classico. Isso e real, galera.", name: "Rodrigo M.", city: "Sao Paulo – SP" },
-  { quote: "Acabou o negocio de ficar checando se a noticia e verdadeira. A FIEL IA ja chega verificada.", name: "Fernanda C.", city: "Santo Andre – SP" },
-  { quote: "Os memes que gerei humilharam meu amigo palmeirense por semanas. Impagavel.", name: "Carlos T.", city: "Campinas – SP" },
+  { quote: "Ganhei R$ 200 de PIX no quiz e ainda recebi ingresso pro clássico. Isso é real, galera.", name: "Rodrigo M.", city: "São Paulo – SP" },
+  { quote: "Acabou o negócio de ficar checando se a notícia é verdadeira. A FIEL IA já chega verificada.", name: "Fernanda C.", city: "Santo André – SP" },
+  { quote: "Os memes que gerei humilharam meu amigo palmeirense por semanas. Impagável.", name: "Carlos T.", city: "Campinas – SP" },
 ];
 
 function Testimonials() {
@@ -532,7 +532,7 @@ function Testimonials() {
       <div className="max-w-5xl mx-auto text-center">
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>DEPOIMENTOS</p>
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white mb-16 fade-up stagger-1 ${v}`}>
-          12.000+ torcedores.<br />Uma so paixao.
+          12.000+ torcedores.<br />Uma só paixão.
         </h2>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -557,7 +557,7 @@ function Testimonials() {
           </div>
           <div className="py-4 md:py-0 md:px-6">
             <p className="font-heading text-[40px] md:text-[56px] text-white">R$ {premios.toLocaleString("pt-BR")}</p>
-            <p className="text-sm text-white/50">em premios pagos</p>
+            <p className="text-sm text-white/50">em prêmios pagos</p>
           </div>
           <div className="py-4 md:py-0 md:px-6">
             <p className="font-heading text-[40px] md:text-[56px] text-white">{formatNumber(mensagens)}</p>
@@ -573,7 +573,7 @@ function Testimonials() {
 
 const planFeatures = [
   "Chat IA especialista 24/7",
-  "Noticias verificadas e personalizadas em tempo real",
+  "Notícias verificadas e personalizadas em tempo real",
   "Quiz semanal — PIX, ingressos, camisas, artigos",
   "Gerador de memes com IA",
   "Acesso via site E WhatsApp",
@@ -588,7 +588,7 @@ function Pricing() {
     <section id="planos" className="py-36 px-6" style={{ background: "#111" }} ref={ref}>
       <div className="max-w-5xl mx-auto text-center">
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>
-          PLANO UNICO. ACESSO TOTAL.
+          PLANO ÚNICO. ACESSO TOTAL.
         </p>
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white mb-16 fade-up stagger-1 ${v}`}>
           Tudo isso por menos de<br />2 reais por dia.
@@ -596,13 +596,13 @@ function Pricing() {
 
         <div className={`relative max-w-md mx-auto fade-up stagger-2 ${v}`}>
           <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10">
-            <span className="bg-orange-600 text-white font-bold rounded-full px-6 py-2 text-sm whitespace-nowrap">★ FIEL FANATICO</span>
+            <span className="bg-orange-600 text-white font-bold rounded-full px-6 py-2 text-sm whitespace-nowrap">★ FIEL FANÁTICO</span>
           </div>
 
           <div className="border-2 border-orange-600 rounded-3xl p-10 shadow-2xl shadow-orange-600/25" style={{ background: "#1A1A1A" }}>
             <div className="mt-6 text-center">
               <span className="font-heading text-[80px] leading-none text-white">R$ 56,90</span>
-              <span className="text-xl text-white/50 ml-1">/mes</span>
+              <span className="text-xl text-white/50 ml-1">/mês</span>
               <p className="text-sm text-orange-500 mt-1">≈ R$ 1,89 por dia</p>
             </div>
 
@@ -621,7 +621,7 @@ function Pricing() {
               href={SUBSCRIBE_URL}
               className="block mt-8 bg-orange-600 text-white font-bold rounded-2xl py-5 text-xl w-full text-center hover:bg-orange-500 hover:shadow-xl hover:shadow-orange-600/40 hover:scale-[1.02] transition-all"
             >
-              QUERO SER FIEL FANATICO →
+              QUERO SER FIEL FANÁTICO →
             </Link>
 
             <p className="text-white/40 text-xs text-center mt-4">
@@ -631,12 +631,12 @@ function Pricing() {
         </div>
 
         <p className="italic text-white/50 text-lg text-center mt-8">
-          Voce gasta mais do que isso em uma cerveja no estadio.
-          <br />Mas a FIEL IA fica com voce todos os dias.
+          Você gasta mais do que isso em uma cerveja no estádio.
+          <br />Mas a FIEL IA fica com você todos os dias.
         </p>
 
         <p className="text-orange-500 text-sm font-semibold text-center mt-4">
-          ⚡ Preco de lancamento travado para os primeiros 15.000 assinantes.
+          ⚡ Preço de lançamento travado para os primeiros 15.000 assinantes.
         </p>
       </div>
     </section>
@@ -646,12 +646,12 @@ function Pricing() {
 /* ─── FAQ ─── */
 
 const faqs = [
-  { q: "Preciso instalar algum aplicativo?", a: "Nao. A FIEL IA funciona direto no navegador e pelo WhatsApp. Sem app, sem complicacao." },
-  { q: "Como funciona o quiz com premiacao?", a: "Quizzes tematicos toda semana. Voce acumula pontos, sobe no ranking e ganha premios enviados automaticamente: PIX via CPF, ingressos por e-mail e produtos pelos Correios." },
-  { q: "As noticias sao mesmo verificadas?", a: "Sim. A FIEL IA so entrega noticias de fontes confiaveis, com verificacao em tempo real. Chega de perder tempo checando se o que voce leu e verdadeiro." },
-  { q: "A IA realmente sabe tudo sobre o Corinthians?", a: "Foi treinada com todo o historico do clube — titulos, jogadores, estatisticas, curiosidades e polemicas — e e atualizada em tempo real." },
+  { q: "Preciso instalar algum aplicativo?", a: "Não. A FIEL IA funciona direto no navegador e pelo WhatsApp. Sem app, sem complicação." },
+  { q: "Como funciona o quiz com premiação?", a: "Quizzes temáticos toda semana. Você acumula pontos, sobe no ranking e ganha prêmios enviados automaticamente: PIX via CPF, ingressos por e-mail e produtos pelos Correios." },
+  { q: "As notícias são mesmo verificadas?", a: "Sim. A FIEL IA só entrega notícias de fontes confiáveis, com verificação em tempo real. Chega de perder tempo checando se o que você leu é verdadeiro." },
+  { q: "A IA realmente sabe tudo sobre o Corinthians?", a: "Foi treinada com todo o histórico do clube — títulos, jogadores, estatísticas, curiosidades e polêmicas — e é atualizada em tempo real." },
   { q: "Posso cancelar quando quiser?", a: "Sim. Cancele a qualquer momento, sem burocracia e sem multa." },
-  { q: "O preco de R$ 56,90 e garantido?", a: "Sim. Assinantes do lancamento tem o preco travado mesmo que o plano suba no futuro." },
+  { q: "O preço de R$ 56,90 é garantido?", a: "Sim. Assinantes do lançamento têm o preço travado mesmo que o plano suba no futuro." },
 ];
 
 function FAQ() {
@@ -694,19 +694,19 @@ function FinalCTA() {
       <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(232,101,10,0.18) 0%, transparent 70%)" }} />
 
       <div className="relative z-10 max-w-4xl mx-auto text-center">
-        <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>PARA QUEM TEM O TIMAO NO SANGUE</p>
+        <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>PARA QUEM TEM O TIMÃO NO SANGUE</p>
         <h2 className={`font-heading text-[40px] md:text-[72px] leading-none text-white fade-up stagger-1 ${v}`}>
-          Ser Fiel e mais<br />do que torcer.<br />E viver o Timao<br />todo dia.
+          Ser Fiel é mais<br />do que torcer.<br />É viver o Timão<br />todo dia.
         </h2>
         <p className={`text-lg text-white/70 max-w-xl mx-auto mt-6 leading-relaxed fade-up stagger-2 ${v}`}>
-          A FIEL IA foi feita pra voce. Para o torcedor que nao desliga nunca. Que defende o clube em todo lugar. Que quer estar um passo a frente.
+          A FIEL IA foi feita pra você. Para o torcedor que não desliga nunca. Que defende o clube em todo lugar. Que quer estar um passo à frente.
         </p>
 
         <Link
           href={SUBSCRIBE_URL}
           className={`inline-block mt-10 bg-orange-600 text-white font-bold rounded-full px-14 py-5 text-xl hover:bg-orange-500 hover:shadow-2xl hover:shadow-orange-600/50 hover:scale-105 transition-all fade-up stagger-3 ${v}`}
         >
-          ASSINAR AGORA — R$ 56,90/mes
+          ASSINAR AGORA — R$ 56,90/mês
         </Link>
 
         <p className={`text-white/40 text-sm mt-5 fade-up stagger-4 ${v}`}>
@@ -757,9 +757,9 @@ function Footer() {
           <p className="text-white/30 text-xs">
             <Link href="/termos" className="hover:text-white transition-colors">Termos de Uso</Link>
             {" · "}
-            <Link href="/privacidade" className="hover:text-white transition-colors">Politica de Privacidade</Link>
+            <Link href="/privacidade" className="hover:text-white transition-colors">Política de Privacidade</Link>
           </p>
-          <p className="text-white/20 text-xs italic">FIEL IA nao possui vinculo oficial com o Sport Club Corinthians Paulista.</p>
+          <p className="text-white/20 text-xs italic">FIEL IA não possui vínculo oficial com o Sport Club Corinthians Paulista.</p>
         </div>
       </div>
     </footer>
@@ -784,7 +784,7 @@ function MobileCTA() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
       <Link href={SUBSCRIBE_URL} className="block bg-orange-600 text-white text-center py-4 font-bold text-base w-full">
-        Assinar por R$ 56,90/mes →
+        Assinar por R$ 56,90/mês →
       </Link>
     </div>
   );

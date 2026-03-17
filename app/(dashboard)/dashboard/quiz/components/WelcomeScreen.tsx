@@ -114,7 +114,7 @@ export function WelcomeScreen({
                 Nenhum Quiz Ativo
               </h3>
               <p className="text-gray-400 max-w-md">
-                No momento nao ha nenhum quiz disponivel. Volte mais tarde!
+                No momento não há nenhum quiz disponível. Volte mais tarde!
               </p>
             </CardContent>
           </Card>

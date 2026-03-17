@@ -85,7 +85,11 @@ export function ResultScreen({ result, attempt, onBack }: ResultScreenProps) {
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Voltar ao Início
                 </Button>
-                <Button className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold" size="lg">
+                <Button
+                    className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
+                    size="lg"
+                    onClick={() => window.location.href = '/dashboard/ranking'}
+                >
                     <Award className="w-4 h-4 mr-2" />
                     Ver Ranking
                 </Button>

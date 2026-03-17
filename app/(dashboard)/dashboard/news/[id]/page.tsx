@@ -112,7 +112,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
               />
             ))
           ) : (
-            <p className="text-gray-500 italic">Conteudo indisponivel.</p>
+            <p className="text-gray-500 italic">Conteúdo indisponível.</p>
           )}
         </section>
 

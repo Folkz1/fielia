@@ -102,8 +102,8 @@ export default function MemesPage() {
     if (remaining <= 0) {
       setError(
         dailyLimit <= 3
-          ? "Limite diario atingido! Assine Premium para gerar ate 15 memes/dia."
-          : "Limite diario atingido! Volte amanha."
+          ? "Limite diário atingido! Assine Premium para gerar até 15 memes/dia."
+          : "Limite diário atingido! Volte amanhã."
       );
       return;
     }
@@ -150,7 +150,7 @@ export default function MemesPage() {
       // Refresh to get full meme data with news relation
       fetchMemes();
     } catch (err) {
-      setError("Erro de conexao. Tente novamente.");
+      setError("Erro de conexão. Tente novamente.");
     } finally {
       setGenerating(false);
       setGeneratingFromNews(null);
@@ -185,7 +185,7 @@ export default function MemesPage() {
             Gerador de Memes
           </h1>
           <p className="text-gray-400">
-            Crie memes do Timao com IA. Escreva um prompt ou use uma noticia!
+            Crie memes do Timão com IA. Escreva um prompt ou use uma notícia!
           </p>
         </div>
 
@@ -247,10 +247,10 @@ export default function MemesPage() {
         {/* Quick prompts */}
         <div className="flex flex-wrap gap-2 mt-4">
           {[
-            "Corinthians campeao do mundo",
+            "Corinthians campeão do mundo",
             "Torcida lotando a Arena",
-            "Gol de titulo nos acrescimos",
-            "Mascote do Timao em festa",
+            "Gol de título nos acréscimos",
+            "Mascote do Timão em festa",
           ].map((suggestion) => (
             <button
               key={suggestion}
@@ -281,7 +281,7 @@ export default function MemesPage() {
         <div>
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-yellow-500" />
-            Gerar Meme a partir de Noticia
+            Gerar Meme a partir de Notícia
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -357,7 +357,7 @@ export default function MemesPage() {
             <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-600" />
             <h3 className="text-xl font-bold text-gray-400 mb-2">Nenhum meme gerado ainda</h3>
             <p className="text-gray-500 text-sm">
-              Use o gerador acima para criar seu primeiro meme do Timao!
+              Use o gerador acima para criar seu primeiro meme do Timão!
             </p>
           </div>
         ) : (
@@ -376,7 +376,7 @@ export default function MemesPage() {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "";
-                      (e.target as HTMLImageElement).alt = "Imagem indisponivel";
+                      (e.target as HTMLImageElement).alt = "Imagem indisponível";
                     }}
                   />
 
@@ -445,7 +445,7 @@ export default function MemesPage() {
               </p>
               {selectedMeme.news && (
                 <p className="text-sm text-blue-400 mb-4">
-                  Baseado na noticia: {selectedMeme.news.title}
+                  Baseado na notícia: {selectedMeme.news.title}
                 </p>
               )}
               <div className="flex gap-3">

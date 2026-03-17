@@ -134,7 +134,7 @@ function SettingsPageInner() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Palette className="w-5 h-5" />
-              Aparencia
+              Aparência
             </CardTitle>
             <CardDescription className="text-gray-400">
               Personalize as cores do app
@@ -176,10 +176,10 @@ function SettingsPageInner() {
               <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-100 space-y-2">
                 <p>
                   {paymentInfo.reusedSubscription
-                    ? "Voce ja tinha uma cobranca pendente. Reutilizamos a assinatura existente."
-                    : "Assinatura criada. Pagamento pendente de confirmacao."}
+                    ? "Você já tinha uma cobrança pendente. Reutilizamos a assinatura existente."
+                    : "Assinatura criada. Pagamento pendente de confirmação."}
                 </p>
-                <p>Metodo de cobranca: Cartao de credito</p>
+                <p>Método de cobrança: Cartão de crédito</p>
                 {paymentInfo.status && <p>Status: {paymentInfo.status}</p>}
                 {paymentInfo.dueDate && (
                   <p>Vencimento: {new Date(paymentInfo.dueDate).toLocaleDateString("pt-BR")}</p>
@@ -233,7 +233,7 @@ function SettingsPageInner() {
                  <div className="grid md:grid-cols-2 gap-6">
                    <div>
                      <p className="text-3xl font-bold text-white mb-2">R$ 56,90<span className="text-sm text-gray-400 font-normal">/mês</span></p>
-                     <p className="text-[var(--gradient-accent-start)] text-sm font-semibold mb-4">7 dias gratis para novos assinantes!</p>
+                     <p className="text-[var(--gradient-accent-start)] text-sm font-semibold mb-4">7 dias grátis para novos assinantes!</p>
                      
                      <ul className="space-y-2">
                        {[
@@ -279,7 +279,7 @@ function SettingsPageInner() {
                          onClick={() => handleSubscribe()}
                          disabled={isProcessing || isLoading}
                        >
-                         {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar no Cartao"}
+                         {isProcessing ? <LoadingSpinner size="sm" /> : "Assinar no Cartão"}
                        </Button>
                      )}
                      <p className="text-[10px] text-gray-500 mt-2">Cancelamento a qualquer momento.</p>

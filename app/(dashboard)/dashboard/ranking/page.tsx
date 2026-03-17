@@ -42,7 +42,7 @@ export default function RankingPage() {
           setNextQuiz(data.quiz);
         }
       } catch (error) {
-        console.error('Erro ao buscar proximo quiz:', error);
+        console.error('Erro ao buscar próximo quiz:', error);
       }
     }
     fetchNextQuiz();
@@ -71,7 +71,7 @@ export default function RankingPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-heading text-white mb-2">Ranking da Fiel</h1>
-          <p className="text-gray-400">Veja quem sao os maiores torcedores do Timao</p>
+          <p className="text-gray-400">Veja quem são os maiores torcedores do Timão</p>
         </div>
 
         <Tabs defaultValue="weekly" className="w-full md:w-auto" onValueChange={(v: string) => setPeriod(v as any)}>
@@ -178,7 +178,7 @@ export default function RankingPage() {
 
         {ranking.length === 0 && (
           <div className="p-8 text-center text-gray-400">
-            Nenhum ranking disponivel no momento.
+            Nenhum ranking disponível no momento.
           </div>
         )}
       </div>
@@ -188,7 +188,7 @@ export default function RankingPage() {
         <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-3 mb-3">
             <Calendar className="w-6 h-6 text-blue-400" />
-            <h2 className="text-lg md:text-xl font-bold text-white">Proximo Quiz</h2>
+            <h2 className="text-lg md:text-xl font-bold text-white">Próximo Quiz</h2>
           </div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -198,7 +198,7 @@ export default function RankingPage() {
               </p>
             </div>
             <div className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 text-center">
-              <p className="text-xs">Disponivel em</p>
+              <p className="text-xs">Disponível em</p>
               <p className="font-bold">{formatDate(nextQuiz.startDate)}</p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function RankingPage() {
       <div className="mt-8 md:mt-12 bg-gradient-to-r from-corinthians-gray-dark to-black p-4 md:p-8 rounded-xl border border-[var(--gradient-accent-start)]/20">
         <div className="flex items-center gap-3 mb-4 md:mb-6">
           <Gift className="w-6 h-6 text-[var(--gradient-accent-start)]" />
-          <h2 className="text-xl md:text-2xl font-heading text-white">Premios da Semana</h2>
+          <h2 className="text-xl md:text-2xl font-heading text-white">Prêmios da Semana</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
@@ -268,14 +268,14 @@ export default function RankingPage() {
                 />
               </div>
               <h3 className="font-bold text-white text-lg md:text-xl mb-1">PIX R$ 50</h3>
-              <p className="text-gray-400 text-sm">Premio em Dinheiro</p>
-              <p className="text-xs text-orange-500 mt-2 font-medium">Transferencia instantanea</p>
+              <p className="text-gray-400 text-sm">Prêmio em Dinheiro</p>
+              <p className="text-xs text-orange-500 mt-2 font-medium">Transferência instantânea</p>
             </CardContent>
           </Card>
         </div>
 
         <p className="text-center text-gray-500 text-xs md:text-sm mt-6">
-          * Premios distribuidos semanalmente para os melhores colocados do ranking
+          * Prêmios distribuídos semanalmente para os melhores colocados do ranking
         </p>
       </div>
     </div>

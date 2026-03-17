@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
               <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
               <h2 className="text-xl font-bold text-white">Email enviado!</h2>
               <p className="text-gray-400 text-sm">
-                Se existe uma conta com este email, voce receberá um link para
+                Se existe uma conta com este email, você receberá um link para
                 redefinir sua senha. Verifique sua caixa de entrada e spam.
               </p>
               <Link

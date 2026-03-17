@@ -132,7 +132,7 @@ export default async function DashboardPage() {
               <Flame className="w-5 h-5 text-orange-500" />
             </div>
           </div>
-          <p className="text-gray-400 text-xs mb-1">Sequencia</p>
+          <p className="text-gray-400 text-xs mb-1">Sequência</p>
           <h3 className="text-2xl font-bold">{streak} dias 🔥</h3>
         </div>
 
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
               <div>
                 <h3 className="text-xl font-bold">Quiz da Semana</h3>
                 <p className="text-sm text-gray-400">
-                  {activeQuiz ? `${activeQuiz._count.questions} perguntas disponiveis` : 'Nenhum quiz ativo'}
+                  {activeQuiz ? `${activeQuiz._count.questions} perguntas disponíveis` : 'Nenhum quiz ativo'}
                 </p>
               </div>
             </div>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              <p className="text-gray-500">O proximo quiz sera liberado em breve!</p>
+              <p className="text-gray-500">O próximo quiz será liberado em breve!</p>
             )}
           </div>
 
@@ -184,14 +184,14 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <MessageSquare className="w-6 h-6 text-[var(--gradient-accent-start)]" />
-                <h3 className="text-lg font-bold">Chat com a IA do Timao</h3>
+                <h3 className="text-lg font-bold">Chat com a IA do Timão</h3>
               </div>
               <Link href="/dashboard/chat" className="text-sm text-[var(--gradient-accent-start)] hover:underline">
                 Abrir Chat
               </Link>
             </div>
             <p className="text-gray-400 text-sm">
-              Tire suas duvidas sobre o Corinthians, historia, jogadores, titulos e muito mais!
+              Tire suas dúvidas sobre o Corinthians, história, jogadores, títulos e muito mais!
             </p>
           </div>
         </div>
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Newspaper className="w-5 h-5 text-[var(--gradient-accent-start)]" />
-              <h3 className="text-lg font-bold">Ultimas Noticias</h3>
+              <h3 className="text-lg font-bold">Últimas Notícias</h3>
             </div>
             <Link href="/dashboard/news" className="text-xs text-gray-400 hover:text-white">
               Ver todas
@@ -220,7 +220,7 @@ export default async function DashboardPage() {
               </div>
             ))}
             {recentNews.length === 0 && (
-              <p className="text-gray-500 text-sm text-center py-4">Nenhuma noticia ainda.</p>
+              <p className="text-gray-500 text-sm text-center py-4">Nenhuma notícia ainda.</p>
             )}
           </div>
         </div>
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <Link href="/dashboard/settings" className="btn-primary whitespace-nowrap">
-              Assinar por R$ 56,90/mes
+              Assinar por R$ 56,90/mês
             </Link>
           </div>
         </div>

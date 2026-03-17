@@ -10,33 +10,47 @@ interface Message {
   timestamp: Date;
 }
 
-// Sanitize any raw HTML tags from bot responses before formatting
-function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
-}
-
-// Format bot messages with markdown-style formatting
+// Format bot messages: markdown → HTML safe (no raw HTML, no double-linking)
 function formatBotMessage(content: string): string {
-  // First strip any raw HTML that might come from the API
-  const clean = stripHtml(content);
+  // Step 1: Strip ALL HTML tags (API pode retornar fragmentos HTML)
+  let text = content.replace(/<[^>]*>/g, "");
 
-  return clean
-    // Bold text: *text* -> <strong>text</strong>
-    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-    // Links: [text](url) -> <a>
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">$1</a>')
-    // Plain text URLs -> clickable links (not already inside href="")
-    .replace(/(?<![="'])https?:\/\/[^\s<>"']+/g, (url) =>
-      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">${url}</a>`
-    )
-    // Relative /news/ URLs -> clickable links (standalone, not inside quotes or attributes)
-    .replace(/(?<![="'\/a-zA-Z])\/news\/[^\s<>"')]+/g, (url) => {
-      // Clean any trailing punctuation that might have been captured
-      const cleanUrl = url.replace(/[.,;:!?]+$/, '');
-      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">Ler mais</a>`;
-    })
-    // Line breaks
-    .replace(/\n/g, '<br />');
+  // Step 2: Collect all URLs first, replace with placeholders
+  const urls: string[] = [];
+  // Absolute URLs
+  text = text.replace(/https?:\/\/[^\s"'<>)]+/g, (url) => {
+    const clean = url.replace(/[.,;:!?]+$/, "");
+    urls.push(clean);
+    return `%%LINK_${urls.length - 1}%%`;
+  });
+  // Relative /news/ URLs
+  text = text.replace(/\/news\/[a-zA-Z0-9_-]+/g, (url) => {
+    urls.push(url);
+    return `%%LINK_${urls.length - 1}%%`;
+  });
+
+  // Step 3: Bold *text*
+  text = text.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
+
+  // Step 4: Markdown links [text](url) — unlikely after strip but just in case
+  text = text.replace(/\[([^\]]+)\]\(%%LINK_(\d+)%%\)/g, (_m, label, idx) => {
+    const url = urls[parseInt(idx)];
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">${label}</a>`;
+  });
+
+  // Step 5: Replace remaining placeholders with clickable links
+  text = text.replace(/%%LINK_(\d+)%%/g, (_m, idx) => {
+    const url = urls[parseInt(idx)];
+    const isNews = url.startsWith("/news/");
+    const label = isNews ? "Ler mais" : url.replace(/^https?:\/\//, "").slice(0, 40);
+    const href = isNews ? url : url;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 hover:text-yellow-400 underline">${label}</a>`;
+  });
+
+  // Step 6: Line breaks
+  text = text.replace(/\n/g, "<br />");
+
+  return text;
 }
 
 export default function ChatPage() {

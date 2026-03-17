@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import Link from "next/link";
-import { CheckCircle, Mail, ArrowRight } from "lucide-react";
+import { CheckCircle, Mail, MessageCircle, ArrowRight } from "lucide-react";
 
 export default async function BemVindoPage() {
   const session = await auth();
@@ -52,7 +52,19 @@ export default async function BemVindoPage() {
               </div>
             </div>
 
-            {/* TODO: Habilitar notificação WhatsApp quando integração estiver pronta */}
+            <div className="flex items-start gap-3 text-left">
+              <div className="p-2 rounded-lg bg-white/5 border border-white/10 shrink-0">
+                <MessageCircle className="w-4 h-4 text-green-400" />
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium mb-1">
+                  WhatsApp notificado
+                </p>
+                <p className="text-zinc-500 text-sm">
+                  Você também recebeu o link de acesso pelo WhatsApp cadastrado.
+                </p>
+              </div>
+            </div>
 
             <div className="pt-2 border-t border-zinc-800">
               <Link

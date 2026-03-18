@@ -194,10 +194,41 @@ export async function POST(req: NextRequest) {
 
       // Send response via WhatsApp
       if (botResponse.type === 'image' && botResponse.mediaUrl) {
+        // Send caption text first
         await trySend(
-          () => evolutionAPI.sendMediaMessage({ number: fromNumber, mediaUrl: botResponse.mediaUrl!, caption: botResponse.content }),
-          'image_response'
+          () => evolutionAPI.sendTextMessage({ number: fromNumber, text: botResponse.content }),
+          'meme_caption'
         );
+
+        // Send the meme as a sticker
+        const imageFilename = botResponse.imageFilename;
+        if (imageFilename) {
+          try {
+            const fsP = await import('fs').then(m => m.promises);
+            const pathMod = await import('path');
+            const { convertToStickerBase64 } = await import('@/lib/sticker');
+            const filepath = pathMod.join(process.cwd(), 'public', 'memes', imageFilename);
+            const imageBuffer = await fsP.readFile(filepath);
+            const stickerBase64 = await convertToStickerBase64(imageBuffer);
+            await trySend(
+              () => evolutionAPI.sendSticker({ number: fromNumber, sticker: stickerBase64 }),
+              'sticker_response'
+            );
+          } catch (stickerErr) {
+            console.error('[Webhook] Sticker conversion failed, sending as media:', stickerErr instanceof Error ? stickerErr.message : stickerErr);
+            // Fallback: send as regular media
+            await trySend(
+              () => evolutionAPI.sendMediaMessage({ number: fromNumber, mediaUrl: botResponse.mediaUrl! }),
+              'image_fallback'
+            );
+          }
+        } else {
+          // No filename available, send as regular media
+          await trySend(
+            () => evolutionAPI.sendMediaMessage({ number: fromNumber, mediaUrl: botResponse.mediaUrl! }),
+            'image_response'
+          );
+        }
       } else {
         await trySend(
           () => evolutionAPI.sendTextMessage({ number: fromNumber, text: botResponse.content }),

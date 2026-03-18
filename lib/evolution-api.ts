@@ -14,6 +14,11 @@ interface SendMediaMessageParams {
   caption?: string;
 }
 
+interface SendStickerParams {
+  number: string;
+  sticker: string; // base64 encoded WebP image
+}
+
 export class EvolutionAPIClient {
   private baseURL: string;
   private apiKey: string;
@@ -58,6 +63,13 @@ export class EvolutionAPIClient {
       number,
       mediaUrl,
       caption,
+    });
+  }
+
+  async sendSticker({ number, sticker }: SendStickerParams) {
+    return this.makeRequest(`/message/sendSticker/${this.instance}`, 'POST', {
+      number,
+      sticker,
     });
   }
 

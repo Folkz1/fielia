@@ -11,6 +11,7 @@ import {
   Crown,
   Trash2,
   RefreshCw,
+  Sticker,
 } from "lucide-react";
 import Image from "next/image";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -161,6 +162,21 @@ export default function MemesPage() {
     const link = document.createElement("a");
     link.href = normalizeMemeUrl(meme.imageUrl);
     link.download = `meme-fiel-ia-${meme.id}.png`;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleDownloadSticker(meme: MemeItem) {
+    // Extract filename from the meme URL
+    const normalizedUrl = normalizeMemeUrl(meme.imageUrl);
+    const filename = normalizedUrl.split("/").pop() || "";
+    if (!filename) return;
+
+    const link = document.createElement("a");
+    link.href = `/api/memes/sticker/${filename}`;
+    link.download = `sticker-fiel-ia-${meme.id}.webp`;
     link.target = "_blank";
     document.body.appendChild(link);
     link.click();
@@ -388,9 +404,19 @@ export default function MemesPage() {
                         handleDownload(meme);
                       }}
                       className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
-                      title="Baixar"
+                      title="Baixar imagem"
                     >
                       <Download className="w-5 h-5 text-white" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadSticker(meme);
+                      }}
+                      className="p-3 bg-yellow-500/30 hover:bg-yellow-500/50 rounded-full transition-colors"
+                      title="Baixar figurinha WhatsApp"
+                    >
+                      <Sticker className="w-5 h-5 text-white" />
                     </button>
                   </div>
                 </div>
@@ -455,6 +481,13 @@ export default function MemesPage() {
                 >
                   <Download className="w-4 h-4" />
                   Baixar
+                </button>
+                <button
+                  onClick={() => handleDownloadSticker(selectedMeme)}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Sticker className="w-4 h-4" />
+                  Figurinha
                 </button>
                 <button
                   onClick={() => setSelectedMeme(null)}

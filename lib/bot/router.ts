@@ -32,6 +32,8 @@ export interface BotResponse {
   type: 'text' | 'image' | 'video' | 'interactive';
   mediaUrl?: string;
   options?: unknown;
+  /** Raw image filename for sticker conversion (memes) */
+  imageFilename?: string;
 }
 
 // Handlers

@@ -7,6 +7,8 @@ type BotResponse = {
   content: string;
   type: 'text' | 'image';
   mediaUrl?: string;
+  /** Raw image filename (for sticker conversion) */
+  imageFilename?: string;
 };
 
 function buildPublicUrl(filename: string) {
@@ -208,6 +210,7 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
       content: caption,
       type: 'image',
       mediaUrl,
+      imageFilename: filename,
     };
   } catch (error) {
     console.error('[Meme] Generation error:', error);

@@ -2,6 +2,7 @@ const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://sandbox.asaas.com/ap
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY!;
 
 type BillingType = 'BOLETO' | 'CREDIT_CARD' | 'PIX' | 'UNDEFINED';
+type BillingTypeWithUndefined = BillingType;
 type SubscriptionCycle =
   | 'WEEKLY'
   | 'BIWEEKLY'
@@ -25,7 +26,7 @@ interface CreateCustomerParams {
 
 interface CreateSubscriptionParams {
   customer: string;
-  billingType: Exclude<BillingType, 'UNDEFINED'>;
+  billingType: BillingTypeWithUndefined;
   value: number;
   nextDueDate: string;
   cycle: SubscriptionCycle;
@@ -69,7 +70,28 @@ export class AsaasClient {
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`Asaas API Error ${response.status}: ${errorBody}`);
+      let parsedError: any;
+      try {
+        parsedError = JSON.parse(errorBody);
+      } catch {
+        parsedError = null;
+      }
+
+      // Extrair mensagem amigável dos erros da API Asaas
+      const asaasErrors: Array<{ code?: string; description?: string }> =
+        parsedError?.errors || [];
+      const firstError = asaasErrors[0];
+      const errorDetail = firstError?.description || firstError?.code || errorBody;
+
+      const err = new Error(`Asaas API Error ${response.status}: ${errorDetail}`) as Error & {
+        statusCode: number;
+        asaasErrors: typeof asaasErrors;
+        rawBody: string;
+      };
+      err.statusCode = response.status;
+      err.asaasErrors = asaasErrors;
+      err.rawBody = errorBody;
+      throw err;
     }
 
     return response.json();

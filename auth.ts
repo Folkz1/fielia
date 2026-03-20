@@ -5,6 +5,10 @@ import bcrypt from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  // Credentials provider requer estratégia JWT explícita no NextAuth v5
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     Credentials({
       name: "Credentials",
@@ -15,16 +19,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: (credentials.email as string).toLowerCase().trim() },
-        });
+        const email = (credentials.email as string).toLowerCase().trim();
+        const password = credentials.password as string;
 
-        if (!user || !user.password) return null;
+        if (!email || !password) return null;
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
+        let user;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email },
+          });
+        } catch (err) {
+          console.error("[Auth] Erro ao buscar usuário:", err);
+          return null;
+        }
+
+        if (!user) return null;
+
+        // Usuários criados pelo checkout têm password gerada aleatoriamente e não conhecida
+        // Verificar se o hash é válido antes de comparar
+        if (!user.password || user.password === "") return null;
+
+        let isPasswordValid = false;
+        try {
+          isPasswordValid = await bcrypt.compare(password, user.password);
+        } catch (err) {
+          console.error("[Auth] Erro ao comparar senha:", err);
+          return null;
+        }
 
         if (!isPasswordValid) return null;
 
@@ -34,10 +56,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now);
 
         if (user.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
-          await prisma.user.update({
+          // Revogar premium expirado de forma não-bloqueante
+          prisma.user.update({
             where: { id: user.id },
             data: { isPremium: false, subscriptionEnd: null },
-          });
+          }).catch((err) => console.error("[Auth] Erro ao revogar premium:", err));
         }
 
         return {
@@ -67,5 +90,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/auth/login",
     error: "/auth/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 });

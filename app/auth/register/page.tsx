@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shield, Lock, Mail, ArrowRight, User } from "lucide-react";
@@ -57,13 +58,28 @@ function RegisterPageInner() {
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        if (callbackUrl) {
-          router.push(`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-        } else {
-          router.push("/auth/login");
-        }
-      }, 1200);
+
+      // Fazer login automático após registro bem-sucedido
+      const loginResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (loginResult?.ok && !loginResult?.error) {
+        // Login automático funcionou: redirecionar direto
+        router.push(callbackUrl || "/dashboard");
+        router.refresh();
+      } else {
+        // Fallback: redirecionar para login manualmente
+        setTimeout(() => {
+          if (callbackUrl) {
+            router.push(`/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+          } else {
+            router.push("/auth/login");
+          }
+        }, 1200);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao cadastrar.");
     } finally {

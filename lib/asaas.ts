@@ -117,6 +117,30 @@ export class AsaasClient {
     return this.makeRequest(`/subscriptions/${subscriptionId}`, 'DELETE');
   }
 
+  async updateSubscription(subscriptionId: string, params: { value?: number; nextDueDate?: string; billingType?: BillingTypeWithUndefined; cycle?: SubscriptionCycle; description?: string }) {
+    return this.makeRequest(`/subscriptions/${subscriptionId}`, 'PUT', params);
+  }
+
+  async listSubscriptions(query?: Record<string, string | number | boolean | undefined>) {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(query || {})) {
+      if (value === undefined) continue;
+      search.set(key, String(value));
+    }
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return this.makeRequest(`/subscriptions${suffix}`);
+  }
+
+  async listCustomers(query?: Record<string, string | number | boolean | undefined>) {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(query || {})) {
+      if (value === undefined) continue;
+      search.set(key, String(value));
+    }
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return this.makeRequest(`/customers${suffix}`);
+  }
+
   async createPayment(params: CreatePaymentParams) {
     return this.makeRequest('/payments', 'POST', params);
   }

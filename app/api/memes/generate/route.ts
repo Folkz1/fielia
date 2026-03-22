@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
           caption: result.content,
           imageUrl: result.mediaUrl,
           newsId: newsId || null,
+          imageData: result.imageBytes ? new Uint8Array(result.imageBytes) : null,
         },
       });
 

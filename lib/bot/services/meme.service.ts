@@ -1,7 +1,8 @@
 import { promises as fs } from 'fs';
-import path from 'path';
+import pathModule from 'path';
 
 import { sendChatCompletion } from '@/lib/openrouter';
+import { prisma } from '@/lib/prisma';
 
 type BotResponse = {
   content: string;
@@ -9,6 +10,8 @@ type BotResponse = {
   mediaUrl?: string;
   /** Raw image filename (for sticker conversion) */
   imageFilename?: string;
+  /** Raw image bytes for DB persistence */
+  imageBytes?: Buffer;
 };
 
 function buildPublicUrl(filename: string) {
@@ -17,7 +20,7 @@ function buildPublicUrl(filename: string) {
 }
 
 async function ensureMemeDir() {
-  const dir = path.join(process.cwd(), 'public', 'memes');
+  const dir = pathModule.join(process.cwd(), 'public', 'memes');
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
@@ -201,16 +204,28 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
     const dir = await ensureMemeDir();
     const ext = result.mimeType.includes('jpeg') || result.mimeType.includes('jpg') ? 'jpg' : 'png';
     const filename = `meme-${Date.now()}.${ext}`;
-    const filepath = path.join(dir, filename);
+    const filepath = pathModule.join(dir, filename);
     await fs.writeFile(filepath, result.bytes);
 
     const mediaUrl = buildPublicUrl(filename);
+
+    // Persist image bytes to DB so it survives container rebuilds
+    try {
+      await prisma.$executeRawUnsafe(
+        'UPDATE memes SET "imageData" = $1 WHERE "imageUrl" = $2',
+        result.bytes,
+        mediaUrl
+      );
+    } catch {
+      // Will be saved after meme.create in the API route via backfill
+    }
 
     return {
       content: caption,
       type: 'image',
       mediaUrl,
       imageFilename: filename,
+      imageBytes: result.bytes,
     };
   } catch (error) {
     console.error('[Meme] Generation error:', error);

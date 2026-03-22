@@ -247,6 +247,7 @@ model Meme {
   prompt    String
   caption   String
   imageUrl  String
+  imageData Bytes?
   newsId    String?
   createdAt DateTime @default(now())
   news      News?    @relation(fields: [newsId], references: [id])

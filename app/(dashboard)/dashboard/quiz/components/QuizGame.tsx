@@ -17,7 +17,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
   const { data: session } = useSession();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState(10);
+  const [timeLeft, setTimeLeft] = useState(5);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -35,7 +35,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
 
   const startTimer = () => {
     stopTimer();
-    setTimeLeft(10);
+    setTimeLeft(5);
     startTimeRef.current = Date.now();
     
     timerRef.current = setInterval(() => {
@@ -74,7 +74,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
   };
 
   const submitAnswer = (answer: string | null) => {
-    const timeTaken = Math.min(10, (Date.now() - startTimeRef.current) / 1000);
+    const timeTaken = Math.min(5, (Date.now() - startTimeRef.current) / 1000);
     
     const newAnswer = {
       questionId: currentQuestion.id,

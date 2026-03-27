@@ -267,7 +267,7 @@ export default function RankingPage() {
                   className="object-contain group-hover:scale-105 transition-transform p-2"
                 />
               </div>
-              <h3 className="font-bold text-white text-lg md:text-xl mb-1">PIX R$ 50</h3>
+              <h3 className="font-bold text-white text-lg md:text-xl mb-1">PIX</h3>
               <p className="text-gray-400 text-sm">Prêmio em Dinheiro</p>
               <p className="text-xs text-orange-500 mt-2 font-medium">Transferência instantânea</p>
             </CardContent>

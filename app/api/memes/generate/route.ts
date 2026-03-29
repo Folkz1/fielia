@@ -11,12 +11,12 @@ export async function POST(req: NextRequest) {
 
     const userId = session.user.id;
 
-    // Rate limiting: check daily meme count
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isPremium: true, subscriptionEnd: true },
+      select: { isPremium: true, subscriptionEnd: true, isAdmin: true },
     });
 
+    const isAdmin = Boolean(user?.isAdmin);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -39,8 +39,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Block non-premium users entirely
-    if (!isPremiumActive) {
+    if (!isPremiumActive && !isAdmin) {
       return NextResponse.json(
         {
           error: 'Geração de imagens é exclusiva para assinantes Fiel Premium. Assine para desbloquear!',
@@ -51,8 +50,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const dailyLimit = 15;
-    if (memesToday >= dailyLimit) {
+    const dailyLimit = isAdmin ? 999 : 15;
+    if (!isAdmin && memesToday >= dailyLimit) {
       return NextResponse.json(
         {
           error: `Limite diário atingido (${dailyLimit} memes/dia).`,
@@ -62,8 +61,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Monthly limit: 20 memes/month for premium users
-    const monthlyLimit = 20;
+    const monthlyLimit = isAdmin ? 9999 : 20;
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -75,7 +73,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (memesThisMonth >= monthlyLimit) {
+    if (!isAdmin && memesThisMonth >= monthlyLimit) {
       return NextResponse.json(
         {
           error: `Limite mensal atingido (${monthlyLimit} memes/mês). Seu limite renova no próximo mês.`,
@@ -91,7 +89,6 @@ export async function POST(req: NextRequest) {
 
     let memeContext = prompt || '';
 
-    // If newsId provided, fetch news for context
     if (newsId) {
       const news = await prisma.news.findUnique({
         where: { id: newsId },
@@ -109,12 +106,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Envie um prompt ou newsId' }, { status: 400 });
     }
 
-    // Dynamic import to avoid loading OpenRouter SDK on cold paths
     const { generateMeme } = await import('@/lib/bot/services/meme.service');
     const result = await generateMeme(userId, memeContext);
 
     if (result.type === 'image' && result.mediaUrl) {
-      // Save meme to database
       const meme = await prisma.meme.create({
         data: {
           userId,
@@ -133,12 +128,11 @@ export async function POST(req: NextRequest) {
           imageUrl: meme.imageUrl,
           createdAt: meme.createdAt,
         },
-        remaining: dailyLimit - memesToday - 1,
-        monthlyRemaining: monthlyLimit - memesThisMonth - 1,
+        remaining: Math.max(0, dailyLimit - memesToday - 1),
+        monthlyRemaining: Math.max(0, monthlyLimit - memesThisMonth - 1),
       });
     }
 
-    // Text fallback (image generation failed)
     return NextResponse.json(
       { error: result.content || 'Erro ao gerar meme. Tente novamente.' },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { scrapeArticleFromUrl } from '@/lib/news/scrape';
 import { rewriteNewsWithAI } from '@/lib/news/rewrite';
+import { buildNewsFallbackFromSource } from '@/lib/news/fallback';
 
 export type NewsForRendering = {
   id: string;
@@ -14,16 +15,6 @@ export type NewsForRendering = {
 };
 
 const inFlight = new Map<string, Promise<NewsForRendering>>();
-
-function truncate(input: string, max: number) {
-  const value = input.trim();
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 3).trim()}...`;
-}
-
-function compactWhitespace(input: string) {
-  return input.replace(/\s+/g, ' ').trim();
-}
 
 function shouldEnrich(news: NewsForRendering) {
   const content = (news.content || '').trim();
@@ -49,9 +40,22 @@ export async function enrichNewsIfNeeded(news: NewsForRendering): Promise<NewsFo
     if (!scrapedText || scrapedText.length < 300) return news;
 
     const data: Record<string, unknown> = {};
+    const fallback = buildNewsFallbackFromSource({
+      currentTitle: news.title,
+      currentSummary: news.summary,
+      sourceText: scrapedText,
+      scrapedExcerpt: scraped?.excerpt || null,
+    });
 
     if (!news.imageUrl && scraped?.imageUrl) {
       data.imageUrl = scraped.imageUrl;
+    }
+
+    if ((news.content || '').trim().length < fallback.content.length) {
+      data.content = fallback.content;
+    }
+    if (!(news.summary || '').trim() || (news.summary || '').trim().length < 120) {
+      data.summary = fallback.summary;
     }
 
     try {
@@ -64,7 +68,7 @@ export async function enrichNewsIfNeeded(news: NewsForRendering): Promise<NewsFo
       data.summary = rewritten.summary;
       data.content = rewritten.content;
     } catch (error) {
-      console.warn('News rewrite failed (keeping existing text):', error);
+      console.warn('News rewrite failed (using scraped fallback):', error);
     }
 
     if (Object.keys(data).length === 0) return news;

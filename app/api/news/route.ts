@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { dedupeNewsItems } from '@/lib/news/dedupe';
+
+type NewsRecord = Awaited<ReturnType<typeof prisma.news.findMany>>[number];
 
 function startOfDayUTC(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -9,11 +12,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
-    const period = searchParams.get('period'); // '24h', '48h', '7d'
+    const period = searchParams.get('period');
     const limit = parseInt(searchParams.get('limit') || '50');
     const curated = searchParams.get('curated') === 'true';
 
-    // If requesting curated news
     if (curated) {
       const today = startOfDayUTC(new Date());
       const curation = await prisma.newsCuration.findUnique({
@@ -23,38 +25,53 @@ export async function GET(req: NextRequest) {
       if (curation?.topIds?.length) {
         const items = await prisma.news.findMany({
           where: { id: { in: curation.topIds } },
+          orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
         });
         const byId = new Map(items.map((item) => [item.id, item]));
         const ordered = curation.topIds
           .map((id) => byId.get(id))
-          .filter(Boolean);
+          .filter((item): item is NewsRecord => Boolean(item));
+
+        const deduped = dedupeNewsItems(ordered, 3);
+        if (deduped.length < 3) {
+          const fallback = await prisma.news.findMany({
+            orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+            take: 24,
+          });
+          const merged = dedupeNewsItems([...deduped, ...fallback], 3);
+          return NextResponse.json({
+            news: merged,
+            curation: {
+              date: curation.createdAt,
+              hasToday: true,
+            },
+          });
+        }
 
         return NextResponse.json({
-          news: ordered.slice(0, 3),
+          news: deduped,
           curation: {
             date: curation.createdAt,
-            hasToday: true
-          }
+            hasToday: true,
+          },
         });
       }
 
-      // Fallback to latest 3
       const fallback = await prisma.news.findMany({
-        orderBy: { publishedAt: 'desc' },
-        take: 3,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 24,
       });
 
       return NextResponse.json({
-        news: fallback,
+        news: dedupeNewsItems(fallback, 3),
         curation: {
           date: new Date(),
-          hasToday: false
-        }
+          hasToday: false,
+        },
       });
     }
 
-    // Build where clause
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (category && category !== 'Todas') {
       where.category = category;
@@ -83,16 +100,14 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    const fetchTake = Math.max(limit, Math.min(limit * 6, 300));
     const news = await prisma.news.findMany({
       where,
-      orderBy: {
-        publishedAt: 'desc',
-      },
-      take: limit,
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+      take: fetchTake,
     });
 
-    // Adicionar headers de cache
-    const response = NextResponse.json({ news });
+    const response = NextResponse.json({ news: dedupeNewsItems(news, limit) });
     response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return response;
   } catch (error) {

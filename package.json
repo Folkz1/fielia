@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "news:dedupe": "node scripts/dedupe-news.mjs",
+    "cleanup:test-users": "node scripts/cleanup-test-users.mjs",
     "test:asaas:sandbox": "node scripts/test-asaas-sandbox.mjs",
     "test:billing:prod": "node scripts/validate-billing-production.mjs",
     "test:e2e:billing": "playwright test e2e/subscription.spec.ts e2e/product-validation.spec.ts e2e/admin-billing.spec.ts --reporter=list",

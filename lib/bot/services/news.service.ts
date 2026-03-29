@@ -1,26 +1,17 @@
 import { prisma } from '@/lib/prisma';
+import { dedupeNewsItems } from '@/lib/news/dedupe';
 
 export async function getLatestNews(limit: number = 3) {
   try {
     const news = await prisma.news.findMany({
-      orderBy: {
-        publishedAt: 'desc',
-      },
-      take: limit,
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+      take: Math.max(limit * 6, 18),
     });
-    return news;
+    return dedupeNewsItems(news, limit);
   } catch (error) {
     console.error('Error fetching news:', error);
     return [];
   }
-}
-
-function normalizeText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[\s]+/g, ' ')
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .trim();
 }
 
 function startOfDayUTC(date: Date) {
@@ -36,23 +27,11 @@ async function getRecentDeduped(limit: number, windowHours: number) {
           gte: since,
         },
       },
-      orderBy: {
-        publishedAt: 'desc',
-      },
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
       take: Math.max(20, limit * 8),
     });
 
-    const seen = new Set<string>();
-    const curated: typeof recent = [];
-
-    for (const item of recent) {
-      const key = item.sourceUrl || normalizeText(item.title);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      curated.push(item);
-      if (curated.length >= limit) break;
-    }
-
+    const curated = dedupeNewsItems(recent, limit);
     if (curated.length > 0) {
       return curated;
     }
@@ -74,17 +53,19 @@ export async function getCuratedNews(limit: number = 3, windowHours: number = 24
     if (curation?.topIds?.length) {
       const items = await prisma.news.findMany({
         where: { id: { in: curation.topIds } },
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
       });
       const byId = new Map(items.map((item) => [item.id, item]));
       const ordered = curation.topIds
         .map((id) => byId.get(id))
-        .filter(Boolean) as typeof items;
+        .filter(Boolean);
+      const deduped = dedupeNewsItems(ordered as typeof items, limit);
 
-      if (ordered.length) {
+      if (deduped.length) {
         console.info(
-          `news.curated source=curation date=${today.toISOString()} total=${ordered.length} limit=${limit}`
+          `news.curated source=curation date=${today.toISOString()} total=${deduped.length} limit=${limit}`
         );
-        return ordered.slice(0, limit);
+        return deduped;
       }
     }
 

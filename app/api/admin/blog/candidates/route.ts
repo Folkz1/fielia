@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { hasBlogPostsTable } from '@/lib/db/postgres';
+import { dedupeNewsItems } from '@/lib/news/dedupe';
 
 async function ensureAdmin() {
   const session = await auth();
@@ -28,16 +29,19 @@ export async function GET(req: NextRequest) {
     const blogPostsReady = await hasBlogPostsTable();
 
     const items = await prisma.news.findMany({
-      orderBy: { publishedAt: 'desc' },
-      take: limit,
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+      take: Math.min(limit * 6, 240),
       select: {
         id: true,
         title: true,
         summary: true,
+        content: true,
         category: true,
         imageUrl: true,
         sourceUrl: true,
         publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
         ...(blogPostsReady
           ? {
               blogPost: {
@@ -55,8 +59,8 @@ export async function GET(req: NextRequest) {
     });
 
     const normalized = blogPostsReady
-      ? items
-      : items.map((item) => ({ ...item, blogPost: null }));
+      ? dedupeNewsItems(items, limit)
+      : dedupeNewsItems(items.map((item) => ({ ...item, blogPost: null })), limit);
 
     return NextResponse.json({ items: normalized, blogPostsReady });
   } catch (error) {

@@ -26,13 +26,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Daily remaining count
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isPremium: true, subscriptionEnd: true },
+      select: { isPremium: true, subscriptionEnd: true, isAdmin: true },
     });
 
     const memesToday = await prisma.meme.count({
@@ -51,7 +50,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const dailyLimit = isPremiumActive ? 15 : 3;
+    const dailyLimit = user?.isAdmin ? 999 : isPremiumActive ? 15 : 3;
 
     return NextResponse.json({
       memes,

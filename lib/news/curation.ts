@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendChatCompletion } from '@/lib/openrouter';
 import { rewriteNewsWithAI } from '@/lib/news/rewrite';
+import { dedupeNewsItems } from '@/lib/news/dedupe';
 
 type NewsItem = {
   id: string;
@@ -40,7 +41,7 @@ export async function runNewsCuration() {
     where: {
       publishedAt: { gte: since },
     },
-    orderBy: { publishedAt: 'desc' },
+    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     take: Math.max(30, limit * 12),
     select: {
       id: true,
@@ -48,27 +49,32 @@ export async function runNewsCuration() {
       summary: true,
       publishedAt: true,
       sourceUrl: true,
+      createdAt: true,
+      updatedAt: true,
+      content: true,
+      imageUrl: true,
     },
   });
 
-  if (!recent.length) {
+  const uniqueRecent = dedupeNewsItems(recent) as NewsItem[];
+  if (!uniqueRecent.length) {
     return { created: false, reason: 'no_recent_news' };
   }
 
-  let topIds = recent.slice(0, limit).map((item) => item.id);
+  let topIds = uniqueRecent.slice(0, limit).map((item) => item.id);
 
   if (useAI) {
-    const lines = recent.map((item, index) => {
+    const lines = uniqueRecent.map((item, index) => {
       const summary = item.summary?.slice(0, 160).replace(/\s+/g, ' ') || '';
-      return `${index + 1}. [${item.id}] ${item.title} — ${summary}`;
+      return `${index + 1}. [${item.id}] ${item.title} - ${summary}`;
     });
 
     const system = [
-      'Você é um editor esportivo do Corinthians.',
-      'Escolha as notícias mais relevantes para a torcida hoje.',
-      'Priorize contratações, jogos, lesões e decisões importantes.',
+      'Voce e um editor esportivo do Corinthians.',
+      'Escolha as noticias mais relevantes para a torcida hoje.',
+      'Priorize contratacoes, jogos, lesoes e decisoes importantes.',
       'Retorne JSON estrito no formato {"top_ids":["id1","id2","id3"]}.',
-      'Retorne exatamente 3 ids se possível.',
+      'Retorne exatamente 3 ids se possivel.',
     ].join('\n');
 
     const model = process.env.OPENROUTER_CURATION_MODEL || process.env.OPENROUTER_MODEL;
@@ -84,7 +90,7 @@ export async function runNewsCuration() {
     if (parsed?.top_ids && Array.isArray(parsed.top_ids)) {
       const valid = parsed.top_ids
         .map((id: unknown) => String(id))
-        .filter((id: string) => recent.some((item) => item.id === id));
+        .filter((id: string) => uniqueRecent.some((item) => item.id === id));
       if (valid.length) {
         topIds = valid.slice(0, limit);
       }
@@ -93,7 +99,7 @@ export async function runNewsCuration() {
 
   if (topIds.length < limit) {
     const seen = new Set(topIds);
-    for (const item of recent) {
+    for (const item of uniqueRecent) {
       if (!seen.has(item.id)) {
         topIds.push(item.id);
         seen.add(item.id);
@@ -109,7 +115,6 @@ export async function runNewsCuration() {
     create: { date: today, topIds },
   });
 
-  // Rewrite top curated news with AI if enabled
   let rewritten = 0;
   if (useAI && process.env.OPENROUTER_API_KEY) {
     const topNews = await prisma.news.findMany({
@@ -118,7 +123,6 @@ export async function runNewsCuration() {
     });
 
     for (const item of topNews) {
-      // Skip if content looks already well-written (>500 chars, no raw HTML)
       const content = (item.content || '').trim();
       const hasRawHtml = /<[a-z][\s\S]*>/i.test(content);
       const isTooShort = content.length < 500;

@@ -3,17 +3,12 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendMagicLinkEmail } from '@/lib/email';
 import { evolutionAPI } from '@/lib/evolution-api';
+import { addOneMonth, isPremiumActive, isSuccessPaymentStatus, parseAsaasDate } from '@/lib/billing';
 
 export const runtime = 'nodejs';
 
-const SUCCESS_STATUSES = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH']);
-
 function getWebhookToken(req: NextRequest) {
-  return (
-    req.headers.get('asaas-access-token') ||
-    req.headers.get('asaas_access_token') ||
-    ''
-  );
+  return req.headers.get('asaas-access-token') || req.headers.get('asaas_access_token') || '';
 }
 
 function parseUserIdFromExternalReference(externalReference?: string | null) {
@@ -22,17 +17,39 @@ function parseUserIdFromExternalReference(externalReference?: string | null) {
   return match?.[1] || null;
 }
 
-function parseAsaasDate(date?: string | null) {
-  if (!date) return null;
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
+function getSubscriptionIdFromPayload(payload: Record<string, any>) {
+  return payload?.subscription?.id || payload?.payment?.subscription || null;
 }
 
-function addOneMonth(from: Date) {
-  const next = new Date(from);
-  next.setMonth(next.getMonth() + 1);
-  return next;
+async function syncSubscriptionLifecycleEvent(eventType: string, payload: Record<string, any>) {
+  if (!['SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED'].includes(eventType)) {
+    return;
+  }
+
+  const subscriptionId = getSubscriptionIdFromPayload(payload);
+  if (!subscriptionId) return;
+
+  const user = await prisma.user.findFirst({
+    where: { asaasSubscriptionId: subscriptionId },
+    select: {
+      id: true,
+      isPremium: true,
+      subscriptionEnd: true,
+    },
+  });
+
+  if (!user) return;
+
+  const keepAccessUntil = isPremiumActive(user) ? user.subscriptionEnd : null;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      isPremium: Boolean(keepAccessUntil),
+      subscriptionEnd: keepAccessUntil,
+      asaasSubscriptionId: null,
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -50,14 +67,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = (await req.json()) as any;
+    const payload = (await req.json()) as Record<string, any>;
     const webhookEventId: string | undefined = payload?.id;
-    const eventType: string = String(payload?.event || '');
-
+    const eventType = String(payload?.event || '');
     const payment = payload?.payment;
     const asaasPaymentId: string | undefined = payment?.id;
 
-    // Store webhook event for idempotence (when id is provided)
     if (webhookEventId) {
       try {
         await prisma.asaasWebhookEvent.create({
@@ -69,7 +84,6 @@ export async function POST(req: NextRequest) {
           },
         });
       } catch (error: any) {
-        // Duplicate webhook event: treat as OK
         if (error?.code === 'P2002') {
           return NextResponse.json({ ok: true });
         }
@@ -77,17 +91,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await syncSubscriptionLifecycleEvent(eventType, payload);
+
     if (!asaasPaymentId) {
       return NextResponse.json({ ok: true });
     }
 
     const asaasCustomerId: string | undefined = payment?.customer;
+    const asaasSubscriptionId: string | null = payment?.subscription || null;
     const externalReference: string | undefined = payment?.externalReference;
     const userIdFromRef = parseUserIdFromExternalReference(externalReference);
 
     const user = await prisma.user.findFirst({
       where: {
         OR: [
+          ...(asaasSubscriptionId ? [{ asaasSubscriptionId }] : []),
           ...(asaasCustomerId ? [{ asaasCustomerId }] : []),
           ...(userIdFromRef ? [{ id: userIdFromRef }] : []),
         ],
@@ -97,7 +115,9 @@ export async function POST(req: NextRequest) {
         email: true,
         name: true,
         phone: true,
+        isPremium: true,
         subscriptionEnd: true,
+        asaasSubscriptionId: true,
       },
     });
 
@@ -106,6 +126,7 @@ export async function POST(req: NextRequest) {
         asaasPaymentId,
         asaasCustomerId,
         externalReference,
+        asaasSubscriptionId,
       });
       return NextResponse.json({ ok: true });
     }
@@ -114,17 +135,16 @@ export async function POST(req: NextRequest) {
     const billingType = String(payment?.billingType || 'UNKNOWN');
     const value = Number(payment?.value || 0);
     const amountCents = Math.round(value * 100);
-
     const dueDate = parseAsaasDate(payment?.dueDate);
     const paidAt =
       parseAsaasDate(payment?.paymentDate) ||
       parseAsaasDate(payment?.confirmedDate) ||
       parseAsaasDate(payment?.creditDate);
-
     const invoiceUrl: string | null = payment?.invoiceUrl || null;
     const description: string | null = payment?.description || null;
-
     const now = new Date();
+
+    let shouldNotify = false;
 
     await prisma.$transaction(async (tx) => {
       const savedPayment = await tx.asaasPayment.upsert({
@@ -133,7 +153,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           asaasPaymentId,
           asaasCustomerId: asaasCustomerId || null,
-          asaasSubscriptionId: payment?.subscription || null,
+          asaasSubscriptionId,
           status,
           billingType,
           amountCents,
@@ -154,14 +174,26 @@ export async function POST(req: NextRequest) {
           description,
           externalReference: externalReference || undefined,
           asaasCustomerId: asaasCustomerId || undefined,
-          asaasSubscriptionId: payment?.subscription || undefined,
+          asaasSubscriptionId: asaasSubscriptionId || undefined,
           raw: payment,
         },
       });
 
-      if (!SUCCESS_STATUSES.has(status)) return;
+      if (!isSuccessPaymentStatus(status)) return;
+      if (!asaasSubscriptionId) return;
 
-      // Idempotent grant: only the first successful processing sets premiumGrantedAt
+      const currentUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          subscriptionEnd: true,
+          asaasSubscriptionId: true,
+        },
+      });
+
+      if (!currentUser?.asaasSubscriptionId) return;
+      if (currentUser.asaasSubscriptionId !== asaasSubscriptionId) return;
+
       const grant = await tx.asaasPayment.updateMany({
         where: { id: savedPayment.id, premiumGrantedAt: null },
         data: { premiumGrantedAt: now },
@@ -169,13 +201,8 @@ export async function POST(req: NextRequest) {
 
       if (grant.count === 0) return;
 
-      const currentUser = await tx.user.findUnique({
-        where: { id: user.id },
-        select: { subscriptionEnd: true },
-      });
-
       const base =
-        currentUser?.subscriptionEnd && currentUser.subscriptionEnd > now
+        currentUser.subscriptionEnd && currentUser.subscriptionEnd > now
           ? currentUser.subscriptionEnd
           : now;
       const newEnd = addOneMonth(base);
@@ -187,20 +214,19 @@ export async function POST(req: NextRequest) {
           subscriptionEnd: newEnd,
         },
       });
+
+      shouldNotify = true;
     });
 
-    // Enviar magic link + notificações após confirmação de pagamento (non-blocking)
-    if (SUCCESS_STATUSES.has(status)) {
+    if (shouldNotify) {
       setImmediate(async () => {
         try {
-          // Buscar usuário atualizado para confirmar que é premium
           const updatedUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { isPremium: true, email: true, name: true, phone: true },
           });
           if (!updatedUser?.isPremium) return;
 
-          // Gerar magic token
           const magicToken = crypto.randomBytes(32).toString('hex');
           const magicTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
           await prisma.user.update({
@@ -211,18 +237,14 @@ export async function POST(req: NextRequest) {
           const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://fielchat.com/').replace(/\/$/, '');
           const magicUrl = `${appUrl}/api/auth/magic/${magicToken}`;
 
-          // Email (non-blocking)
           sendMagicLinkEmail({
             to: updatedUser.email,
             name: updatedUser.name,
             magicUrl,
           }).catch((err) => console.error('[Webhook] Email error:', err));
 
-          // WhatsApp (non-blocking)
           if (updatedUser.phone) {
-            const number = updatedUser.phone
-              .replace(/\D/g, '')
-              .replace(/^0/, '55');
+            const number = updatedUser.phone.replace(/\D/g, '').replace(/^0/, '55');
             evolutionAPI
               .sendTextMessage({
                 number,

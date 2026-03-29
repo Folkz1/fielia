@@ -15,7 +15,7 @@ import { test, expect, Page } from '@playwright/test';
  * Rodar: npx playwright test e2e/subscription-full-flow.spec.ts --reporter=list
  */
 
-const BASE = 'https://fielchat.com';
+const BASE = process.env.PLAYWRIGHT_BASE_URL || 'https://fielchat.com';
 const UNIQUE = Date.now();
 const TEST_CPF = '52998224725';
 
@@ -186,7 +186,7 @@ test.describe.serial('Jornada 2: Free → Limite → Premium', () => {
 
     await expect(page.locator('text=INATIVO').first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('text=56,90').first()).toBeVisible();
-    await expect(page.locator('button:has-text("Assinar no Cartao")').first()).toBeVisible();
+    await expect(page.locator('button:has-text("Assinar no cartão")').first()).toBeVisible();
   });
 
   test('2.5 Clicar assinar no settings → pede CPF → Asaas', async ({ page }) => {
@@ -199,7 +199,7 @@ test.describe.serial('Jornada 2: Free → Limite → Premium', () => {
     await page.goto(`${BASE}/dashboard/settings`);
     await page.waitForTimeout(3_000);
 
-    await page.click('button:has-text("Assinar no Cartao")');
+    await page.click('button:has-text("Assinar no cartão")');
     await page.waitForTimeout(5_000);
 
     // Deve mostrar campo CPF ou redirecionar pro Asaas
@@ -217,8 +217,8 @@ test.describe.serial('Jornada 2: Free → Limite → Premium', () => {
     const url = page.url();
     const hasAsaas = url.includes('asaas.com');
     const hasPaymentInfo = await page.locator('text=Assinatura criada').count() > 0
-      || await page.locator('text=cobranca pendente').count() > 0
-      || await page.locator('text=Status:').count() > 0;
+      || await page.locator('text=aguardando pagamento').count() > 0
+      || await page.locator('text=Abrir cobrança').count() > 0;
 
     expect(hasAsaas || hasPaymentInfo).toBeTruthy();
   });

@@ -2,42 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { asaasClient } from '@/lib/asaas';
+import {
+  ACTIVE_ASAAS_SUBSCRIPTION_STATUSES,
+  createLocalSubscriptionEvent,
+  deriveBillingOverview,
+  formatAsaasDate,
+  getOpenPaymentForSubscription,
+  isPremiumActive,
+  resolvePlanValue,
+  serializeBillingOverview,
+  upsertAsaasPaymentRecord,
+} from '@/lib/billing';
 
 export const runtime = 'nodejs';
 
-const OPEN_STATUSES = new Set(['PENDING', 'AWAITING_RISK_ANALYSIS', 'OVERDUE']);
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['ACTIVE', 'OVERDUE']);
 const SUBSCRIPTION_BILLING_TYPE = 'CREDIT_CARD' as const;
-
-type AsaasPaymentData = {
-  id?: string;
-  status?: string;
-  billingType?: string;
-  value?: number | string;
-  dueDate?: string;
-  paymentDate?: string;
-  confirmedDate?: string;
-  creditDate?: string;
-  invoiceUrl?: string | null;
-  description?: string | null;
-  externalReference?: string | null;
-};
-
-function formatAsaasDate(date: Date) {
-  return date.toISOString().split('T')[0];
-}
-
-function parseAsaasDate(value?: string) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function resolvePlanValue() {
-  const parsed = Number(process.env.ASAAS_SUBSCRIPTION_VALUE || '56.90');
-  if (!Number.isFinite(parsed) || parsed <= 0) return 56.9;
-  return parsed;
-}
 
 function generateValidCpf(seed: string) {
   // Deterministic pseudo-random digits from seed (dev/sandbox only)
@@ -68,86 +47,84 @@ function generateValidCpf(seed: string) {
   return [...digits, d1, d2].join('');
 }
 
-async function upsertPaymentRecord(params: {
-  userId: string;
-  asaasCustomerId: string;
-  asaasSubscriptionId: string;
-  payment: AsaasPaymentData;
-  fallbackBillingType: typeof SUBSCRIPTION_BILLING_TYPE;
-  fallbackValue: number;
-}) {
-  const { userId, asaasCustomerId, asaasSubscriptionId, payment, fallbackBillingType, fallbackValue } =
-    params;
-
-  if (!payment?.id) return;
-
-  const status = String(payment.status || 'PENDING');
-  const billingType = String(payment.billingType || fallbackBillingType);
-  const amountCents = Math.round(Number(payment.value || fallbackValue) * 100);
-  const dueDate = parseAsaasDate(payment.dueDate);
-  const paidAt =
-    parseAsaasDate(payment.paymentDate) ||
-    parseAsaasDate(payment.confirmedDate) ||
-    parseAsaasDate(payment.creditDate);
-
-  await prisma.asaasPayment.upsert({
-    where: { asaasPaymentId: payment.id },
-    create: {
-      userId,
-      asaasPaymentId: payment.id,
-      asaasCustomerId,
-      asaasSubscriptionId,
-      status,
-      billingType,
-      amountCents,
-      dueDate,
-      paidAt,
-      invoiceUrl: payment.invoiceUrl || null,
-      description: payment.description || 'FIEL.IA - Plano Premium Mensal',
-      externalReference: payment.externalReference || `user:${userId}`,
-      raw: payment,
-    },
-    update: {
-      status,
-      billingType,
-      amountCents,
-      dueDate,
-      paidAt,
-      invoiceUrl: payment.invoiceUrl || null,
-      description: payment.description || undefined,
-      externalReference: payment.externalReference || undefined,
-      asaasCustomerId,
-      asaasSubscriptionId,
-      raw: payment,
-    },
-  });
+function normalizeCpf(value?: string | null) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits || null;
 }
 
-async function getOpenPaymentForSubscription(subscriptionId: string) {
-  const subscription = await asaasClient.getSubscription(subscriptionId);
-  const status = String(subscription?.status || '').toUpperCase();
-
-  if (!ACTIVE_SUBSCRIPTION_STATUSES.has(status)) {
-    return { subscription, payment: null };
-  }
-
-  const paymentsResponse = await asaasClient.listSubscriptionPayments(subscriptionId);
-  const payments: AsaasPaymentData[] = Array.isArray(paymentsResponse?.data)
-    ? (paymentsResponse.data as AsaasPaymentData[])
-    : [];
-
-  const pendingPayments = payments
-    .filter((payment) => OPEN_STATUSES.has(String(payment?.status || '').toUpperCase()))
-    .sort((a, b) => {
-      const dueA = parseAsaasDate(a?.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
-      const dueB = parseAsaasDate(b?.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
-      return dueA - dueB;
-    });
+function buildSubscriptionResponse(params: {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    isPremium: boolean;
+    subscriptionEnd: Date | null;
+    asaasCustomerId: string | null;
+    asaasSubscriptionId: string | null;
+  };
+  payments: Array<{
+    asaasPaymentId: string;
+    status: string;
+    dueDate: Date | null;
+    paidAt: Date | null;
+    invoiceUrl: string | null;
+    asaasSubscriptionId: string | null;
+    createdAt: Date;
+  }>;
+}) {
+  const overview = deriveBillingOverview({
+    user: params.user,
+    payments: params.payments,
+  });
 
   return {
-    subscription,
-    payment: pendingPayments[0] || null,
+    userId: params.user.id,
+    email: params.user.email,
+    name: params.user.name,
+    isPremium: overview.isPremiumActive,
+    asaasCustomerId: params.user.asaasCustomerId,
+    asaasSubscriptionId: params.user.asaasSubscriptionId,
+    hasSubscription: Boolean(overview.lastSubscriptionId),
+    ...serializeBillingOverview(overview),
   };
+}
+
+function mapRouteError(error: unknown) {
+  const anyError = error as { message?: string; code?: string; asaasErrors?: Array<{ description?: string }> };
+  const asaasDetails = (anyError?.asaasErrors || [])
+    .map((item) => item.description || '')
+    .join(' ')
+    .toLowerCase();
+  const message = String(anyError?.message || '').toLowerCase();
+  const detail = `${message} ${asaasDetails}`;
+
+  if (anyError?.code === 'P2002' || detail.includes('unique constraint')) {
+    if (detail.includes('cpf')) {
+      return NextResponse.json(
+        { error: 'Este CPF já está em uso por outro usuário.' },
+        { status: 409 }
+      );
+    }
+
+    if (detail.includes('phone') || detail.includes('telefone')) {
+      return NextResponse.json(
+        { error: 'Este telefone já está em uso por outro usuário.' },
+        { status: 409 }
+      );
+    }
+  }
+
+  if (detail.includes('cpf')) {
+    return NextResponse.json(
+      { error: 'Não foi possível validar o CPF informado para criar a assinatura.' },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: 'Failed to create subscription' },
+    { status: 500 }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -161,13 +138,13 @@ export async function POST(req: NextRequest) {
     const requestedBillingType = String(
       body?.billingType || SUBSCRIPTION_BILLING_TYPE
     ).toUpperCase();
+
     if (requestedBillingType !== SUBSCRIPTION_BILLING_TYPE) {
       return NextResponse.json(
         { error: 'Only CREDIT_CARD subscriptions are supported' },
         { status: 400 }
       );
     }
-    const billingType = SUBSCRIPTION_BILLING_TYPE;
 
     if (!process.env.ASAAS_API_KEY) {
       return NextResponse.json(
@@ -177,10 +154,19 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = session.user.id;
-
-    // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        cpfCnpj: true,
+        isPremium: true,
+        subscriptionEnd: true,
+        asaasCustomerId: true,
+        asaasSubscriptionId: true,
+      },
     });
 
     if (!user) {
@@ -188,18 +174,17 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    if (user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now)) {
+    if (isPremiumActive(user, now)) {
       return NextResponse.json(
         { error: 'User already has an active premium subscription' },
         { status: 409 }
       );
     }
 
-    // Create or get Asaas customer
     let asaasCustomerId = user.asaasCustomerId;
     const cpfCnpj =
-      user.cpfCnpj ||
-      (body?.cpfCnpj ? String(body.cpfCnpj).replace(/\D/g, '') : null) ||
+      normalizeCpf(user.cpfCnpj) ||
+      normalizeCpf(body?.cpfCnpj) ||
       (process.env.NODE_ENV !== 'production' ? generateValidCpf(user.id) : null);
 
     if (!cpfCnpj || cpfCnpj.length < 11) {
@@ -207,6 +192,23 @@ export async function POST(req: NextRequest) {
         { error: 'CPF é obrigatório para criar a assinatura. Informe seu CPF na página de conta.' },
         { status: 400 }
       );
+    }
+
+    if (user.cpfCnpj !== cpfCnpj) {
+      const cpfConflict = await prisma.user.findFirst({
+        where: {
+          cpfCnpj,
+          id: { not: userId },
+        },
+        select: { id: true },
+      });
+
+      if (cpfConflict) {
+        return NextResponse.json(
+          { error: 'Este CPF já está em uso por outro usuário.' },
+          { status: 409 }
+        );
+      }
     }
 
     if (!asaasCustomerId) {
@@ -219,53 +221,62 @@ export async function POST(req: NextRequest) {
 
       asaasCustomerId = asaasCustomer.id;
 
-      // Update user with Asaas customer ID
       await prisma.user.update({
         where: { id: userId },
         data: { asaasCustomerId, ...(user.cpfCnpj ? {} : { cpfCnpj }) },
       });
+    } else if (!user.cpfCnpj) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { cpfCnpj },
+      });
     }
 
     if (!asaasCustomerId) {
-      throw new Error('Failed to resolve Asaas Customer ID');
+      throw new Error('Failed to resolve Asaas customer ID');
     }
 
     const planValue = resolvePlanValue();
     let replacedLegacySubscription = false;
+    let activeSubscriptionId = user.asaasSubscriptionId;
 
-    // Prevent duplicate subscriptions: try to reuse pending payment from current subscription
-    if (user.asaasSubscriptionId) {
+    if (activeSubscriptionId) {
       try {
-        const existing = await getOpenPaymentForSubscription(user.asaasSubscriptionId);
+        const existing = await getOpenPaymentForSubscription(activeSubscriptionId);
         const existingPayment = existing.payment;
 
         if (existingPayment?.id) {
-          await upsertPaymentRecord({
+          await upsertAsaasPaymentRecord({
             userId,
             asaasCustomerId,
-            asaasSubscriptionId: user.asaasSubscriptionId,
+            asaasSubscriptionId: activeSubscriptionId,
             payment: existingPayment,
             fallbackBillingType: SUBSCRIPTION_BILLING_TYPE,
             fallbackValue: planValue,
           });
 
-          const existingBillingType = String(
-            existingPayment.billingType || ''
-          ).toUpperCase();
+          const existingBillingType = String(existingPayment.billingType || '').toUpperCase();
           if (existingBillingType !== SUBSCRIPTION_BILLING_TYPE) {
             try {
-              await asaasClient.cancelSubscription(user.asaasSubscriptionId);
+              await asaasClient.cancelSubscription(activeSubscriptionId);
               await prisma.user.update({
                 where: { id: userId },
                 data: { asaasSubscriptionId: null },
               });
+              await createLocalSubscriptionEvent({
+                event: 'SUBSCRIPTION_DELETED',
+                subscriptionId: activeSubscriptionId,
+                userId,
+                payload: { reason: 'legacy_billing_type_replaced' },
+              });
+              activeSubscriptionId = null;
               replacedLegacySubscription = true;
             } catch (cancelError) {
               console.warn('Failed to replace non-credit subscription:', cancelError);
               return NextResponse.json(
                 {
                   error:
-                    'Existing subscription uses an unsupported billing type. Cancel it before creating a credit card subscription.',
+                    'Existe uma assinatura ativa com forma de cobrança incompatível. Cancele a assinatura atual antes de criar uma nova no cartão.',
                 },
                 { status: 409 }
               );
@@ -274,44 +285,55 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
               reusedSubscription: true,
               billingType: SUBSCRIPTION_BILLING_TYPE,
-              subscriptionId: user.asaasSubscriptionId,
+              subscriptionId: activeSubscriptionId,
               paymentId: existingPayment.id,
               status: existingPayment.status || existing.subscription?.status || 'PENDING',
               dueDate: existingPayment.dueDate || existing.subscription?.nextDueDate || null,
               invoiceUrl: existingPayment.invoiceUrl || null,
+              subscriptionState: 'pending_payment',
+              paymentStatus: existingPayment.status || 'PENDING',
+              cancelAtPeriodEnd: false,
             });
           }
         }
 
         const existingStatus = String(existing.subscription?.status || '').toUpperCase();
-        if (!replacedLegacySubscription && ACTIVE_SUBSCRIPTION_STATUSES.has(existingStatus)) {
-          // Antes de retornar 409, verifica se temos um pagamento pendente no banco local
-          // (Asaas às vezes não retorna pagamentos pendentes na API mas eles existem)
+        if (!replacedLegacySubscription && ACTIVE_ASAAS_SUBSCRIPTION_STATUSES.has(existingStatus)) {
           const localPending = await prisma.asaasPayment.findFirst({
             where: {
               userId,
-              asaasSubscriptionId: user.asaasSubscriptionId!,
+              asaasSubscriptionId: activeSubscriptionId,
               status: { in: ['PENDING', 'AWAITING_RISK_ANALYSIS', 'OVERDUE'] },
             },
             orderBy: { dueDate: 'asc' },
+            select: {
+              asaasPaymentId: true,
+              status: true,
+              dueDate: true,
+              invoiceUrl: true,
+            },
           });
 
           if (localPending) {
             return NextResponse.json({
               reusedSubscription: true,
               billingType: SUBSCRIPTION_BILLING_TYPE,
-              subscriptionId: user.asaasSubscriptionId,
+              subscriptionId: activeSubscriptionId,
               paymentId: localPending.asaasPaymentId,
               status: localPending.status,
               dueDate: localPending.dueDate?.toISOString() || null,
               invoiceUrl: localPending.invoiceUrl || null,
+              subscriptionState:
+                localPending.status === 'OVERDUE' ? 'overdue' : 'pending_payment',
+              paymentStatus: localPending.status,
+              cancelAtPeriodEnd: false,
             });
           }
 
           return NextResponse.json(
             {
               error: 'There is already an active subscription for this user',
-              subscriptionId: user.asaasSubscriptionId,
+              subscriptionId: activeSubscriptionId,
             },
             { status: 409 }
           );
@@ -321,13 +343,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create recurring subscription for premium access
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 1);
 
     const subscription = await asaasClient.createSubscription({
       customer: asaasCustomerId,
-      billingType,
+      billingType: SUBSCRIPTION_BILLING_TYPE,
       value: planValue,
       nextDueDate: formatAsaasDate(nextDueDate),
       cycle: 'MONTHLY',
@@ -335,30 +356,35 @@ export async function POST(req: NextRequest) {
       externalReference: `user:${userId}`,
     });
 
-    // Get the first payment from the subscription
-    let firstPayment: AsaasPaymentData | null = null;
+    let firstPayment = null;
     try {
-      const paymentsResponse = await asaasClient.listSubscriptionPayments(subscription.id);
-      if (paymentsResponse?.data?.length > 0) {
-        firstPayment = paymentsResponse.data[0];
-      }
+      const { payment } = await getOpenPaymentForSubscription(subscription.id);
+      firstPayment = payment;
     } catch (error) {
       console.warn('Failed to fetch subscription payments:', error);
     }
 
-    // Update user with subscription info
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         asaasSubscriptionId: subscription.id,
-        isPremium: false, // Will be activated on payment confirmation via webhook
+        isPremium: false,
         subscriptionEnd: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isPremium: true,
+        subscriptionEnd: true,
+        asaasCustomerId: true,
+        asaasSubscriptionId: true,
       },
     });
 
-    // Save payment record if we have a first payment
+    const payments = [];
     if (firstPayment) {
-      await upsertPaymentRecord({
+      await upsertAsaasPaymentRecord({
         userId,
         asaasCustomerId,
         asaasSubscriptionId: subscription.id,
@@ -366,23 +392,38 @@ export async function POST(req: NextRequest) {
         fallbackBillingType: SUBSCRIPTION_BILLING_TYPE,
         fallbackValue: planValue,
       });
+
+      payments.push({
+        asaasPaymentId: String(firstPayment.id),
+        status: String(firstPayment.status || 'PENDING'),
+        dueDate: firstPayment.dueDate ? new Date(firstPayment.dueDate) : null,
+        paidAt: null,
+        invoiceUrl: firstPayment.invoiceUrl || null,
+        asaasSubscriptionId: subscription.id,
+        createdAt: new Date(),
+      });
     }
 
+    const billingOverview = serializeBillingOverview(
+      deriveBillingOverview({
+        user: updatedUser,
+        payments,
+      })
+    );
+
     return NextResponse.json({
+      ...billingOverview,
       reusedSubscription: false,
       billingType: SUBSCRIPTION_BILLING_TYPE,
       subscriptionId: subscription.id,
       paymentId: firstPayment?.id || null,
       status: firstPayment?.status || subscription.status,
-      dueDate: firstPayment?.dueDate || subscription.nextDueDate,
-      invoiceUrl: firstPayment?.invoiceUrl || null,
+      dueDate: billingOverview.dueDate || firstPayment?.dueDate || subscription.nextDueDate,
+      invoiceUrl: billingOverview.invoiceUrl || firstPayment?.invoiceUrl || null,
     });
   } catch (error) {
     console.error('Create Premium Subscription Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create subscription' },
-      { status: 500 }
-    );
+    return mapRouteError(error);
   }
 }
 
@@ -393,7 +434,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -410,26 +451,38 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Auto-expire premium when subscriptionEnd is in the past
     const now = new Date();
     if (user.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
-      await prisma.user.update({
+      user = await prisma.user.update({
         where: { id: user.id },
         data: { isPremium: false, subscriptionEnd: null },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isPremium: true,
+          subscriptionEnd: true,
+          asaasCustomerId: true,
+          asaasSubscriptionId: true,
+        },
       });
-      user.isPremium = false;
-      user.subscriptionEnd = null;
     }
 
-    return NextResponse.json({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      isPremium: user.isPremium,
-      subscriptionEnd: user.subscriptionEnd,
-      asaasCustomerId: user.asaasCustomerId,
-      asaasSubscriptionId: user.asaasSubscriptionId,
+    const payments = await prisma.asaasPayment.findMany({
+      where: { userId: user.id },
+      orderBy: [{ dueDate: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        asaasPaymentId: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        invoiceUrl: true,
+        asaasSubscriptionId: true,
+        createdAt: true,
+      },
     });
+
+    return NextResponse.json(buildSubscriptionResponse({ user, payments }));
   } catch (error) {
     console.error('Get Subscription Status Error:', error);
     return NextResponse.json(
@@ -447,35 +500,86 @@ export async function DELETE() {
     }
 
     const userId = session.user.id;
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isPremium: true,
+        subscriptionEnd: true,
+        asaasCustomerId: true,
+        asaasSubscriptionId: true,
+      },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Cancel Asaas subscription if exists
-    if (user.asaasSubscriptionId) {
+    const keepAccessUntil = isPremiumActive(user) ? user.subscriptionEnd : null;
+    const subscriptionId = user.asaasSubscriptionId;
+
+    if (subscriptionId) {
       try {
-        await asaasClient.cancelSubscription(user.asaasSubscriptionId);
+        await asaasClient.cancelSubscription(subscriptionId);
       } catch (error) {
         console.warn('Failed to cancel Asaas subscription:', error);
       }
     }
 
-    // Update user
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        isPremium: false,
-        subscriptionEnd: null,
+        isPremium: Boolean(keepAccessUntil),
+        subscriptionEnd: keepAccessUntil,
         asaasSubscriptionId: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isPremium: true,
+        subscriptionEnd: true,
+        asaasCustomerId: true,
+        asaasSubscriptionId: true,
       },
     });
 
-    return NextResponse.json({ message: 'Premium cancelled successfully' });
+    if (subscriptionId) {
+      await createLocalSubscriptionEvent({
+        event: 'SUBSCRIPTION_DELETED',
+        subscriptionId,
+        userId,
+        payload: {
+          cancelledVia: 'app_api_subscription_delete',
+          accessPreservedUntil: keepAccessUntil?.toISOString() || null,
+        },
+      });
+    }
+
+    const payments = await prisma.asaasPayment.findMany({
+      where: { userId },
+      orderBy: [{ dueDate: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        asaasPaymentId: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        invoiceUrl: true,
+        asaasSubscriptionId: true,
+        createdAt: true,
+      },
+    });
+
+    const overview = buildSubscriptionResponse({ user: updatedUser, payments });
+
+    return NextResponse.json({
+      message: keepAccessUntil
+        ? 'Recorrência cancelada. Seu acesso premium permanece até o fim do período já pago.'
+        : 'Subscription cancelled successfully',
+      ...overview,
+    });
   } catch (error) {
     console.error('Cancel Premium Error:', error);
     return NextResponse.json(

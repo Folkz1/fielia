@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 
-const BASE = 'https://fielchat.com';
+const BASE = process.env.PLAYWRIGHT_BASE_URL || 'https://fielchat.com';
 const FREE_EMAIL = 'free@fielchat.com';
 const PREMIUM_EMAIL = 'premium@fielchat.com';
 const TEST_PASS = 'FielIA2026!';
@@ -175,6 +175,13 @@ test.describe('Dashboard (FREE user)', () => {
     await expect(page.locator('text=INATIVO').first()).toBeVisible({ timeout: 10000 });
   });
 
+  test('account carrega resumo de billing para free', async ({ page }) => {
+    await page.goto(`${BASE}/dashboard/account`);
+    await page.waitForTimeout(5000);
+    await expect(page.locator('text=Plano atual').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Perfil do Torcedor').first()).toBeVisible();
+  });
+
   test('CTA premium aparece no dashboard', async ({ page }) => {
     await expect(page.locator('text=Seja Fiel Premium').first()).toBeVisible({ timeout: 10000 });
   });
@@ -197,6 +204,13 @@ test.describe('Dashboard (PREMIUM user)', () => {
     await page.goto(`${BASE}/dashboard/settings`);
     await page.waitForTimeout(5000);
     await expect(page.locator('text=ATIVO').first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('account carrega resumo de billing para premium', async ({ page }) => {
+    await page.goto(`${BASE}/dashboard/account`);
+    await page.waitForTimeout(5000);
+    await expect(page.locator('text=Plano atual').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Perfil do Torcedor').first()).toBeVisible();
   });
 
   test('settings mostra dados reais premium', async ({ page }) => {

@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:asaas:sandbox": "node scripts/test-asaas-sandbox.mjs",
+    "test:billing:prod": "node scripts/validate-billing-production.mjs",
+    "test:e2e:billing": "playwright test e2e/subscription.spec.ts e2e/product-validation.spec.ts e2e/admin-billing.spec.ts --reporter=list",
     "test:openrouter": "node scripts/test-openrouter.mjs"
   },
   "dependencies": {

@@ -1,9 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { CreditCard, Crown, ShieldCheck, User, Loader2, CheckCircle, AlertCircle, Trophy } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Crown,
+  ShieldCheck,
+  User,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Trophy,
+  ExternalLink,
+  Clock3,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/use-api";
+
+type SubscriptionState =
+  | "free"
+  | "pending_payment"
+  | "active"
+  | "cancelled_pending_end"
+  | "overdue";
 
 type UserData = {
   userId: string;
@@ -16,8 +33,13 @@ type UserData = {
   hasSubscription: boolean;
   createdAt: string;
   totalPoints: number | null;
+  asaasSubscriptionId: string | null;
+  subscriptionState: SubscriptionState;
+  paymentStatus: string | null;
+  invoiceUrl: string | null;
+  dueDate: string | null;
+  cancelAtPeriodEnd: boolean;
 };
-
 
 const BENEFITS = [
   "Newsletter diária com curadoria",
@@ -41,37 +63,85 @@ function formatPhone(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+function formatDate(value: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function getStatePill(state: SubscriptionState) {
+  if (state === "active") {
+    return "bg-green-500/20 text-green-300";
+  }
+  if (state === "cancelled_pending_end") {
+    return "bg-yellow-500/20 text-yellow-300";
+  }
+  if (state === "pending_payment") {
+    return "bg-blue-500/20 text-blue-300";
+  }
+  if (state === "overdue") {
+    return "bg-red-500/20 text-red-300";
+  }
+  return "bg-gray-500/20 text-gray-400";
+}
+
+function getStateLabel(state: SubscriptionState) {
+  if (state === "active") return "Premium ativo";
+  if (state === "cancelled_pending_end") return "Cancelado com acesso";
+  if (state === "pending_payment") return "Pagamento pendente";
+  if (state === "overdue") return "Pagamento em atraso";
+  return "Gratuito";
+}
+
 export default function AccountPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [subMsg, setSubMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
 
-  // Form state
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
 
   const { createSubscription, cancelSubscription, isProcessing } = useSubscription();
 
+  const loadUser = useCallback(async () => {
+    const meRes = await fetch("/api/user/me");
+    if (!meRes.ok) {
+      throw new Error("Não foi possível carregar sua conta.");
+    }
+    const data: UserData = await meRes.json();
+    setUser(data);
+    setName(data.name || "");
+    setPhone(data.phone ? formatPhone(data.phone) : "");
+    setCpfCnpj(data.cpfCnpj ? formatCpf(data.cpfCnpj) : "");
+    return data;
+  }, []);
+
   useEffect(() => {
-    async function load() {
+    let cancelled = false;
+    async function bootstrap() {
       try {
-        const meRes = await fetch("/api/user/me");
-        if (meRes.ok) {
-          const data: UserData = await meRes.json();
-          setUser(data);
-          setName(data.name || "");
-          setPhone(data.phone ? formatPhone(data.phone) : "");
-          setCpfCnpj(data.cpfCnpj ? formatCpf(data.cpfCnpj) : "");
+        const data = await fetch("/api/user/me");
+        if (!data.ok) throw new Error("Não foi possível carregar sua conta.");
+        const payload: UserData = await data.json();
+        if (cancelled) return;
+        setUser(payload);
+        setName(payload.name || "");
+        setPhone(payload.phone ? formatPhone(payload.phone) : "");
+        setCpfCnpj(payload.cpfCnpj ? formatCpf(payload.cpfCnpj) : "");
+      } catch (error) {
+        if (!cancelled) {
+          setSubMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao carregar conta" });
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    load();
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleSave() {
@@ -95,7 +165,8 @@ export default function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao salvar");
-      setUser((prev) => prev ? { ...prev, ...data } : prev);
+
+      await loadUser();
       setSaveMsg({ type: "ok", text: "Dados atualizados com sucesso!" });
     } catch (e) {
       setSaveMsg({ type: "err", text: e instanceof Error ? e.message : "Erro ao salvar" });
@@ -107,7 +178,6 @@ export default function AccountPage() {
 
   async function handleSubscribe() {
     setSubMsg(null);
-    setInvoiceUrl(null);
     const cpf = cpfCnpj.replace(/\D/g, "");
     if (!cpf || cpf.length < 11) {
       setSubMsg({ type: "err", text: "Informe seu CPF no campo acima antes de assinar." });
@@ -115,25 +185,36 @@ export default function AccountPage() {
     }
     try {
       const result = await createSubscription(cpf);
+      await loadUser();
+      setSubMsg({
+        type: "ok",
+        text: result?.reusedSubscription
+          ? "Já existia uma cobrança aberta para sua assinatura."
+          : "Assinatura criada. Abra a cobrança para concluir o pagamento.",
+      });
+
       if (result?.invoiceUrl) {
-        setInvoiceUrl(result.invoiceUrl);
-        setSubMsg({ type: "ok", text: "Assinatura criada! Clique abaixo para pagar." });
-      } else {
-        setSubMsg({ type: "ok", text: "Assinatura criada com sucesso!" });
+        window.location.href = result.invoiceUrl;
       }
-      setUser((prev) => prev ? { ...prev, hasSubscription: true } : prev);
     } catch (e) {
       setSubMsg({ type: "err", text: e instanceof Error ? e.message : "Erro ao assinar" });
     }
   }
 
   async function handleCancel() {
-    if (!confirm("Tem certeza que deseja cancelar sua assinatura premium?")) return;
+    if (!confirm("Cancelar a recorrência agora? Seu acesso pago continua até o fim do período.")) {
+      return;
+    }
     setSubMsg(null);
     try {
-      await cancelSubscription();
-      setUser((prev) => prev ? { ...prev, isPremium: false, hasSubscription: false } : prev);
-      setSubMsg({ type: "ok", text: "Assinatura cancelada." });
+      const result = await cancelSubscription();
+      await loadUser();
+      setSubMsg({
+        type: "ok",
+        text:
+          result?.message ||
+          "Recorrência cancelada. Seu acesso premium segue ativo até o fim do período pago.",
+      });
     } catch (e) {
       setSubMsg({ type: "err", text: e instanceof Error ? e.message : "Erro ao cancelar" });
     }
@@ -147,8 +228,11 @@ export default function AccountPage() {
     );
   }
 
-  const isPremium = user?.isPremium;
-  const subEnd = user?.subscriptionEnd ? new Date(user.subscriptionEnd).toLocaleDateString("pt-BR") : null;
+  const subscriptionState = user?.subscriptionState || "free";
+  const subscriptionEnd = formatDate(user?.subscriptionEnd || null);
+  const dueDate = formatDate(user?.dueDate || null);
+  const invoiceUrl = user?.invoiceUrl || null;
+  const canCancelRecurring = Boolean(user?.asaasSubscriptionId);
 
   return (
     <div className="space-y-8">
@@ -160,7 +244,6 @@ export default function AccountPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Perfil */}
         <section className="card-corinthians lg:col-span-2 space-y-6">
           <div className="flex items-center gap-3 text-corinthians-gold">
             <User className="w-5 h-5" />
@@ -220,7 +303,6 @@ export default function AccountPage() {
           </div>
         </section>
 
-        {/* Plano */}
         <section className="card-corinthians space-y-4">
           <div className="flex items-center gap-3 text-corinthians-gold">
             <Crown className="w-5 h-5" />
@@ -229,29 +311,64 @@ export default function AccountPage() {
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-400">Status</span>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isPremium ? "bg-green-500/20 text-green-300" : "bg-gray-500/20 text-gray-400"}`}>
-              {isPremium ? "Premium ativo" : "Gratuito"}
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatePill(subscriptionState)}`}>
+              {getStateLabel(subscriptionState)}
             </span>
           </div>
 
-          {subEnd && (
+          {subscriptionEnd && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-400">Renovação</span>
-              <span className="text-sm text-white">{subEnd}</span>
+              <span className="text-sm text-gray-400">
+                {subscriptionState === "cancelled_pending_end" ? "Acesso até" : "Fim do período"}
+              </span>
+              <span className="text-sm text-white">{subscriptionEnd}</span>
+            </div>
+          )}
+
+          {dueDate && (subscriptionState === "pending_payment" || subscriptionState === "overdue") && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">Vencimento</span>
+              <span className="text-sm text-white">{dueDate}</span>
             </div>
           )}
 
           <div className="border-t border-white/10 pt-4">
             <p className="text-xs text-gray-400 mb-3">Benefícios premium</p>
             <ul className="space-y-2 text-sm text-gray-300">
-              {BENEFITS.map((b) => (
-                <li key={b} className="flex items-center gap-2">
-                  <ShieldCheck className={`w-4 h-4 ${isPremium ? "text-corinthians-gold" : "text-gray-600"}`} />
-                  {b}
+              {BENEFITS.map((benefit) => (
+                <li key={benefit} className="flex items-center gap-2">
+                  <ShieldCheck className={`w-4 h-4 ${user?.isPremium ? "text-corinthians-gold" : "text-gray-600"}`} />
+                  {benefit}
                 </li>
               ))}
             </ul>
           </div>
+
+          {subscriptionState === "cancelled_pending_end" && (
+            <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+              Sua recorrência já foi cancelada. Não haverá nova cobrança automática.
+            </div>
+          )}
+
+          {(subscriptionState === "pending_payment" || subscriptionState === "overdue") && (
+            <div className={`rounded-lg border p-3 text-sm ${
+              subscriptionState === "overdue"
+                ? "border-red-500/20 bg-red-500/10 text-red-200"
+                : "border-blue-500/20 bg-blue-500/10 text-blue-200"
+            }`}>
+              <div className="flex items-start gap-2">
+                <Clock3 className="w-4 h-4 mt-0.5" />
+                <div>
+                  <p>
+                    {subscriptionState === "overdue"
+                      ? "Existe uma cobrança vencida para sua assinatura."
+                      : "Sua assinatura está aguardando a confirmação do pagamento."}
+                  </p>
+                  {user?.paymentStatus && <p className="mt-1 text-xs">Status atual: {user.paymentStatus}</p>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {subMsg && (
             <div className={`text-sm flex items-start gap-2 p-2 rounded-lg ${subMsg.type === "ok" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
@@ -260,34 +377,34 @@ export default function AccountPage() {
             </div>
           )}
 
-          {invoiceUrl && (
+          {invoiceUrl && (subscriptionState === "pending_payment" || subscriptionState === "overdue") && (
             <a
               href={invoiceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full text-center px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg transition-colors text-sm"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg transition-colors text-sm"
             >
-              Pagar agora
+              <ExternalLink className="w-4 h-4" />
+              Abrir cobrança
             </a>
           )}
 
-          {!isPremium && (
+          {subscriptionState === "free" && (
             <Button className="w-full" onClick={handleSubscribe} disabled={isProcessing}>
               {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Assinar Premium – R$56,90/mês
+              Assinar Premium - R$56,90/mês
             </Button>
           )}
 
-          {isPremium && (
+          {canCancelRecurring && (
             <Button variant="secondary" className="w-full" onClick={handleCancel} disabled={isProcessing}>
               {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Cancelar plano
+              Cancelar recorrência
             </Button>
           )}
         </section>
       </div>
 
-      {/* Pontuação */}
       <section className="card-corinthians">
         <div className="flex items-center gap-3 text-corinthians-gold mb-4">
           <Trophy className="w-5 h-5" />

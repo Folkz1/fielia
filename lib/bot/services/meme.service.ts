@@ -8,14 +8,11 @@ type BotResponse = {
   content: string;
   type: 'text' | 'image';
   mediaUrl?: string;
-  /** Raw image filename (for sticker conversion) */
   imageFilename?: string;
-  /** Raw image bytes for DB persistence */
   imageBytes?: Buffer;
 };
 
 function buildPublicUrl(filename: string) {
-  // URL relativa - funciona em qualquer dominio (dev e producao)
   return `/api/memes/image/${filename}`;
 }
 
@@ -27,10 +24,10 @@ async function ensureMemeDir() {
 
 async function generateMemePrompt(userMessage: string) {
   const system = [
-    'Você é um criador de memes do Corinthians.',
+    'Voce e um criador de memes do Corinthians.',
     'Gere um JSON com as chaves: prompt, caption.',
-    'prompt: descrição curta e visual para gerar imagem de meme engraçado do Corinthians.',
-    'caption: legenda curta e engraçada em português.',
+    'prompt: descricao curta e visual para gerar imagem de meme engracado do Corinthians.',
+    'caption: legenda curta e engracada em portugues.',
     'Responda APENAS com o JSON, sem markdown.',
   ].join('\n');
 
@@ -70,38 +67,25 @@ function parseDataUrl(dataUrl: string) {
   };
 }
 
-/**
- * Extrai bytes de imagem da resposta do OpenRouter
- * Suporta multiplos formatos de resposta:
- * - images[]: array de objetos {type: "image_url", image_url: {url: "data:..."}}
- * - images[]: array de strings data URL
- * - content[]: array de partes com type image_url
- */
 function extractImageFromResponse(msg: Record<string, unknown>): { bytes: Buffer; mimeType: string } | null {
-  // 1. Check images array (formato atual do Gemini via OpenRouter)
   if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
     for (const img of msg.images as unknown[]) {
-      // Object format: { type: "image_url", image_url: { url: "data:..." } }
       if (typeof img === 'object' && img !== null) {
         const imgObj = img as Record<string, unknown>;
         const imageUrl = imgObj.image_url as Record<string, unknown> | undefined;
         const url = imageUrl?.url as string | undefined;
 
-        if (url && typeof url === 'string') {
-          if (url.startsWith('data:')) {
-            const parsed = parseDataUrl(url);
-            if (parsed) return parsed;
-          }
+        if (url && typeof url === 'string' && url.startsWith('data:')) {
+          const parsed = parseDataUrl(url);
+          if (parsed) return parsed;
         }
 
-        // Direct url on object
         const directUrl = imgObj.url as string | undefined;
         if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('data:')) {
           const parsed = parseDataUrl(directUrl);
           if (parsed) return parsed;
         }
 
-        // b64_json format
         const b64 = imgObj.b64_json as string | undefined;
         if (b64) {
           return {
@@ -111,7 +95,6 @@ function extractImageFromResponse(msg: Record<string, unknown>): { bytes: Buffer
         }
       }
 
-      // String data URL format
       if (typeof img === 'string' && img.startsWith('data:')) {
         const parsed = parseDataUrl(img);
         if (parsed) return parsed;
@@ -119,7 +102,6 @@ function extractImageFromResponse(msg: Record<string, unknown>): { bytes: Buffer
     }
   }
 
-  // 2. Check content array
   if (Array.isArray(msg?.content)) {
     for (const part of msg.content as Record<string, unknown>[]) {
       if (part.type === 'image_url' || part.type === 'image') {
@@ -149,7 +131,7 @@ async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer;
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
       'X-Title': 'FIEL.IA - Meme Generator',
     },
@@ -158,7 +140,7 @@ async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer;
       messages: [
         {
           role: 'user',
-          content: `Gere uma imagem de meme QUADRADA (aspect ratio 1:1, 1024x1024) de alta qualidade sobre o Corinthians. OBRIGATÓRIO: todo texto na imagem DEVE estar em PORTUGUÊS BRASILEIRO correto, com acentuação (ç, ã, é, ô, etc). NUNCA use espanhol, inglês ou texto sem acentos. A imagem DEVE ser quadrada. Estilo: meme de internet brasileiro, engraçado, alta resolução. Tema: ${prompt}`,
+          content: `Gere uma imagem de meme QUADRADA (aspect ratio 1:1, 1024x1024) de alta qualidade sobre o Corinthians. OBRIGATORIO: todo texto na imagem DEVE estar em PORTUGUES BRASILEIRO correto, com acentuacao. NUNCA use espanhol, ingles ou texto sem acentos. A imagem DEVE ser quadrada. Estilo: meme de internet brasileiro, engracado, alta resolucao. Tema: ${prompt}`,
         },
       ],
       modalities: ['image', 'text'],
@@ -168,6 +150,12 @@ async function generateOpenRouterImage(prompt: string): Promise<{ bytes: Buffer;
   if (!response.ok) {
     const errorText = await response.text();
     console.error('[Meme] OpenRouter API error:', response.status, errorText.slice(0, 200));
+    if (response.status === 402) {
+      throw new Error('OPENROUTER_CREDITS_EXHAUSTED');
+    }
+    if (response.status === 404) {
+      throw new Error('OPENROUTER_IMAGE_MODEL_NOT_AVAILABLE');
+    }
     throw new Error(`OpenRouter API error: ${response.status}`);
   }
 
@@ -209,7 +197,6 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
 
     const mediaUrl = buildPublicUrl(filename);
 
-    // Persist image bytes to DB so it survives container rebuilds
     try {
       await prisma.$executeRawUnsafe(
         'UPDATE memes SET "imageData" = $1 WHERE "imageUrl" = $2',
@@ -217,7 +204,7 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
         mediaUrl
       );
     } catch {
-      // Will be saved after meme.create in the API route via backfill
+      // Saved after meme.create in the API route.
     }
 
     return {
@@ -229,8 +216,17 @@ export async function generateMeme(userId: string, message: string): Promise<Bot
     };
   } catch (error) {
     console.error('[Meme] Generation error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    let failureReason = 'Nao consegui gerar a imagem agora. Tente novamente em instantes.';
+
+    if (message.includes('OPENROUTER_CREDITS_EXHAUSTED')) {
+      failureReason = 'O gerador de imagem esta temporariamente sem creditos no provedor de IA.';
+    } else if (message.includes('OPENROUTER_IMAGE_MODEL_NOT_AVAILABLE')) {
+      failureReason = 'O modelo de imagem configurado nao esta disponivel no provedor no momento.';
+    }
+
     return {
-      content: `${caption}\n\nNão consegui gerar a imagem agora. Tente novamente em instantes.`,
+      content: `${caption}\n\n${failureReason}`,
       type: 'text',
     };
   }

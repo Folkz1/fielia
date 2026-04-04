@@ -143,7 +143,7 @@ test.describe.serial('Jornada 2: Free → Limite → Premium', () => {
     }
 
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|auth|bem-vindo)/, { timeout: 15_000 });
+    await page.waitForURL(/\/(dashboard|auth|bem-vindo|criar-senha)/, { timeout: 15_000 });
   });
 
   test('2.2 Dashboard free mostra CTA premium', async ({ page }) => {

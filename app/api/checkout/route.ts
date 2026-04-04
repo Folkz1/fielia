@@ -13,7 +13,7 @@ import {
 
 export const runtime = 'nodejs';
 
-const CHECKOUT_BILLING_TYPE = 'UNDEFINED' as const;
+const CHECKOUT_BILLING_TYPE = 'CREDIT_CARD' as const;
 
 function generatePassword() {
   return crypto.randomBytes(9).toString('base64');

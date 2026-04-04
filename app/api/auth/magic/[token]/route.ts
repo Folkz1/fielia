@@ -56,7 +56,7 @@ export async function GET(
     ? "__Secure-authjs.session-token"
     : "authjs.session-token";
 
-  const response = NextResponse.redirect(new URL("/bem-vindo", appUrl));
+  const response = NextResponse.redirect(new URL("/auth/criar-senha?from=payment", appUrl));
   response.cookies.set(cookieName, jwtToken, {
     httpOnly: true,
     secure: isProduction,

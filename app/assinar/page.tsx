@@ -200,7 +200,7 @@ export default function AssinarPage() {
           <div className="mt-6 space-y-2">
             <div className="flex items-center gap-2 text-zinc-500 text-xs">
               <CheckCircle className="w-3.5 h-3.5 text-zinc-600" />
-              <span>Pagamento seguro via Asaas (Boleto, Pix ou Cartão)</span>
+              <span>Pagamento seguro via cartão de crédito (Asaas)</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-500 text-xs">
               <CheckCircle className="w-3.5 h-3.5 text-zinc-600" />

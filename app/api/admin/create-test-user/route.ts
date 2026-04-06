@@ -48,36 +48,28 @@ export async function POST() {
     });
     results['free@fielchat.com'] = `Free OK (id: ${freeUser.id})`;
 
-    // 3. Verificar admin
-    const admin = await prisma.user.findUnique({
+    // 3. Admin - sempre força isAdmin: true
+    const adminUser = await prisma.user.upsert({
       where: { email: 'diegocleanmaster@gmail.com' },
-      select: { id: true, email: true, name: true, password: true },
+      update: {
+        password: hashedPassword,
+        isAdmin: true,
+        isPremium: true,
+        subscriptionEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+      create: {
+        email: 'diegocleanmaster@gmail.com',
+        name: 'Diego Admin',
+        password: hashedPassword,
+        isAdmin: true,
+        isPremium: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        maxStreak: 0,
+        subscriptionEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
     });
-    if (admin) {
-      if (!admin.password) {
-        await prisma.user.update({
-          where: { email: 'diegocleanmaster@gmail.com' },
-          data: { password: hashedPassword },
-        });
-        results['diegocleanmaster@gmail.com'] = `Admin atualizado com senha fiel123 (id: ${admin.id})`;
-      } else {
-        results['diegocleanmaster@gmail.com'] = `Admin ja existe (id: ${admin.id})`;
-      }
-    } else {
-      const newAdmin = await prisma.user.create({
-        data: {
-          email: 'diegocleanmaster@gmail.com',
-          name: 'Diego Admin',
-          password: hashedPassword,
-          isPremium: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          maxStreak: 0,
-          subscriptionEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        },
-      });
-      results['diegocleanmaster@gmail.com'] = `Admin criado com senha fiel123 (id: ${newAdmin.id})`;
-    }
+    results['diegocleanmaster@gmail.com'] = `Admin OK isAdmin=true (id: ${adminUser.id})`;
 
     return NextResponse.json({
       success: true,

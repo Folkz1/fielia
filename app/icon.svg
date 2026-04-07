@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Fundo preto -->
+  <rect width="32" height="32" rx="7" fill="#0A0A0A"/>
+  <!-- Escudo estilizado -->
+  <path d="M16 4 L26 8 L26 18 C26 23 21 27 16 28 C11 27 6 23 6 18 L6 8 Z" fill="#1A1A1A" stroke="#E85A00" stroke-width="1.2"/>
+  <!-- Faixa vertical branca central (listras Corinthians) -->
+  <rect x="14" y="6" width="4" height="20" rx="1" fill="white" opacity="0.9"/>
+  <!-- Texto IA pequeno embaixo da faixa -->
+  <text x="16" y="24" font-family="Arial Black, sans-serif" font-size="5.5" font-weight="900" fill="#E85A00" text-anchor="middle" letter-spacing="0.5">IA</text>
+</svg>

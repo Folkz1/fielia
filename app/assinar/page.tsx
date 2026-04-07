@@ -80,6 +80,16 @@ export default function AssinarPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
+        {/* Botão de login no topo */}
+        <div className="flex justify-end mb-4">
+          <a
+            href="/auth/login"
+            className="text-zinc-400 hover:text-white text-sm border border-zinc-700 hover:border-zinc-500 rounded-lg px-4 py-2 transition-colors"
+          >
+            Já sou Premium → Entrar
+          </a>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
@@ -210,6 +220,14 @@ export default function AssinarPage() {
               <CheckCircle className="w-3.5 h-3.5 text-zinc-600" />
               <span>Acesso por email + WhatsApp após confirmação</span>
             </div>
+          </div>
+
+          {/* Aviso pós-pagamento */}
+          <div className="mt-5 flex items-start gap-3 bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
+            <Mail className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+            <p className="text-orange-300 text-xs leading-relaxed">
+              <strong className="text-orange-400">Após confirmar o pagamento:</strong> verifique seu e-mail para receber o link de acesso à plataforma. Também enviaremos uma mensagem no seu WhatsApp.
+            </p>
           </div>
         </div>
 

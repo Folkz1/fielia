@@ -601,6 +601,7 @@ function Pricing() {
 
           <div className="border-2 border-orange-600 rounded-3xl p-10 shadow-2xl shadow-orange-600/25" style={{ background: "#1A1A1A" }}>
             <div className="mt-6 text-center">
+              <p className="text-white/40 text-base line-through mb-1">De R$ 99,90/mês</p>
               <span className="font-heading text-[80px] leading-none text-white">R$ 56,90</span>
               <span className="text-xl text-white/50 ml-1">/mês</span>
               <p className="text-sm text-orange-500 mt-1">≈ R$ 1,89 por dia</p>

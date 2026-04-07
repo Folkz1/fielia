@@ -219,14 +219,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (shouldNotify) {
-      setImmediate(async () => {
-        try {
-          const updatedUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { isPremium: true, email: true, name: true, phone: true },
-          });
-          if (!updatedUser?.isPremium) return;
-
+      try {
+        const updatedUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { isPremium: true, email: true, name: true, phone: true },
+        });
+        if (!updatedUser?.isPremium) {
+          console.warn('[Webhook] shouldNotify=true mas isPremium=false após transação — abortando notificações');
+        } else {
           const magicToken = crypto.randomBytes(32).toString('hex');
           const magicTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
           await prisma.user.update({
@@ -237,25 +237,37 @@ export async function POST(req: NextRequest) {
           const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://fielchat.com/').replace(/\/$/, '');
           const magicUrl = `${appUrl}/api/auth/magic/${magicToken}`;
 
-          sendMagicLinkEmail({
-            to: updatedUser.email,
-            name: updatedUser.name,
-            magicUrl,
-          }).catch((err) => console.error('[Webhook] Email error:', err));
+          console.log('[Webhook] Enviando email para', updatedUser.email);
+          try {
+            await sendMagicLinkEmail({
+              to: updatedUser.email,
+              name: updatedUser.name,
+              magicUrl,
+            });
+            console.log('[Webhook] Email enviado OK');
+          } catch (emailErr) {
+            console.error('[Webhook] Email error:', emailErr instanceof Error ? emailErr.message : emailErr);
+          }
 
           if (updatedUser.phone) {
             const number = updatedUser.phone.replace(/\D/g, '').replace(/^0/, '55');
-            evolutionAPI
-              .sendTextMessage({
+            console.log('[Webhook] Enviando WhatsApp para', number);
+            try {
+              await evolutionAPI.sendTextMessage({
                 number,
                 text: `🎉 *Bem-vindo ao FIEL.IA Premium!*\n\nSua assinatura foi confirmada!\n\nAcesse agora: ${magicUrl}\n\n_Link válido por 24h_`,
-              })
-              .catch((err) => console.error('[Webhook] WhatsApp error:', err));
+              });
+              console.log('[Webhook] WhatsApp enviado OK');
+            } catch (waErr) {
+              console.error('[Webhook] WhatsApp error:', waErr instanceof Error ? waErr.message : waErr);
+            }
+          } else {
+            console.warn('[Webhook] Usuário sem telefone cadastrado — WhatsApp não enviado');
           }
-        } catch (notifyErr) {
-          console.error('[Webhook] Erro ao enviar notificações:', notifyErr);
         }
-      });
+      } catch (notifyErr) {
+        console.error('[Webhook] Erro ao enviar notificações:', notifyErr instanceof Error ? notifyErr.message : notifyErr);
+      }
     }
 
     return NextResponse.json({ ok: true });

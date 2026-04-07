@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import {
   MessageSquare,
   Trophy,
@@ -79,6 +80,17 @@ export default async function DashboardPage() {
           Fala, {userData?.name || 'Fiel'}! 🖤🤍
         </h1>
         <p className="text-gray-400">Continue jogando e suba no ranking da Fiel Torcida!</p>
+        <div className="mt-2">
+          {userData?.isPremium ? (
+            <Badge className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+              <Crown className="w-3 h-3 mr-1" /> Premium
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-gray-400 border-white/20">
+              Plano Gratuito
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* WhatsApp Bot Banner */}

@@ -62,6 +62,7 @@ export default function MemesPage() {
   const [prompt, setPrompt] = useState("");
   const [remaining, setRemaining] = useState(3);
   const [dailyLimit, setDailyLimit] = useState(3);
+  const [isPremium, setIsPremium] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [selectedMeme, setSelectedMeme] = useState<MemeItem | null>(null);
@@ -79,6 +80,7 @@ export default function MemesPage() {
         setMemes(data.memes || []);
         setRemaining(data.remaining);
         setDailyLimit(data.dailyLimit);
+        setIsPremium(Boolean(data.isPremium));
       }
     } catch (err) {
       console.error("Erro ao buscar memes:", err);
@@ -226,6 +228,19 @@ export default function MemesPage() {
           <Sparkles className="w-5 h-5 text-yellow-500" />
           Gerar por Prompt
         </h2>
+
+        {!isPremium && (
+          <div className="flex items-center gap-3 p-4 mb-4 rounded-xl bg-black/30 border border-yellow-500/20">
+            <Crown className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">Recurso exclusivo Fiel Premium</p>
+              <p className="text-xs text-gray-400 mt-0.5">Assine para gerar até 15 memes por dia com IA.</p>
+            </div>
+            <a href="/dashboard/settings" className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-black text-xs font-bold rounded-lg transition-colors whitespace-nowrap">
+              Assinar
+            </a>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <input

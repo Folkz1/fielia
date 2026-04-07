@@ -82,7 +82,7 @@ async function handleSubscribe(): Promise<BotResponse> {
 
 async function handleGame(): Promise<BotResponse> {
   return {
-    content: "🎮 *Game Fiel*\n\nFuncionalidade de Jogo em breve! Jogue e ganhe pontos.",
+    content: "🎮 *Game Fiel*\n\nEstamos desenvolvendo um jogo exclusivo para torcedores do Timão! Em breve você vai poder jogar e acumular pontos na plataforma.\n\nDigite */menu* para ver o que já está disponível.",
     type: 'text'
   };
 }

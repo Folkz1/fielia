@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
       memes,
       remaining: Math.max(0, dailyLimit - memesToday),
       dailyLimit,
+      isPremium: isPremiumActive,
       nextCursor: memes.length === limit ? memes[memes.length - 1]?.id : null,
     });
   } catch (error) {

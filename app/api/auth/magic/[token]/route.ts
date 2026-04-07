@@ -38,6 +38,12 @@ export async function GET(
     data: { magicToken: null, magicTokenExp: null },
   });
 
+  // Configurar cookie — nome do cookie é usado como salt pelo NextAuth v5
+  const isProduction = process.env.NODE_ENV === "production";
+  const cookieName = isProduction
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+
   // Criar JWT compatível com NextAuth v5
   const secret = process.env.NEXTAUTH_SECRET || "fiel-ia-secret";
   const jwtToken = await encode({
@@ -47,14 +53,8 @@ export async function GET(
       name: user.name,
     },
     secret,
-    salt: "authjs.session-token",
+    salt: cookieName,
   });
-
-  // Configurar cookie
-  const isProduction = process.env.NODE_ENV === "production";
-  const cookieName = isProduction
-    ? "__Secure-authjs.session-token"
-    : "authjs.session-token";
 
   const response = NextResponse.redirect(new URL("/auth/criar-senha?from=payment", appUrl));
   response.cookies.set(cookieName, jwtToken, {

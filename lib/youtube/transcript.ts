@@ -35,9 +35,10 @@ const CONSENT_COOKIE = "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlfZnJvbnRlbmRfdWlzZXJ2ZXJ
  */
 // Fallback IPs para p.webshare.io (Alpine Docker nao resolve DNS deste dominio)
 // Atualizado em 2026-04-26 via getaddrinfo('p.webshare.io')
+// Atualizado em 2026-04-27 via getaddrinfo('p.webshare.io')
 const WEBSHARE_FALLBACK_IPS = [
-  "177.54.156.39", "177.54.157.203", "103.88.235.78", "189.1.168.120",
-  "45.250.252.25", "170.80.110.53", "177.54.147.109", "170.80.109.44",
+  "177.54.157.203", "193.19.205.35", "170.80.109.44", "177.54.147.109",
+  "103.88.235.135", "193.19.205.25", "103.88.235.78", "45.250.252.25",
 ];
 
 // Cache do IP resolvido do proxy
@@ -505,7 +506,18 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
   // Tentativa 2: youtube-transcript-plus com proxy (fallback)
   const langQueue = ["pt", "pt-BR", "en", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
   const tried = new Set<string>();
-  const errors: string[] = ["direto: sem legendas ou HTML sem captionTracks"];
+
+  // Diagnstico: verificar se yt-dlp esta instalado (aparece no error message)
+  const ytDlpVersion = await new Promise<string>((resolve) => {
+    const bin = process.env.YTDLP_PATH || "yt-dlp";
+    execFile(bin, ["--version"], { timeout: 5_000 }, (err, stdout) => {
+      if (err) resolve(`yt-dlp:ERRO(${(err as NodeJS.ErrnoException).code || err.message?.substring(0, 30)})`);
+      else resolve(`yt-dlp:${stdout.trim()}`);
+    });
+  });
+  console.log(`[YouTube] DIAG ${ytDlpVersion}`);
+
+  const errors: string[] = [`direto: sem legendas`, ytDlpVersion];
   let rateLimitRetries = 0;
   const MAX_RATE_LIMIT_RETRIES = 3;
 

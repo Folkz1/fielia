@@ -303,9 +303,10 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
     const html = await pageRes.text();
 
     // Extrair captionTracks do JSON embutido na pagina
-    const captionMatch = html.match(/"captionTracks":(\[.*?\]),"audioTracks"/s)
-      || html.match(/"captionTracks":(\[.*?\]),"translationLanguages"/s)
-      || html.match(/"captionTracks":(\[.*?\])/s);
+    // Nota: usar [\s\S]*? em vez de .*? com flag /s (compatibilidade TypeScript)
+    const captionMatch = html.match(/"captionTracks":(\[[\s\S]*?\]),"audioTracks"/)
+      || html.match(/"captionTracks":(\[[\s\S]*?\]),"translationLanguages"/)
+      || html.match(/"captionTracks":(\[[\s\S]*?\])/);
     if (!captionMatch) {
       console.log(`[YouTube] captionTracks nao encontrado no HTML para ${videoId}`);
       return null;

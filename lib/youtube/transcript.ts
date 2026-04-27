@@ -226,17 +226,14 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 
 /**
  * Busca legendas diretamente do HTML da pagina do YouTube.
- * Nao usa nenhuma biblioteca externa — funciona em qualquer ambiente.
- * Passa dispatcher do Webshare para evitar rate limiting do IP do servidor.
+ * Nao usa nenhuma biblioteca externa — vai direto (sem proxy).
+ * Rate limiting controlado por delays no cliente entre requisicoes.
  *
  * Fluxo: fetch pagina → extrai captionTracks JSON → fetch URL da legenda (fmt=json3)
  */
-async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent): Promise<string | null> {
+async function fetchTranscriptFromPage(videoId: string): Promise<string | null> {
   try {
-    const baseInit = dispatcher ? { dispatcher } : {};
-
     const pageRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      ...baseInit,
       headers: {
         "User-Agent": UA,
         "Cookie": CONSENT_COOKIE,
@@ -282,7 +279,6 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
     console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
 
     const txRes = await proxyFetch(captionUrl, {
-      ...baseInit,
       headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
     });
     if (!txRes.ok) {
@@ -382,11 +378,10 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Tentativa 1: extracao manual do HTML via proxy Webshare (evita rate limit do IP do servidor)
-  const sessionId0 = Math.floor(Math.random() * 200000) + 1;
-  const dispatcher0 = await getProxyDispatcher(sessionId0);
-  console.log(`[YouTube] Tentando extracao direta do HTML (proxy ${sessionId0}) para ${videoId}`);
-  const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
+  // Tentativa 1: extracao manual do HTML da pagina (direto, sem proxy)
+  // O rate limiting e controlado pelos delays do cliente entre requisicoes
+  console.log(`[YouTube] Tentando extracao direta do HTML para ${videoId}`);
+  const directText = await fetchTranscriptFromPage(videoId);
   if (directText) {
     console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
     return directText;

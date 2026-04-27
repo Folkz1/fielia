@@ -26,11 +26,10 @@ RUN npm run build
 
 # 3. Production image, copy all the files and run next
 FROM base AS runner
-# libc6-compat para Node + python3 + curl para yt-dlp (transcricao YouTube)
-RUN apk add --no-cache libc6-compat python3 curl && \
-    curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-      -o /usr/local/bin/yt-dlp && \
-    chmod a+rx /usr/local/bin/yt-dlp
+# libc6-compat para Node
+# python3 + py3-pip + yt-dlp via pip (binario PyInstaller nao funciona em Alpine/musl)
+RUN apk add --no-cache libc6-compat python3 py3-pip && \
+    pip3 install --no-cache-dir --break-system-packages yt-dlp
 WORKDIR /app
 
 ENV NODE_ENV=production

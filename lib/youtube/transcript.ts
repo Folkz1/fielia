@@ -230,6 +230,74 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 }
 
 /**
+ * Busca legenda via Innertube (youtubei.js) — usa /youtubei/v1/get_transcript (API interna).
+ * Tenta sem proxy e com proxy Webshare. Nao depende de yt-dlp.
+ */
+async function fetchTranscriptViaInnertube(videoId: string): Promise<string | null> {
+  // Tentar sem proxy primeiro, depois com proxy
+  const dispatchers: Array<{ label: string; d: ProxyAgent | undefined }> = [
+    { label: "direto", d: undefined },
+  ];
+  try {
+    const pd = await getProxyDispatcher();
+    dispatchers.push({ label: "proxy", d: pd });
+  } catch { /* sem proxy disponivel */ }
+
+  for (const { label, d } of dispatchers) {
+    try {
+      const yt = await Innertube.create({
+        fetch(input: any, init?: any) {
+          const h = new Headers(init?.headers || {});
+          h.set("Cookie", CONSENT_COOKIE);
+          const extra = d ? { dispatcher: d } : {};
+          return Platform.shim.fetch(input, { ...init, headers: h, ...extra });
+        }
+      });
+
+      const info = await yt.getInfo(videoId);
+      const transcriptInfo = await (info as any).getTranscript();
+      const segments = transcriptInfo?.transcript?.content?.body?.initial_segments as any[] | undefined;
+
+      if (!segments || segments.length === 0) {
+        console.log(`[YouTube] Innertube ${label}: nenhum segmento de transcript`);
+        continue;
+      }
+
+      // Selecionar idioma pt se disponivel
+      let activeInfo = transcriptInfo;
+      const langs: string[] = transcriptInfo.languages || [];
+      const ptLang = langs.find((l: string) => l.toLowerCase().startsWith("pt"));
+      if (ptLang) {
+        try { activeInfo = await transcriptInfo.selectLanguage(ptLang); } catch { /* manter padrao */ }
+      }
+
+      const activeSegments = activeInfo?.transcript?.content?.body?.initial_segments as any[] | undefined;
+      const src = activeSegments || segments;
+
+      const text = src
+        .filter((s: any) => s.type === "TranscriptSegment")
+        .map((s: any) => {
+          const snip = s.snippet;
+          return snip?.text || (typeof snip === "string" ? snip : "");
+        })
+        .join(" ")
+        .replace(/\n/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (text.length > 50) {
+        console.log(`[YouTube] Innertube OK ${label} (${text.length} chars, lang=${ptLang || "default"})`);
+        return text;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[YouTube] Innertube ${label} erro: ${msg.substring(0, 120)}`);
+    }
+  }
+  return null;
+}
+
+/**
  * Busca legendas usando yt-dlp (requer instalacao no container: /usr/local/bin/yt-dlp).
  * Metodo mais confiavel: usa Android VR Player API do YouTube, bypassa bot detection.
  * Funciona para legendas ASR (auto-geradas) que nao aparecem no HTML da pagina.
@@ -494,13 +562,20 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Tentativa 0: yt-dlp (mais confiavel, suporta ASR, funciona em Alpine sem proxy)
+  // Tentativa 0: yt-dlp (suporta ASR, usa Android API)
   const ytDlpText = await fetchTranscriptViaYtDlp(videoId);
   if (ytDlpText) {
     console.log(`[YouTube] OK yt-dlp (${ytDlpText.length} chars)`);
     return ytDlpText;
   }
-  console.log(`[YouTube] yt-dlp falhou ou nao disponivel, tentando via HTML/proxy...`);
+
+  // Tentativa 0b: Innertube/youtubei.js (API interna /youtubei/v1/get_transcript)
+  const innertubeText = await fetchTranscriptViaInnertube(videoId);
+  if (innertubeText) {
+    console.log(`[YouTube] OK Innertube (${innertubeText.length} chars)`);
+    return innertubeText;
+  }
+  console.log(`[YouTube] yt-dlp e Innertube falharam, tentando via HTML/proxy...`);
 
   // Tentativa 1: extracao manual do HTML via proxy (diagProxy confirma: hasCaptions:true com proxy+CONSENT_COOKIE)
   const sessionId0 = Math.floor(Math.random() * 200000) + 1;

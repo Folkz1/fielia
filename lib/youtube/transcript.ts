@@ -264,21 +264,54 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
       console.log(`[YouTube] JSON parse captionTracks falhou`);
       return null;
     }
-    if (!tracks.length) return null;
+    if (!tracks.length) {
+      console.log(`[YouTube] captionTracks vazio para ${videoId}, tentando ASR direto...`);
+    }
 
     // Prioridade: pt > pt-BR > qualquer pt* > en > primeiro disponivel
-    const pick =
-      tracks.find(t => t.languageCode === "pt") ||
-      tracks.find(t => t.languageCode === "pt-BR") ||
-      tracks.find(t => t.languageCode?.startsWith("pt")) ||
-      tracks.find(t => t.languageCode === "en") ||
-      tracks[0];
+    const pick = tracks.length
+      ? (tracks.find(t => t.languageCode === "pt") ||
+         tracks.find(t => t.languageCode === "pt-BR") ||
+         tracks.find(t => t.languageCode?.startsWith("pt")) ||
+         tracks.find(t => t.languageCode === "en") ||
+         tracks[0])
+      : null;
 
-    if (!pick?.baseUrl) return null;
-
-    // baseUrl pode ter & no lugar de & (escape JSON do YouTube)
-    const captionUrl = pick.baseUrl.replace(/\\u0026/g, "&") + "&fmt=json3";
-    console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
+    let captionUrl: string | null = null;
+    if (pick?.baseUrl) {
+      // URL direta do captionTrack
+      captionUrl = pick.baseUrl.replace(/\\u0026/g, "&") + "&fmt=json3";
+      console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
+    } else {
+      // Fallback: tentar ASR (auto-gerado) direto — pt, pt-BR, en
+      // Muitos videos BR tem apenas ASR que nao aparece em captionTracks
+      for (const lang of ["pt", "pt-BR", "en"]) {
+        const asrUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=json3&kind=asr`;
+        console.log(`[YouTube] Tentando ASR timedtext lang=${lang} para ${videoId}`);
+        try {
+          const asrRes = await proxyFetch(asrUrl, {
+            ...baseInit,
+            headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
+          });
+          if (asrRes.ok) {
+            const asrData = await asrRes.json() as { events?: Array<{ segs?: Array<{ utf8: string }> }> };
+            const asrText = (asrData.events || [])
+              .filter((e) => e.segs)
+              .flatMap((e) => (e.segs || []).map((s) => (s.utf8 || "").replace(/\n/g, " ")))
+              .join(" ")
+              .replace(/\s+/g, " ")
+              .trim();
+            if (asrText.length > 50) {
+              console.log(`[YouTube] OK ASR timedtext lang=${lang} (${asrText.length} chars)`);
+              return asrText;
+            }
+          }
+        } catch {
+          // continua para proximo idioma
+        }
+      }
+      return null;
+    }
 
     const txRes = await proxyFetch(captionUrl, {
       ...baseInit,

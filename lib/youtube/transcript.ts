@@ -864,6 +864,19 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
     results.transcriptAttempt = { error: e instanceof Error ? e.message : String(e) };
   }
 
+  // Test 7: transcricao completa via getVideoTranscript (fluxo real: yt-dlp > Innertube > HTML)
+  try {
+    console.log(`[diagProxy] Iniciando getVideoTranscript para ${videoId}...`);
+    const text = await getVideoTranscript(videoId);
+    results.fullTranscript = {
+      success: true,
+      chars: text.length,
+      preview: text.substring(0, 200),
+    };
+  } catch (e) {
+    results.fullTranscript = { success: false, error: e instanceof Error ? e.message.substring(0, 300) : String(e) };
+  }
+
   return results;
 }
 

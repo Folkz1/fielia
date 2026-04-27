@@ -240,17 +240,31 @@ async function fetchTranscriptViaYtDlp(videoId: string): Promise<string | null> 
     const tmpBase = await mkdtemp(join(tmpdir(), `yt-${videoId}-`));
     const outBase = join(tmpBase, videoId);
 
+    // Proxy Webshare residencial (obrigatorio em datacenter — YouTube bloqueia IPs diretos)
+    const proxyHost = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
+    const proxyUser = process.env.WEBSHARE_PROXY_USER || "";
+    const proxyPass = process.env.WEBSHARE_PROXY_PASS || "";
+    const proxyPort = process.env.WEBSHARE_PROXY_PORT || "80";
+    const proxyArgs: string[] = proxyUser && proxyPass
+      ? ["--proxy", `http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`]
+      : [];
+
     // Tentar pt primeiro, depois en
     for (const lang of ["pt", "en"]) {
       const jsonFile = `${outBase}.${lang}.json3`;
       await new Promise<void>((resolve) => {
         const args = [
+          ...proxyArgs,
           "--write-auto-sub", "--sub-lang", lang,
           "--sub-format", "json3",
           "--skip-download", "--quiet", "--no-warnings", "--ignore-errors",
           url, "-o", outBase,
         ];
-        execFile(ytDlpBin, args, { timeout: 45_000 }, (err) => resolve());
+        console.log(`[YouTube] yt-dlp lang=${lang} proxy=${proxyArgs.length > 0 ? "sim" : "nao"}`);
+        execFile(ytDlpBin, args, { timeout: 45_000 }, (err) => {
+          if (err) console.log(`[YouTube] yt-dlp exec err: ${err.message?.substring(0, 100)}`);
+          resolve();
+        });
       });
 
       try {

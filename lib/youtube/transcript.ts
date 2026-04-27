@@ -318,10 +318,14 @@ async function fetchTranscriptViaYtDlp(videoId: string): Promise<string | null> 
       ? ["--proxy", `http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`]
       : [];
 
-    // Tentar: sem proxy (Android API burla bot detection), depois com proxy
+    // android_embedded bypassa bot detection melhor que web client
+    const androidArgs = ["--extractor-args", "youtube:player_client=android_embedded,default"];
+
+    // Ordem: android_embedded sem proxy, android_embedded com proxy, direto com proxy
     const attempts: Array<{ label: string; extraArgs: string[] }> = [
-      { label: "direto", extraArgs: [] },
-      { label: "proxy", extraArgs: proxyArgs },
+      { label: "android-direto", extraArgs: androidArgs },
+      { label: "android-proxy",  extraArgs: [...proxyArgs, ...androidArgs] },
+      { label: "proxy",          extraArgs: proxyArgs },
     ];
 
     for (const attempt of attempts) {

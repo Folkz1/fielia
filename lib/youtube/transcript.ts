@@ -226,14 +226,16 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 
 /**
  * Busca legendas diretamente do HTML da pagina do YouTube.
- * Nao usa nenhuma biblioteca externa — vai direto (sem proxy).
- * Rate limiting controlado por delays no cliente entre requisicoes.
+ * Usa proxy Webshare + CONSENT_COOKIE para obter pagina completa com captionTracks.
+ * Diagrama confirma: proxyFetch+dispatcher retorna HTML 1.1MB com hasCaptions:true.
  *
- * Fluxo: fetch pagina → extrai captionTracks JSON → fetch URL da legenda (fmt=json3)
+ * Fluxo: fetch pagina via proxy → extrai captionTracks JSON → fetch URL da legenda
  */
-async function fetchTranscriptFromPage(videoId: string): Promise<string | null> {
+async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent): Promise<string | null> {
   try {
+    const baseInit = dispatcher ? { dispatcher } : {};
     const pageRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      ...baseInit,
       headers: {
         "User-Agent": UA,
         "Cookie": CONSENT_COOKIE,
@@ -279,6 +281,7 @@ async function fetchTranscriptFromPage(videoId: string): Promise<string | null> 
     console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
 
     const txRes = await proxyFetch(captionUrl, {
+      ...baseInit,
       headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
     });
     if (!txRes.ok) {
@@ -378,10 +381,11 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Tentativa 1: extracao manual do HTML da pagina (direto, sem proxy)
-  // O rate limiting e controlado pelos delays do cliente entre requisicoes
-  console.log(`[YouTube] Tentando extracao direta do HTML para ${videoId}`);
-  const directText = await fetchTranscriptFromPage(videoId);
+  // Tentativa 1: extracao manual do HTML via proxy (diagProxy confirma: hasCaptions:true com proxy+CONSENT_COOKIE)
+  const sessionId0 = Math.floor(Math.random() * 200000) + 1;
+  const dispatcher0 = await getProxyDispatcher(sessionId0);
+  console.log(`[YouTube] Tentando extracao direta do HTML (proxy ${sessionId0}) para ${videoId}`);
+  const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
   if (directText) {
     console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
     return directText;

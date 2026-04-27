@@ -14,6 +14,10 @@ import { fetchTranscript } from "youtube-transcript-plus";
 import { Innertube, Platform } from "youtubei.js";
 import { ProxyAgent } from "undici";
 import { lookup } from "node:dns/promises";
+import { execFile } from "node:child_process";
+import { readFile, unlink, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ingestDocument, type IngestDocument } from "@/lib/rag/ingest";
 
 // globalThis.fetch aceita { dispatcher } em Node 18+ (baseado em undici internamente)
@@ -225,6 +229,56 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 }
 
 /**
+ * Busca legendas usando yt-dlp (requer instalacao no container: /usr/local/bin/yt-dlp).
+ * Metodo mais confiavel: usa Android VR Player API do YouTube, bypassa bot detection.
+ * Funciona para legendas ASR (auto-geradas) que nao aparecem no HTML da pagina.
+ */
+async function fetchTranscriptViaYtDlp(videoId: string): Promise<string | null> {
+  try {
+    const ytDlpBin = process.env.YTDLP_PATH || "yt-dlp";
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const tmpBase = await mkdtemp(join(tmpdir(), `yt-${videoId}-`));
+    const outBase = join(tmpBase, videoId);
+
+    // Tentar pt primeiro, depois en
+    for (const lang of ["pt", "en"]) {
+      const jsonFile = `${outBase}.${lang}.json3`;
+      await new Promise<void>((resolve) => {
+        const args = [
+          "--write-auto-sub", "--sub-lang", lang,
+          "--sub-format", "json3",
+          "--skip-download", "--quiet", "--no-warnings", "--ignore-errors",
+          url, "-o", outBase,
+        ];
+        execFile(ytDlpBin, args, { timeout: 45_000 }, (err) => resolve());
+      });
+
+      try {
+        const raw = await readFile(jsonFile, "utf-8");
+        const data = JSON.parse(raw) as { events?: Array<{ segs?: Array<{ utf8: string }> }> };
+        const text = (data.events || [])
+          .filter((e) => e.segs)
+          .flatMap((e) => (e.segs || []).map((s) => (s.utf8 || "").replace(/\n/g, " ")))
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        await unlink(jsonFile).catch(() => {});
+        if (text.length > 50) {
+          console.log(`[YouTube] yt-dlp OK lang=${lang} (${text.length} chars)`);
+          return text;
+        }
+      } catch {
+        // proximo idioma
+      }
+    }
+    return null;
+  } catch (err) {
+    console.log(`[YouTube] yt-dlp erro: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+/**
  * Busca legendas diretamente do HTML da pagina do YouTube.
  * Usa proxy Webshare + CONSENT_COOKIE para obter pagina completa com captionTracks.
  * Diagrama confirma: proxyFetch+dispatcher retorna HTML 1.1MB com hasCaptions:true.
@@ -413,6 +467,14 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
+
+  // Tentativa 0: yt-dlp (mais confiavel, suporta ASR, funciona em Alpine sem proxy)
+  const ytDlpText = await fetchTranscriptViaYtDlp(videoId);
+  if (ytDlpText) {
+    console.log(`[YouTube] OK yt-dlp (${ytDlpText.length} chars)`);
+    return ytDlpText;
+  }
+  console.log(`[YouTube] yt-dlp falhou ou nao disponivel, tentando via HTML/proxy...`);
 
   // Tentativa 1: extracao manual do HTML via proxy (diagProxy confirma: hasCaptions:true com proxy+CONSENT_COOKIE)
   const sessionId0 = Math.floor(Math.random() * 200000) + 1;

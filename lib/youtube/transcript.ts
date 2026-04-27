@@ -224,6 +224,46 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 }
 
 /**
+ * Tenta buscar legendas SEM proxy (fetch direto do servidor).
+ * EasyPanel tem acesso direto ao YouTube — proxy so como fallback.
+ */
+async function directAttempt(videoId: string, lang: string): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean; error?: string }> {
+  const directFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
+    return proxyFetch(url, {
+      headers: {
+        "User-Agent": userAgent || UA,
+        "Cookie": CONSENT_COOKIE,
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+      },
+    });
+  };
+  const directPostFn = async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
+    return proxyFetch(url, { method, body, headers: { ...headers, "Cookie": CONSENT_COOKIE } });
+  };
+  try {
+    const result = await fetchTranscript(videoId, {
+      lang,
+      videoFetch: directFetchFn as any,
+      playerFetch: directPostFn as any,
+      transcriptFetch: directFetchFn as any,
+    });
+    if (result && result.length > 0) {
+      const text = result.map((s: { text: string }) => s.text).join(" ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+      if (text.length > 50) return { text };
+    }
+    return { text: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const isRateLimit = msg.includes("too many requests") || msg.includes("429");
+    const availMatch = msg.match(/Available languages?: (.+?)\.?\s*(?:Please|$)/i);
+    if (availMatch) {
+      return { text: null, availableLangs: availMatch[1].split(",").map(s => s.trim()).filter(Boolean), isRateLimit, error: msg.substring(0, 200) };
+    }
+    return { text: null, isRateLimit, error: msg.substring(0, 200) };
+  }
+}
+
+/**
  * Faz UMA tentativa com um proxy + idioma especifico.
  * Usa undici.fetch com ProxyAgent (dispatcher) + consent cookie.
  */
@@ -306,6 +346,25 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
   const errors: string[] = [];
   let rateLimitRetries = 0;
   const MAX_RATE_LIMIT_RETRIES = 3;
+
+  // Tentar direto primeiro (sem proxy) — EasyPanel tem acesso direto ao YouTube
+  for (const lang of langQueue.slice(0, 3)) {
+    console.log(`[YouTube] Tentando direto (sem proxy) lang=${lang}`);
+    const { text, availableLangs, error } = await directAttempt(videoId, lang);
+    if (text) {
+      console.log(`[YouTube] OK direto lang=${lang} (${text.length} chars)`);
+      return text;
+    }
+    if (availableLangs) {
+      const ptLangs = availableLangs.filter(l => l.toLowerCase().startsWith("pt"));
+      const otherLangs = availableLangs.filter(l => !l.toLowerCase().startsWith("pt"));
+      for (const avail of [...ptLangs, ...otherLangs]) {
+        if (!langQueue.includes(avail)) langQueue.push(avail);
+      }
+    }
+    if (error) errors.push(`direto/${lang}: ${error}`);
+  }
+  console.log(`[YouTube] Direto falhou, tentando via proxy...`);
 
   for (let i = 0; i < langQueue.length && i < 15; i++) {
     const lang = langQueue[i];

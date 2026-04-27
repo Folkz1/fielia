@@ -568,9 +568,9 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
   console.log(`[YouTube] yt-dlp e Innertube falharam, tentando via HTML/proxy...`);
 
   // Tentativa 1: extracao manual do HTML via proxy (diagProxy confirma: hasCaptions:true com proxy+CONSENT_COOKIE)
-  const sessionId0 = Math.floor(Math.random() * 200000) + 1;
-  const dispatcher0 = await getProxyDispatcher(sessionId0);
-  console.log(`[YouTube] Tentando extracao direta do HTML (proxy ${sessionId0}) para ${videoId}`);
+  // Usar rotate (sem sessionId) — session IDs aleatorios muito altos sao invalidos no Webshare
+  const dispatcher0 = await getProxyDispatcher();
+  console.log(`[YouTube] Tentando extracao direta do HTML (proxy rotate) para ${videoId}`);
   const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
   if (directText) {
     console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
@@ -601,7 +601,7 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
     if (tried.has(lang)) continue;
     tried.add(lang);
 
-    const sessionId = Math.floor(Math.random() * 200000) + 1;
+    const sessionId = Math.floor(Math.random() * 500) + 1;
     console.log(`[YouTube] Tentando lang=${lang} (proxy ${sessionId})`);
 
     const { text, availableLangs, isRateLimit, error } = await singleAttempt(videoId, lang, sessionId);
@@ -851,7 +851,7 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
 
   // Test 6: transcript attempt via youtube-transcript-plus
   try {
-    const sessionId = Math.floor(Math.random() * 200000) + 1;
+    const sessionId = Math.floor(Math.random() * 500) + 1;
     const attempt = await singleAttempt(videoId, "en", sessionId);
     results.transcriptAttempt = {
       hasText: !!attempt.text,

@@ -224,42 +224,79 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 }
 
 /**
- * Tenta buscar legendas SEM proxy (fetch direto do servidor).
- * EasyPanel tem acesso direto ao YouTube — proxy so como fallback.
+ * Busca legendas diretamente do HTML da pagina do YouTube.
+ * Nao usa nenhuma biblioteca externa — funciona em qualquer ambiente
+ * onde globalThis.fetch alcanca youtube.com (ex: EasyPanel).
+ *
+ * Fluxo: fetch pagina → extrai captionTracks JSON → fetch URL da legenda (fmt=json3)
  */
-async function directAttempt(videoId: string, lang: string): Promise<{ text: string | null; availableLangs?: string[]; isRateLimit?: boolean; error?: string }> {
-  const directFetchFn = async ({ url, userAgent }: { url: string; lang?: string; userAgent?: string }) => {
-    return proxyFetch(url, {
+async function fetchTranscriptFromPage(videoId: string): Promise<string | null> {
+  try {
+    const pageRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: {
-        "User-Agent": userAgent || UA,
+        "User-Agent": UA,
         "Cookie": CONSENT_COOKIE,
         "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
       },
     });
-  };
-  const directPostFn = async ({ url, method, body, headers }: { url: string; method: string; body: string; headers: Record<string, string> }) => {
-    return proxyFetch(url, { method, body, headers: { ...headers, "Cookie": CONSENT_COOKIE } });
-  };
-  try {
-    const result = await fetchTranscript(videoId, {
-      lang,
-      videoFetch: directFetchFn as any,
-      playerFetch: directPostFn as any,
-      transcriptFetch: directFetchFn as any,
+    if (!pageRes.ok) {
+      console.log(`[YouTube] pagina nao ok: ${pageRes.status}`);
+      return null;
+    }
+    const html = await pageRes.text();
+
+    // Extrair captionTracks do JSON embutido na pagina
+    const captionMatch = html.match(/"captionTracks":(\[.*?\]),"audioTracks"/s)
+      || html.match(/"captionTracks":(\[.*?\]),"translationLanguages"/s)
+      || html.match(/"captionTracks":(\[.*?\])/s);
+    if (!captionMatch) {
+      console.log(`[YouTube] captionTracks nao encontrado no HTML para ${videoId}`);
+      return null;
+    }
+
+    let tracks: Array<{ baseUrl: string; languageCode: string; vssId?: string }>;
+    try {
+      tracks = JSON.parse(captionMatch[1]);
+    } catch {
+      console.log(`[YouTube] JSON parse captionTracks falhou`);
+      return null;
+    }
+    if (!tracks.length) return null;
+
+    // Prioridade: pt > pt-BR > qualquer pt* > en > primeiro disponivel
+    const pick =
+      tracks.find(t => t.languageCode === "pt") ||
+      tracks.find(t => t.languageCode === "pt-BR") ||
+      tracks.find(t => t.languageCode?.startsWith("pt")) ||
+      tracks.find(t => t.languageCode === "en") ||
+      tracks[0];
+
+    if (!pick?.baseUrl) return null;
+
+    // baseUrl pode ter & no lugar de & (escape JSON do YouTube)
+    const captionUrl = pick.baseUrl.replace(/\\u0026/g, "&") + "&fmt=json3";
+    console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
+
+    const txRes = await proxyFetch(captionUrl, {
+      headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
     });
-    if (result && result.length > 0) {
-      const text = result.map((s: { text: string }) => s.text).join(" ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-      if (text.length > 50) return { text };
+    if (!txRes.ok) {
+      console.log(`[YouTube] legenda nao ok: ${txRes.status}`);
+      return null;
     }
-    return { text: null };
+
+    const data = await txRes.json() as { events?: Array<{ segs?: Array<{ utf8: string }> }> };
+    const text = (data.events || [])
+      .filter(e => e.segs)
+      .flatMap(e => (e.segs || []).map(s => (s.utf8 || "").replace(/\n/g, " ")))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return text.length > 50 ? text : null;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const isRateLimit = msg.includes("too many requests") || msg.includes("429");
-    const availMatch = msg.match(/Available languages?: (.+?)\.?\s*(?:Please|$)/i);
-    if (availMatch) {
-      return { text: null, availableLangs: availMatch[1].split(",").map(s => s.trim()).filter(Boolean), isRateLimit, error: msg.substring(0, 200) };
-    }
-    return { text: null, isRateLimit, error: msg.substring(0, 200) };
+    console.log(`[YouTube] fetchTranscriptFromPage erro: ${err instanceof Error ? err.message : err}`);
+    return null;
   }
 }
 
@@ -340,31 +377,21 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Prioridade: pt > pt-BR > en > preferido
+  // Tentativa 1: extracao manual do HTML da pagina (sem biblioteca, funciona em EasyPanel)
+  console.log(`[YouTube] Tentando extracao direta do HTML para ${videoId}`);
+  const directText = await fetchTranscriptFromPage(videoId);
+  if (directText) {
+    console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
+    return directText;
+  }
+  console.log(`[YouTube] Extracao direta falhou, tentando via proxy + youtube-transcript-plus...`);
+
+  // Tentativa 2: youtube-transcript-plus com proxy (fallback)
   const langQueue = ["pt", "pt-BR", "en", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
   const tried = new Set<string>();
-  const errors: string[] = [];
+  const errors: string[] = ["direto: sem legendas ou HTML sem captionTracks"];
   let rateLimitRetries = 0;
   const MAX_RATE_LIMIT_RETRIES = 3;
-
-  // Tentar direto primeiro (sem proxy) — EasyPanel tem acesso direto ao YouTube
-  for (const lang of langQueue.slice(0, 3)) {
-    console.log(`[YouTube] Tentando direto (sem proxy) lang=${lang}`);
-    const { text, availableLangs, error } = await directAttempt(videoId, lang);
-    if (text) {
-      console.log(`[YouTube] OK direto lang=${lang} (${text.length} chars)`);
-      return text;
-    }
-    if (availableLangs) {
-      const ptLangs = availableLangs.filter(l => l.toLowerCase().startsWith("pt"));
-      const otherLangs = availableLangs.filter(l => !l.toLowerCase().startsWith("pt"));
-      for (const avail of [...ptLangs, ...otherLangs]) {
-        if (!langQueue.includes(avail)) langQueue.push(avail);
-      }
-    }
-    if (error) errors.push(`direto/${lang}: ${error}`);
-  }
-  console.log(`[YouTube] Direto falhou, tentando via proxy...`);
 
   for (let i = 0; i < langQueue.length && i < 15; i++) {
     const lang = langQueue[i];

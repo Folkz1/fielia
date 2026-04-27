@@ -34,17 +34,23 @@ async function checkAdmin(): Promise<boolean> {
  */
 export async function POST(req: NextRequest) {
   try {
-    if (!(await checkAdmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     const category = body.category || "general";
 
-    // Modo: diagnostico
+    // Modo: diagnostico — aceita RAG_INGEST_API_KEY como bypass de auth
     if (body.diag) {
+      const diagSecret = body.diagSecret || "";
+      const expectedSecret = process.env.RAG_INGEST_API_KEY || "";
+      const hasValidSecret = diagSecret && expectedSecret && diagSecret === expectedSecret;
+      if (!hasValidSecret && !(await checkAdmin())) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const diagResult = await diagProxy(body.videoId || "Y00T8a--3gc");
       return NextResponse.json(diagResult);
+    }
+
+    if (!(await checkAdmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Modo: video unico

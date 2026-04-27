@@ -1,8 +1,8 @@
 /**
  * Servico de transcricao de videos do YouTube para RAG
  *
- * Usa youtube-transcript-plus com proxy residencial Webshare.
- * CRITICO: usar globalThis.fetch com undici ProxyAgent (dispatcher).
+ * Usa yt-dlp (primario) + youtube-transcript-plus (fallback) com proxy residencial Webshare.
+ * CRITICO: proxy SEMPRE ativo — IPs de datacenter sao bloqueados pelo YouTube.
  * CRITICO: enviar cookie SOCS de consent em TODAS as requests (bypass consent wall).
  *
  * IMPORTANTE: em Alpine/Docker, undici npm fetch NAO resolve DNS (ENOTFOUND).
@@ -31,45 +31,15 @@ const MAX_RETRIES = 3;
 const CONSENT_COOKIE = "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlfZnJvbnRlbmRfdWlzZXJ2ZXJfMjAyMjA4MDEuMDdfcDEYAiABGgJwdA";
 
 /**
- * Cria undici ProxyAgent Webshare com session ID unico (sticky IP)
+ * Cria undici ProxyAgent Webshare com session ID unico (sticky IP).
+ *
+ * CRITICO — Bug undici #1674: ProxyAgent descarta credenciais do URL silenciosamente.
+ * Passar token explicitamente com `Basic base64(user:pass)` em vez de embedar no URL.
+ *
+ * DNS: resolver via Node system dns.lookup (funciona em Alpine/musl).
+ * ProxyAgent com hostname direto falha DNS em Alpine — usar IP resolvido.
+ * Se DNS falhar, tentar hostname direto (proxyAgent tenta por conta propria).
  */
-// Fallback IPs para p.webshare.io (Alpine Docker nao resolve DNS deste dominio)
-// Atualizado em 2026-04-26 via getaddrinfo('p.webshare.io')
-// Atualizado em 2026-04-27 via getaddrinfo('p.webshare.io')
-const WEBSHARE_FALLBACK_IPS = [
-  "177.54.157.203", "193.19.205.35", "170.80.109.44", "177.54.147.109",
-  "103.88.235.135", "193.19.205.25", "103.88.235.78", "45.250.252.25",
-];
-
-// Cache do IP resolvido do proxy
-let resolvedProxyIp: string | null = null;
-let resolvedProxyAt = 0;
-const DNS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-
-async function resolveProxyHost(host: string): Promise<string> {
-  // Se ja e um IP, retorna direto
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return host;
-
-  const now = Date.now();
-  if (resolvedProxyIp && (now - resolvedProxyAt) < DNS_CACHE_TTL) {
-    return resolvedProxyIp;
-  }
-  try {
-    const result = await lookup(host);
-    resolvedProxyIp = result.address;
-    resolvedProxyAt = now;
-    console.log(`[YouTube] DNS resolved ${host} -> ${resolvedProxyIp}`);
-    return resolvedProxyIp;
-  } catch (e) {
-    // DNS falhou (comum em Alpine Docker) - usar fallback IP
-    const fallbackIp = WEBSHARE_FALLBACK_IPS[Math.floor(Math.random() * WEBSHARE_FALLBACK_IPS.length)];
-    console.warn(`[YouTube] DNS failed for ${host}, using fallback IP: ${fallbackIp}`);
-    resolvedProxyIp = fallbackIp;
-    resolvedProxyAt = now;
-    return fallbackIp;
-  }
-}
-
 async function getProxyDispatcher(sessionId?: number): Promise<ProxyAgent> {
   const host = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
   const baseUser = process.env.WEBSHARE_PROXY_USER || "lumgcvpn-rotate";
@@ -84,12 +54,27 @@ async function getProxyDispatcher(sessionId?: number): Promise<ProxyAgent> {
     ? baseUser.replace("rotate", String(sessionId))
     : baseUser;
 
-  // Resolver DNS do proxy com Node built-in (funciona em Alpine/musl)
-  // ProxyAgent do npm undici faz DNS interno que falha em Alpine
-  const resolvedHost = await resolveProxyHost(host);
-  const proxyUrl = `http://${proxyUser}:${pass}@${resolvedHost}:${port}`;
-  console.log(`[YouTube] Proxy: ${proxyUser}@${resolvedHost}:${port} (pass=${pass ? "SET" : "EMPTY"})`);
-  return new ProxyAgent(proxyUrl);
+  // Resolver DNS com Node system resolver (funciona em Alpine/musl)
+  let resolvedHost = host;
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    try {
+      const result = await lookup(host);
+      resolvedHost = result.address;
+      console.log(`[YouTube] DNS ${host} -> ${resolvedHost}`);
+    } catch (e) {
+      console.warn(`[YouTube] DNS lookup falhou para ${host}: ${e instanceof Error ? e.message : e}`);
+      resolvedHost = host; // deixar ProxyAgent tentar
+    }
+  }
+
+  // CRITICO: passar token explicitamente — undici ignora creds embutidas no URL (bug #1674)
+  const token = `Basic ${Buffer.from(`${proxyUser}:${pass}`).toString("base64")}`;
+  console.log(`[YouTube] ProxyAgent uri=http://${resolvedHost}:${port} user=${proxyUser} token=${token.substring(0, 12)}...`);
+
+  return new ProxyAgent({
+    uri: `http://${resolvedHost}:${port}`,
+    token,
+  });
 }
 
 export interface VideoInfo {
@@ -321,12 +306,13 @@ async function fetchTranscriptViaYtDlp(videoId: string): Promise<string | null> 
     // android_embedded bypassa bot detection melhor que web client
     const androidArgs = ["--extractor-args", "youtube:player_client=android_embedded,default"];
 
-    // Ordem: android_embedded sem proxy, android_embedded com proxy, direto com proxy
+    // Ordem: proxy PRIMEIRO (IP residencial), depois sem proxy como ultimo recurso
+    // IPs de datacenter sao bloqueados pelo YouTube — proxy e obrigatorio
     const attempts: Array<{ label: string; extraArgs: string[] }> = [
+      { label: "android-proxy",  extraArgs: proxyArgs.length ? [...proxyArgs, ...androidArgs] : androidArgs },
+      { label: "proxy-simples",  extraArgs: proxyArgs.length ? proxyArgs : [] },
       { label: "android-direto", extraArgs: androidArgs },
-      { label: "android-proxy",  extraArgs: [...proxyArgs, ...androidArgs] },
-      { label: "proxy",          extraArgs: proxyArgs },
-    ];
+    ].filter(a => a.extraArgs.length > 0 || a.label === "android-direto");
 
     for (const attempt of attempts) {
       // Tentar pt primeiro, depois en
@@ -773,17 +759,36 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
     results.dnsResolve = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  // Test 2: direct fetch to youtube (no proxy, globalThis.fetch)
+  // Test 2: IP de saida via proxy (httpbin.org/ip) — confirma IP residencial
+  try {
+    const dispatcher2 = await getProxyDispatcher();
+    const ipRes = await proxyFetch("https://httpbin.org/ip", {
+      dispatcher: dispatcher2,
+      headers: { "User-Agent": UA },
+    });
+    const ipData = await ipRes.json() as { origin?: string };
+    results.outboundIp = { ip: ipData.origin, status: ipRes.status };
+  } catch (e) {
+    results.outboundIp = { error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
+  }
+
+  // Test 3: fetch direto ao YouTube (sem proxy) para comparar
   try {
     const directRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: { "User-Agent": UA, "Accept-Language": "pt-BR" },
     });
-    results.directFetch = { status: directRes.status, ok: directRes.ok };
+    const html = await directRes.text();
+    results.directFetch = {
+      status: directRes.status,
+      ok: directRes.ok,
+      htmlLength: html.length,
+      hasCaptions: html.includes("captionTracks"),
+    };
   } catch (e) {
     results.directFetch = { error: e instanceof Error ? e.message : String(e) };
   }
 
-  // Test 3: globalThis.fetch + undici ProxyAgent dispatcher (DNS pre-resolved)
+  // Test 4: globalThis.fetch + undici ProxyAgent dispatcher
   try {
     const dispatcher = await getProxyDispatcher();
     const proxyRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
@@ -801,10 +806,50 @@ export async function diagProxy(videoId: string = "dQw4w9WgXcQ"): Promise<Record
       titleSnippet: html.match(/<title>(.+?)<\/title>/)?.[1]?.substring(0, 80),
     };
   } catch (e) {
-    results.proxyFetch = { method: "globalThis.fetch+dispatcher+dnsPreResolved", error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
+    results.proxyFetch = { method: "globalThis.fetch+dispatcher", error: e instanceof Error ? e.message : String(e), cause: (e as any)?.cause?.toString() };
   }
 
-  // Test 4: transcript attempt
+  // Test 5: yt-dlp com proxy (teste direto de subprocesso)
+  try {
+    const ytDlpBin = process.env.YTDLP_PATH || "yt-dlp";
+    const proxyPass = process.env.WEBSHARE_PROXY_PASS || "";
+    const proxyUser = process.env.WEBSHARE_PROXY_USER || "";
+    const proxyHost = process.env.WEBSHARE_PROXY_HOST || "p.webshare.io";
+    const proxyPort = process.env.WEBSHARE_PROXY_PORT || "80";
+    const proxyArg = proxyUser && proxyPass
+      ? `http://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
+      : "";
+
+    const ytDlpResult = await new Promise<{ version?: string; error?: string; subtilesUrl?: string }>((resolve) => {
+      execFile(ytDlpBin, ["--version"], { timeout: 5_000 }, (err, stdout) => {
+        if (err) { resolve({ error: err.message?.substring(0, 80) }); return; }
+        const version = stdout.trim();
+
+        // Testar listagem de legendas com proxy
+        const listArgs = [
+          ...(proxyArg ? ["--proxy", proxyArg] : []),
+          "--list-subs", "--no-warnings", "--ignore-errors",
+          `https://www.youtube.com/watch?v=${videoId}`,
+        ];
+        execFile(ytDlpBin, listArgs, { timeout: 30_000 }, (err2, stdout2, stderr2) => {
+          const hasPt = stdout2.includes("pt");
+          resolve({
+            version,
+            proxyUsed: !!proxyArg,
+            hasPtSubtitles: hasPt,
+            stdoutSnippet: stdout2.substring(0, 200),
+            stderrSnippet: stderr2?.substring(0, 200),
+            err: err2?.message?.substring(0, 80),
+          } as any);
+        });
+      });
+    });
+    results.ytDlpTest = ytDlpResult;
+  } catch (e) {
+    results.ytDlpTest = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  // Test 6: transcript attempt via youtube-transcript-plus
   try {
     const sessionId = Math.floor(Math.random() * 200000) + 1;
     const attempt = await singleAttempt(videoId, "en", sessionId);

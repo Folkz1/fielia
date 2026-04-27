@@ -26,6 +26,13 @@ interface YouTubeChannel {
   lastSyncAt: string | null;
 }
 
+interface YtSource {
+  title: string;
+  sourceUrl: string;
+  chunkCount: number;
+  addedAt: string;
+}
+
 interface VideoPreview {
   id: string;
   title: string;
@@ -53,6 +60,11 @@ export default function AdminRAGPage() {
   });
   const [ingesting, setIngesting] = useState(false);
   const [ingestResult, setIngestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // YouTube sources (vídeos já no RAG)
+  const [ytSources, setYtSources] = useState<YtSource[]>([]);
+  const [ytSourcesLoading, setYtSourcesLoading] = useState(false);
+  const [deletingSource, setDeletingSource] = useState<string | null>(null);
 
   // YouTube state
   const [ytUrl, setYtUrl] = useState("");
@@ -154,6 +166,39 @@ export default function AdminRAGPage() {
     }
   }
 
+  async function fetchYtSources() {
+    setYtSourcesLoading(true);
+    try {
+      const res = await fetch("/api/admin/youtube/sources");
+      const data = await res.json();
+      setYtSources(data.sources || []);
+    } catch (error) {
+      console.error("Erro ao buscar fontes YouTube:", error);
+    } finally {
+      setYtSourcesLoading(false);
+    }
+  }
+
+  async function handleDeleteSource(sourceUrl: string) {
+    if (!confirm("Remover este vídeo e todos os seus chunks do RAG?")) return;
+    setDeletingSource(sourceUrl);
+    try {
+      const res = await fetch("/api/admin/youtube/sources", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceUrl }),
+      });
+      if (res.ok) {
+        setYtSources((prev) => prev.filter((s) => s.sourceUrl !== sourceUrl));
+        fetchStats();
+      }
+    } catch (error) {
+      console.error("Erro ao remover fonte:", error);
+    } finally {
+      setDeletingSource(null);
+    }
+  }
+
   useEffect(() => {
     fetchKnowledge();
     fetchStats();
@@ -162,6 +207,7 @@ export default function AdminRAGPage() {
   useEffect(() => {
     if (activeTab === "youtube") {
       fetchChannels();
+      fetchYtSources();
     }
   }, [activeTab]);
 
@@ -284,6 +330,7 @@ export default function AdminRAGPage() {
         }
         fetchKnowledge();
         fetchStats();
+        fetchYtSources();
       } else {
         setYtResult({ success: false, message: data.error || "Erro ao processar" });
       }
@@ -789,6 +836,73 @@ export default function AdminRAGPage() {
                     {v.duration && (
                       <span className="text-xs text-gray-500">{v.duration}</span>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Vídeos já no RAG */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Tv className="w-5 h-5 text-red-400" />
+              Vídeos no RAG
+              {ytSources.length > 0 && (
+                <span className="ml-1 text-xs font-normal px-2 py-0.5 rounded-full bg-red-600/20 text-red-400">
+                  {ytSources.length}
+                </span>
+              )}
+            </h2>
+
+            {ytSourcesLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="h-14 bg-white/5 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : ytSources.length === 0 ? (
+              <p className="text-sm text-gray-500">Nenhum vídeo adicionado ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {ytSources.map((src) => (
+                  <div
+                    key={src.sourceUrl}
+                    className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-lg"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Youtube className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <a
+                          href={src.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-white hover:text-red-400 transition-colors truncate block"
+                        >
+                          {src.title}
+                        </a>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs text-gray-500 truncate">{src.sourceUrl.replace("https://www.youtube.com/watch?v=", "youtu.be/")}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-gray-400 shrink-0">
+                            {src.chunkCount} chunk{src.chunkCount !== 1 ? "s" : ""}
+                          </span>
+                          <span className="text-xs text-gray-600 shrink-0">
+                            {new Date(src.addedAt).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSource(src.sourceUrl)}
+                      disabled={deletingSource === src.sourceUrl}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                      title="Remover vídeo do RAG"
+                    >
+                      {deletingSource === src.sourceUrl ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>

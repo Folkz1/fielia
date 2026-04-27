@@ -867,22 +867,37 @@ export default function AdminRAGPage() {
                 {ytSources.map((src) => (
                   <div
                     key={src.sourceUrl}
-                    className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-lg"
+                    className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
                   >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <Youtube className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Miniatura do YouTube */}
+                      {(() => {
+                        const vidId = src.sourceUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/)?.[1];
+                        return vidId ? (
+                          <a href={src.sourceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                            <img
+                              src={`https://img.youtube.com/vi/${vidId}/mqdefault.jpg`}
+                              alt={src.title}
+                              className="w-20 h-14 object-cover rounded-md"
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-20 h-14 bg-white/10 rounded-md flex items-center justify-center shrink-0">
+                            <Youtube className="w-6 h-6 text-red-400" />
+                          </div>
+                        );
+                      })()}
                       <div className="min-w-0">
                         <a
                           href={src.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-medium text-white hover:text-red-400 transition-colors truncate block"
+                          className="text-sm font-medium text-white hover:text-red-400 transition-colors line-clamp-2 leading-tight"
                         >
                           {src.title}
                         </a>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-xs text-gray-500 truncate">{src.sourceUrl.replace("https://www.youtube.com/watch?v=", "youtu.be/")}</span>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-gray-400 shrink-0">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 shrink-0">
                             {src.chunkCount} chunk{src.chunkCount !== 1 ? "s" : ""}
                           </span>
                           <span className="text-xs text-gray-600 shrink-0">

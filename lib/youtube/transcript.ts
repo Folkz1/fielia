@@ -30,9 +30,10 @@ const CONSENT_COOKIE = "SOCS=CAISNQgDEitib3FfaWRlbnRpdHlfZnJvbnRlbmRfdWlzZXJ2ZXJ
  * Cria undici ProxyAgent Webshare com session ID unico (sticky IP)
  */
 // Fallback IPs para p.webshare.io (Alpine Docker nao resolve DNS deste dominio)
+// Atualizado em 2026-04-26 via getaddrinfo('p.webshare.io')
 const WEBSHARE_FALLBACK_IPS = [
-  "170.80.109.44", "45.250.252.25", "103.14.27.67", "103.88.235.135",
-  "177.54.157.203", "170.80.110.53", "103.88.235.78", "189.1.168.120",
+  "177.54.156.39", "177.54.157.203", "103.88.235.78", "189.1.168.120",
+  "45.250.252.25", "170.80.110.53", "177.54.147.109", "170.80.109.44",
 ];
 
 // Cache do IP resolvido do proxy
@@ -225,14 +226,17 @@ export async function getChannelVideos(channelUrl: string, limit: number = 10): 
 
 /**
  * Busca legendas diretamente do HTML da pagina do YouTube.
- * Nao usa nenhuma biblioteca externa — funciona em qualquer ambiente
- * onde globalThis.fetch alcanca youtube.com (ex: EasyPanel).
+ * Nao usa nenhuma biblioteca externa — funciona em qualquer ambiente.
+ * Passa dispatcher do Webshare para evitar rate limiting do IP do servidor.
  *
  * Fluxo: fetch pagina → extrai captionTracks JSON → fetch URL da legenda (fmt=json3)
  */
-async function fetchTranscriptFromPage(videoId: string): Promise<string | null> {
+async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent): Promise<string | null> {
   try {
+    const baseInit = dispatcher ? { dispatcher } : {};
+
     const pageRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      ...baseInit,
       headers: {
         "User-Agent": UA,
         "Cookie": CONSENT_COOKIE,
@@ -278,6 +282,7 @@ async function fetchTranscriptFromPage(videoId: string): Promise<string | null> 
     console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
 
     const txRes = await proxyFetch(captionUrl, {
+      ...baseInit,
       headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
     });
     if (!txRes.ok) {
@@ -377,9 +382,11 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Tentativa 1: extracao manual do HTML da pagina (sem biblioteca, funciona em EasyPanel)
-  console.log(`[YouTube] Tentando extracao direta do HTML para ${videoId}`);
-  const directText = await fetchTranscriptFromPage(videoId);
+  // Tentativa 1: extracao manual do HTML via proxy Webshare (evita rate limit do IP do servidor)
+  const sessionId0 = Math.floor(Math.random() * 200000) + 1;
+  const dispatcher0 = await getProxyDispatcher(sessionId0);
+  console.log(`[YouTube] Tentando extracao direta do HTML (proxy ${sessionId0}) para ${videoId}`);
+  const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
   if (directText) {
     console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
     return directText;

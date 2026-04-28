@@ -371,6 +371,7 @@ async function fetchTranscriptViaYtDlp(videoId: string): Promise<string | null> 
 async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent): Promise<string | null> {
   try {
     const baseInit = dispatcher ? { dispatcher } : {};
+    console.log(`[YouTube] fetchTranscriptFromPage: buscando pagina...`);
     const pageRes = await proxyFetch(`https://www.youtube.com/watch?v=${videoId}`, {
       ...baseInit,
       headers: {
@@ -379,11 +380,13 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
         "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
       },
     });
+    console.log(`[YouTube] fetchTranscriptFromPage: pagina status=${pageRes.status}`);
     if (!pageRes.ok) {
       console.log(`[YouTube] pagina nao ok: ${pageRes.status}`);
       return null;
     }
     const html = await pageRes.text();
+    console.log(`[YouTube] fetchTranscriptFromPage: html.length=${html.length} hasCaptions=${html.includes("captionTracks")}`);
 
     // Extrair captionTracks do JSON embutido na pagina
     // Nota: usar [\s\S]*? em vez de .*? com flag /s (compatibilidade TypeScript)
@@ -402,6 +405,7 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
       console.log(`[YouTube] JSON parse captionTracks falhou`);
       return null;
     }
+    console.log(`[YouTube] fetchTranscriptFromPage: ${tracks.length} tracks encontradas: ${tracks.map(t => t.languageCode).join(", ")}`);
     if (!tracks.length) {
       console.log(`[YouTube] captionTracks vazio para ${videoId}, tentando ASR direto...`);
     }
@@ -418,8 +422,10 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
     let captionUrl: string | null = null;
     if (pick?.baseUrl) {
       // URL direta do captionTrack
-      captionUrl = pick.baseUrl.replace(/\\u0026/g, "&") + "&fmt=json3";
-      console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} para ${videoId}`);
+      captionUrl = pick.baseUrl.replace(/\\u0026/g, "&");
+      // Adicionar fmt=json3 apenas se nao tiver fmt ja
+      if (!captionUrl.includes("fmt=")) captionUrl += "&fmt=json3";
+      console.log(`[YouTube] Buscando legenda lang=${pick.languageCode} url=${captionUrl.substring(0, 80)}...`);
     } else {
       // Fallback: tentar ASR (auto-gerado) direto — pt, pt-BR, en
       // Muitos videos BR tem apenas ASR que nao aparece em captionTracks
@@ -451,16 +457,27 @@ async function fetchTranscriptFromPage(videoId: string, dispatcher?: ProxyAgent)
       return null;
     }
 
+    console.log(`[YouTube] fetchTranscriptFromPage: buscando URL da legenda...`);
     const txRes = await proxyFetch(captionUrl, {
       ...baseInit,
       headers: { "User-Agent": UA, "Cookie": CONSENT_COOKIE },
     });
+    console.log(`[YouTube] fetchTranscriptFromPage: legenda status=${txRes.status}`);
     if (!txRes.ok) {
-      console.log(`[YouTube] legenda nao ok: ${txRes.status}`);
+      const body = await txRes.text().catch(() => "");
+      console.log(`[YouTube] legenda nao ok: ${txRes.status} body=${body.substring(0, 200)}`);
       return null;
     }
 
-    const data = await txRes.json() as { events?: Array<{ segs?: Array<{ utf8: string }> }> };
+    const rawBody = await txRes.text();
+    console.log(`[YouTube] fetchTranscriptFromPage: legenda body.length=${rawBody.length} preview=${rawBody.substring(0, 80)}`);
+    let data: { events?: Array<{ segs?: Array<{ utf8: string }> }> };
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      console.log(`[YouTube] fetchTranscriptFromPage: body nao e JSON — formato inesperado`);
+      return null;
+    }
     const text = (data.events || [])
       .filter(e => e.segs)
       .flatMap(e => (e.segs || []).map(s => (s.utf8 || "").replace(/\n/g, " ")))
@@ -546,55 +563,31 @@ async function singleAttempt(videoId: string, lang: string, sessionId: number): 
 
 /**
  * Busca legendas de um video usando proxy residencial.
- * Cada tentativa usa um proxy diferente (IP diferente).
- * Se o idioma nao existe, extrai a lista de disponiveis e tenta cada um.
+ *
+ * ORDEM DE PRIORIDADE (menor para maior latencia de falha):
+ * 1. fetchTranscriptFromPage — scraping direto do HTML (rapido, ~5s)
+ * 2. youtube-transcript-plus — biblioteca JS com proxy (como funcionava em marco/2026)
+ * 3. yt-dlp — ultimo recurso, suporta ASR mas lento (~45s)
  */
 export async function getVideoTranscript(videoId: string, preferredLang: string = "pt"): Promise<string> {
   console.log(`[YouTube] Transcrevendo video ${videoId}...`);
 
-  // Tentativa 0: yt-dlp (suporta ASR, usa Android API)
-  const ytDlpText = await fetchTranscriptViaYtDlp(videoId);
-  if (ytDlpText) {
-    console.log(`[YouTube] OK yt-dlp (${ytDlpText.length} chars)`);
-    return ytDlpText;
-  }
-
-  // Tentativa 0b: Innertube/youtubei.js (API interna /youtubei/v1/get_transcript)
-  const innertubeText = await fetchTranscriptViaInnertube(videoId);
-  if (innertubeText) {
-    console.log(`[YouTube] OK Innertube (${innertubeText.length} chars)`);
-    return innertubeText;
-  }
-  console.log(`[YouTube] yt-dlp e Innertube falharam, tentando via HTML/proxy...`);
-
-  // Tentativa 1: extracao manual do HTML via proxy
-  // CRITICO: usar session ID baixo (1-10) para sticky IP — URL da legenda e assinada pro IP que buscou a pagina
-  // rotate daria IPs diferentes para pagina e legenda, quebrando a assinatura
+  // Tentativa 1: extracao manual do HTML via proxy (PRIMARIA — mais rapida)
+  // CRITICO: sticky session — URL da legenda e gerada para o mesmo IP que buscou a pagina
   const stickyId = Math.floor(Math.random() * 10) + 1;
   const dispatcher0 = await getProxyDispatcher(stickyId);
-  console.log(`[YouTube] Tentando extracao direta do HTML (sticky proxy ${stickyId}) para ${videoId}`);
+  console.log(`[YouTube] [1/3] HTML scraping (sticky proxy ${stickyId}) para ${videoId}`);
   const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
   if (directText) {
-    console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);
+    console.log(`[YouTube] OK HTML scraping (${directText.length} chars)`);
     return directText;
   }
-  console.log(`[YouTube] Extracao direta falhou, tentando via proxy + youtube-transcript-plus...`);
+  console.log(`[YouTube] HTML scraping falhou, tentando youtube-transcript-plus...`);
 
-  // Tentativa 2: youtube-transcript-plus com proxy (fallback)
+  // Tentativa 2: youtube-transcript-plus com proxy (metodo de marco/2026)
   const langQueue = ["pt", "pt-BR", "en", preferredLang].filter((v, i, a) => a.indexOf(v) === i);
   const tried = new Set<string>();
-
-  // Diagnstico: verificar se yt-dlp esta instalado (aparece no error message)
-  const ytDlpVersion = await new Promise<string>((resolve) => {
-    const bin = process.env.YTDLP_PATH || "yt-dlp";
-    execFile(bin, ["--version"], { timeout: 5_000 }, (err, stdout) => {
-      if (err) resolve(`yt-dlp:ERRO(${(err as NodeJS.ErrnoException).code || err.message?.substring(0, 30)})`);
-      else resolve(`yt-dlp:${stdout.trim()}`);
-    });
-  });
-  console.log(`[YouTube] DIAG ${ytDlpVersion}`);
-
-  const errors: string[] = [`direto: sem legendas`, ytDlpVersion];
+  const errors: string[] = ["html-scraping: falhou"];
   let rateLimitRetries = 0;
   const MAX_RATE_LIMIT_RETRIES = 3;
 
@@ -603,8 +596,9 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
     if (tried.has(lang)) continue;
     tried.add(lang);
 
-    const sessionId = Math.floor(Math.random() * 500) + 1;
-    console.log(`[YouTube] Tentando lang=${lang} (proxy ${sessionId})`);
+    // Session range original de marco (1-200000) — qualquer numero funciona como sticky ID
+    const sessionId = Math.floor(Math.random() * 200000) + 1;
+    console.log(`[YouTube] [2/3] youtube-transcript-plus lang=${lang} (proxy ${sessionId})`);
 
     const { text, availableLangs, isRateLimit, error } = await singleAttempt(videoId, lang, sessionId);
 
@@ -643,6 +637,14 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
     if (i < langQueue.length - 1) {
       await new Promise(r => setTimeout(r, 1000));
     }
+  }
+
+  // Tentativa 3: yt-dlp — ultimo recurso (suporta ASR, mas lento e sujeito a bot detection)
+  console.log(`[YouTube] [3/3] yt-dlp como ultimo recurso para ${videoId}...`);
+  const ytDlpText = await fetchTranscriptViaYtDlp(videoId);
+  if (ytDlpText) {
+    console.log(`[YouTube] OK yt-dlp (${ytDlpText.length} chars)`);
+    return ytDlpText;
   }
 
   throw new Error(

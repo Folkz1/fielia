@@ -567,10 +567,12 @@ export async function getVideoTranscript(videoId: string, preferredLang: string 
   }
   console.log(`[YouTube] yt-dlp e Innertube falharam, tentando via HTML/proxy...`);
 
-  // Tentativa 1: extracao manual do HTML via proxy (diagProxy confirma: hasCaptions:true com proxy+CONSENT_COOKIE)
-  // Usar rotate (sem sessionId) — session IDs aleatorios muito altos sao invalidos no Webshare
-  const dispatcher0 = await getProxyDispatcher();
-  console.log(`[YouTube] Tentando extracao direta do HTML (proxy rotate) para ${videoId}`);
+  // Tentativa 1: extracao manual do HTML via proxy
+  // CRITICO: usar session ID baixo (1-10) para sticky IP — URL da legenda e assinada pro IP que buscou a pagina
+  // rotate daria IPs diferentes para pagina e legenda, quebrando a assinatura
+  const stickyId = Math.floor(Math.random() * 10) + 1;
+  const dispatcher0 = await getProxyDispatcher(stickyId);
+  console.log(`[YouTube] Tentando extracao direta do HTML (sticky proxy ${stickyId}) para ${videoId}`);
   const directText = await fetchTranscriptFromPage(videoId, dispatcher0);
   if (directText) {
     console.log(`[YouTube] OK extracao direta (${directText.length} chars)`);

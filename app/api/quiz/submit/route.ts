@@ -1,13 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
+import { getPremiumAccess } from '@/lib/premium';
+import { enqueuePostQuizCta } from '@/lib/funnel/queue';
+
+const TIME_PER_QUESTION = 10;
+
+type SubmittedAnswer = {
+  questionId?: unknown;
+  answer?: unknown;
+  timeTaken?: unknown;
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, quizId, answers } = await req.json();
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!userId || !quizId || !answers) {
+    const { quizId, answers } = await req.json();
+    const userId = session.user.id;
+
+    if (!quizId || !Array.isArray(answers)) {
       return NextResponse.json(
-        { error: 'userId, quizId, and answers are required' },
+        { error: 'quizId and answers are required' },
         { status: 400 }
       );
     }
@@ -18,8 +35,33 @@ export async function POST(req: NextRequest) {
       include: { questions: true },
     });
 
-    if (!quiz) {
+    const now = new Date();
+    if (!quiz || !quiz.isActive || quiz.startDate > now || quiz.endDate < now) {
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
+    }
+
+    const premiumAccess = await getPremiumAccess(userId);
+    if (quiz.audience === 'premium' && !premiumAccess.isPremium) {
+      return NextResponse.json(
+        { error: 'Este quiz e exclusivo para assinantes Fiel Premium.', requiresPremium: true },
+        { status: 403 }
+      );
+    }
+
+    const existingAttempt = await prisma.quizAttempt.findFirst({
+      where: {
+        userId,
+        quizId,
+        completedAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    if (existingAttempt) {
+      return NextResponse.json(
+        { error: 'Voce ja respondeu este quiz.' },
+        { status: 409 }
+      );
     }
 
     // Create quiz attempt
@@ -33,20 +75,27 @@ export async function POST(req: NextRequest) {
 
     let totalScore = 0;
     let correctAnswers = 0;
-    const TIME_PER_QUESTION = 10;
-
     // Process each answer
-    for (const answer of answers) {
-      const question = quiz.questions.find((q) => q.id === answer.questionId);
+    const submittedAnswers = answers as SubmittedAnswer[];
+
+    for (const answer of submittedAnswers) {
+      const questionId = String(answer.questionId || '');
+      const question = quiz.questions.find((q) => q.id === questionId);
       if (!question) continue;
 
-      const isCorrect = answer.answer === question.correctAnswer;
+      const rawTimeTaken = Number(answer.timeTaken);
+      const timeTaken = Number.isFinite(rawTimeTaken)
+        ? Math.max(0, Math.ceil(rawTimeTaken))
+        : TIME_PER_QUESTION + 1;
+      const isWithinTime = timeTaken <= TIME_PER_QUESTION;
+      const submittedAnswer = String(answer.answer || '');
+      const isCorrect = isWithinTime && submittedAnswer === question.correctAnswer;
       if (isCorrect) correctAnswers++;
 
       // Calculate points with speed bonus
       let pointsEarned = 0;
       if (isCorrect) {
-        const speedBonus = (TIME_PER_QUESTION - answer.timeTaken) * 10;
+        const speedBonus = Math.max(0, TIME_PER_QUESTION - timeTaken) * 10;
         pointsEarned = question.points + speedBonus;
       }
 
@@ -56,10 +105,10 @@ export async function POST(req: NextRequest) {
       await prisma.quizAnswer.create({
         data: {
           attemptId: attempt.id,
-          questionId: answer.questionId,
-          answer: answer.answer,
+          questionId,
+          answer: submittedAnswer,
           isCorrect,
-          timeTaken: answer.timeTaken,
+          timeTaken,
           pointsEarned,
         },
       });
@@ -80,7 +129,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Update user points
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         totalPoints: {
@@ -88,10 +137,28 @@ export async function POST(req: NextRequest) {
         },
         lastActive: new Date(),
       },
+      select: { phone: true, name: true },
     });
+
+    if (updatedUser.phone) {
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+      await enqueuePostQuizCta({
+        userId,
+        phone: updatedUser.phone,
+        name: updatedUser.name,
+        registrationUrl: appUrl ? `${appUrl}/dashboard/settings` : '/dashboard/settings',
+        score: totalScore,
+        correctAnswers,
+        totalQuestions: quiz.questions.length,
+      }).catch((error) => {
+        console.error('[Quiz Submit] Failed to enqueue post-quiz CTA:', error instanceof Error ? error.message : error);
+      });
+    }
 
     return NextResponse.json({
       attemptId: completedAttempt.id,
+      quizId: quiz.id,
+      audience: quiz.audience,
       score: totalScore,
       accuracy,
       correctAnswers,

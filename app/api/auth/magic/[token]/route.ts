@@ -4,12 +4,19 @@ import { encode } from "next-auth/jwt";
 
 export const runtime = "nodejs";
 
+function getSafeNext(value: string | null) {
+  if (!value) return null;
+  if (!value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  const next = getSafeNext(req.nextUrl.searchParams.get("next"));
 
   if (!token) {
     return NextResponse.redirect(
@@ -56,7 +63,7 @@ export async function GET(
     salt: cookieName,
   });
 
-  const response = NextResponse.redirect(new URL("/auth/criar-senha?from=payment", appUrl));
+  const response = NextResponse.redirect(new URL(next || "/auth/criar-senha?from=payment", appUrl));
   response.cookies.set(cookieName, jwtToken, {
     httpOnly: true,
     secure: isProduction,

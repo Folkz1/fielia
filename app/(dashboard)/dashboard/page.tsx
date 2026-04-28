@@ -248,7 +248,7 @@ export default async function DashboardPage() {
                 Seja Fiel Premium!
               </h3>
               <p className="text-gray-400 text-sm mt-1">
-                Desbloqueie chat ilimitado, sorteios exclusivos e muito mais!
+                Desbloqueie chat ilimitado, quiz semanal e ranking completo.
               </p>
             </div>
             <Link href="/dashboard/settings" className="btn-primary whitespace-nowrap">

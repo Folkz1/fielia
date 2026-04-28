@@ -6,10 +6,13 @@ import { QuizGame } from "./QuizGame";
 import { ResultScreen } from "./ResultScreen";
 import { QuizBank } from "./QuizBank";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export type QuizView = "welcome" | "quiz" | "result" | "bank";
 
 export function QuizManager() {
+  const searchParams = useSearchParams();
+  const audience = searchParams.get("audience") === "premium" ? "premium" : "free";
   const [view, setView] = useState<QuizView>("welcome");
   const [loading, setLoading] = useState(true);
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
@@ -19,12 +22,12 @@ export function QuizManager() {
 
   useEffect(() => {
     fetchQuizData();
-  }, []);
+  }, [audience]);
 
   const fetchQuizData = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/quiz");
+      const res = await fetch(`/api/quiz?audience=${audience}`);
       const data = await res.json();
       setActiveQuiz(data.activeQuiz);
       setUserAttempt(data.userAttempt);
@@ -77,7 +80,6 @@ export function QuizManager() {
       {view === "result" && (
         <ResultScreen
           result={quizResult}
-          attempt={userAttempt}
           onBack={() => setView("welcome")}
         />
       )}

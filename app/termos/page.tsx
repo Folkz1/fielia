@@ -20,7 +20,7 @@ export default function TermosPage() {
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-white/70 leading-relaxed">
           <section>
             <h2 className="text-white text-xl font-bold mb-3">1. Aceitação dos Termos</h2>
-            <p>Ao acessar e utilizar a plataforma FIEL.IA ("Plataforma"), você concorda com estes Termos de Uso. Se não concordar com qualquer parte destes termos, não utilize a Plataforma.</p>
+            <p>Ao acessar e utilizar a plataforma FIEL.IA (&ldquo;Plataforma&rdquo;), você concorda com estes Termos de Uso. Se não concordar com qualquer parte destes termos, não utilize a Plataforma.</p>
           </section>
 
           <section>
@@ -29,7 +29,7 @@ export default function TermosPage() {
             <ul className="list-disc list-inside space-y-1 ml-4">
               <li>Chat com inteligência artificial especializada</li>
               <li>Notícias verificadas sobre o Corinthians</li>
-              <li>Quizzes semanais com premiação</li>
+              <li>Quizzes, rankings e recursos premium</li>
               <li>Geração de memes com IA</li>
               <li>Acesso via site e WhatsApp</li>
             </ul>
@@ -46,8 +46,8 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white text-xl font-bold mb-3">5. Premiação do Quiz</h2>
-            <p>Os prêmios do quiz semanal são distribuídos conforme o ranking. Valores em PIX são enviados ao CPF cadastrado. Ingressos e produtos físicos são enviados conforme disponibilidade. A FIEL.IA reserva-se o direito de alterar prêmios e regras com aviso prévio.</p>
+            <h2 className="text-white text-xl font-bold mb-3">5. Quiz e Ranking</h2>
+            <p>Os quizzes e rankings existem para entretenimento, engajamento e acompanhamento de desempenho dos usuarios. A FIEL.IA nao oferece sorteios, free trial ou beneficio financeiro automatico em dinheiro, ingressos ou produtos fisicos.</p>
           </section>
 
           <section>
@@ -62,7 +62,7 @@ export default function TermosPage() {
 
           <section>
             <h2 className="text-white text-xl font-bold mb-3">8. Limitação de Responsabilidade</h2>
-            <p>A FIEL.IA não garante que as informações fornecidas pela IA sejam 100% precisas. O serviço é fornecido "como está" e não nos responsabilizamos por decisões tomadas com base em conteúdo da Plataforma.</p>
+            <p>A FIEL.IA não garante que as informações fornecidas pela IA sejam 100% precisas. O serviço é fornecido &ldquo;como está&rdquo; e não nos responsabilizamos por decisões tomadas com base em conteúdo da Plataforma.</p>
           </section>
 
           <section>

@@ -29,6 +29,10 @@ export function useRanking(period: 'weekly' | 'monthly' | 'alltime' = 'weekly', 
 
   return {
     ranking: data?.ranking || [],
+    viewer: data?.viewer || null,
+    isPremium: Boolean(data?.isPremium),
+    requiresPremium: Boolean(data?.requiresPremium),
+    maxVisible: data?.maxVisible || limit,
     isLoading,
     error: error?.message || null,
     refresh: mutate,

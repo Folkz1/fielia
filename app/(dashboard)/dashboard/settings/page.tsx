@@ -304,7 +304,7 @@ function SettingsPageInner() {
                     {[
                       "Inteligência Artificial ilimitada",
                       "Sem anúncios",
-                      "Sorteios de camisas oficiais",
+                      "Quiz semanal e ranking completo",
                       "Badge exclusiva de apoiador",
                     ].map((item) => (
                       <li key={item} className="flex items-center gap-2 text-gray-300 text-sm">

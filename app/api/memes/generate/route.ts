@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { getPremiumAccess } from '@/lib/premium';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,13 +11,19 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = session.user.id;
+    const premiumAccess = await getPremiumAccess(userId);
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isPremium: true, subscriptionEnd: true, isAdmin: true },
-    });
+    if (!premiumAccess.isPremium) {
+      return NextResponse.json(
+        {
+          error: 'Geracao de imagens e exclusiva para assinantes Fiel Premium. Assine para desbloquear.',
+          remaining: 0,
+          requiresPremium: true,
+        },
+        { status: 403 }
+      );
+    }
 
-    const isAdmin = Boolean(user?.isAdmin);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -27,41 +34,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const now = new Date();
-    const isPremiumActive =
-      Boolean(user?.isPremium) &&
-      (!user?.subscriptionEnd || user.subscriptionEnd > now);
-
-    if (user?.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { isPremium: false, subscriptionEnd: null },
-      });
-    }
-
-    if (!isPremiumActive && !isAdmin) {
+    const dailyLimit = premiumAccess.isAdmin ? 999 : 15;
+    if (!premiumAccess.isAdmin && memesToday >= dailyLimit) {
       return NextResponse.json(
         {
-          error: 'Geração de imagens é exclusiva para assinantes Fiel Premium. Assine para desbloquear!',
-          remaining: 0,
-          requiresPremium: true,
-        },
-        { status: 403 }
-      );
-    }
-
-    const dailyLimit = isAdmin ? 999 : 15;
-    if (!isAdmin && memesToday >= dailyLimit) {
-      return NextResponse.json(
-        {
-          error: `Limite diário atingido (${dailyLimit} memes/dia).`,
+          error: `Limite diario atingido (${dailyLimit} memes/dia).`,
           remaining: 0,
         },
         { status: 429 }
       );
     }
 
-    const monthlyLimit = isAdmin ? 9999 : 20;
+    const monthlyLimit = premiumAccess.isAdmin ? 9999 : 20;
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -73,10 +57,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!isAdmin && memesThisMonth >= monthlyLimit) {
+    if (!premiumAccess.isAdmin && memesThisMonth >= monthlyLimit) {
       return NextResponse.json(
         {
-          error: `Limite mensal atingido (${monthlyLimit} memes/mês). Seu limite renova no próximo mês.`,
+          error: `Limite mensal atingido (${monthlyLimit} memes/mes). Seu limite renova no proximo mes.`,
           remaining: 0,
           monthlyRemaining: 0,
         },
@@ -99,7 +83,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Noticia nao encontrada' }, { status: 404 });
       }
 
-      memeContext = `Crie um meme engraçado do Corinthians baseado nesta notícia: "${news.title}". Resumo: ${news.summary}. Categoria: ${news.category}`;
+      memeContext = `Crie um meme engracado do Corinthians baseado nesta noticia: "${news.title}". Resumo: ${news.summary}. Categoria: ${news.category}`;
     }
 
     if (!memeContext.trim()) {

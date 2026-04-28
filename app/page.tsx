@@ -5,7 +5,7 @@ import {
   ChevronDown, Search, Clock, AlertTriangle,
   MessageCircle, Newspaper, Trophy, Laugh,
   CreditCard, SlidersHorizontal, Zap, ChevronRight,
-  CheckCircle, ChevronDown as ChevronDownFaq, Instagram,
+  CheckCircle, Instagram,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -190,7 +190,7 @@ function HeroSection() {
 
         <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mt-6 leading-relaxed">
           Chat com IA especialista no Timão. Notícias verificadas em tempo real.
-          Quiz com prêmios em dinheiro. Memes pra zoar o rival.
+          Quiz com ranking competitivo. Memes pra zoar o rival.
           Tudo no site e no WhatsApp — na palma da sua mão.
         </p>
 
@@ -345,7 +345,7 @@ function ProductReveal() {
         </div>
 
         <p className={`text-xl md:text-2xl italic text-orange-500 mt-10 fade-up stagger-3 ${v}`}>
-          "Não é um app de futebol. É a sua IA particular do Timão."
+          &ldquo;Não é um app de futebol. É a sua IA particular do Timão.&rdquo;
         </p>
       </div>
     </section>
@@ -357,7 +357,7 @@ function ProductReveal() {
 const features = [
   { icon: MessageCircle, title: "Pergunte qualquer coisa sobre o Timão.", body: "Histórico, jogadores, títulos, escalações, curiosidades, bastidores — a IA Fiel sabe tudo e responde na hora, em linguagem de torcedor.", badge: "Chat 24/7 · Site e WhatsApp", highlighted: false },
   { icon: Newspaper, title: "Notícias reais. Verificadas. No momento certo.", body: "Chega de fake news. A FIEL IA filtra, verifica e entrega apenas informações confirmadas — personalizadas com o que você quer acompanhar.", badge: "Verificado em tempo real", highlighted: false },
-  { icon: Trophy, title: "Você sabe tudo sobre o Timão?", body: "Agora seu conhecimento pode virar dinheiro. Responda quizzes sobre o Corinthians, suba no ranking e ganhe prêmios reais toda semana.", badge: "Premiação semanal", highlighted: true, urgency: "Torcedores do Timão já estão ganhando prêmios — e você vai ficar de fora?", pills: ["💰 PIX", "🎟️ Ingressos", "👕 Camisas", "🏅 Artigos"] },
+  { icon: Trophy, title: "Você sabe tudo sobre o Timão?", body: "Agora seu conhecimento pode virar posição no ranking. Responda quizzes sobre o Corinthians, suba de nível e acompanhe sua evolução.", badge: "Ranking premium", highlighted: true, urgency: "Torcedores do Timão já estão subindo no ranking — e você vai ficar de fora?", pills: ["🏆 Ranking", "⚡ Quiz semanal", "📈 Evolução", "🤖 IA Premium"] },
   { icon: Laugh, title: "Crie o meme perfeito em segundos.", body: "Nossa IA gera imagens e memes prontos pra você arrasar no grupo e nas redes. Zoar com estilo é coisa de Fiel.", badge: "IA Generativa", highlighted: false },
 ];
 
@@ -405,11 +405,11 @@ function FeaturesSection() {
 
 /* ─── QuizSpotlight ─── */
 
-const prizes = [
-  { emoji: "💰", label: "PIX direto na conta" },
-  { emoji: "🎟️", label: "Ingressos para jogos" },
-  { emoji: "👕", label: "Camisas oficiais" },
-  { emoji: "🏅", label: "Artigos esportivos" },
+const quizBenefits = [
+  { emoji: "🏆", label: "Ranking completo" },
+  { emoji: "⚡", label: "Quiz semanal" },
+  { emoji: "📈", label: "Evolução por rodada" },
+  { emoji: "🤖", label: "IA e conteúdo premium" },
 ];
 
 function QuizSpotlight() {
@@ -425,18 +425,17 @@ function QuizSpotlight() {
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white fade-up stagger-1 ${v}`}>
           Você sabe tudo<br />sobre o Timão?
         </h2>
-        <p className={`text-lg md:text-xl text-white/70 mt-4 fade-up stagger-2 ${v}`}>Agora seu conhecimento pode virar dinheiro.</p>
+        <p className={`text-lg md:text-xl text-white/70 mt-4 fade-up stagger-2 ${v}`}>Agora seu conhecimento pode virar posição no ranking.</p>
 
         <div className={`border border-orange-600/40 rounded-3xl p-8 md:p-12 max-w-2xl mx-auto mt-12 fade-up stagger-2 ${v}`} style={{ background: "#1A1A1A" }}>
           <Trophy className="text-orange-500 mx-auto mb-6" size={56} />
           <p className="text-lg text-white leading-relaxed">
             Toda semana, novos quizzes sobre a história, os jogadores, as conquistas e as polêmicas
-            do Corinthians. Você responde, acumula pontos e sobe no ranking. Os melhores ganham
-            prêmios enviados automaticamente.
+            do Corinthians. Você responde, acumula pontos, acompanha sua evolução e sobe no ranking.
           </p>
 
           <div className="grid grid-cols-2 gap-4 mt-8">
-            {prizes.map((p) => (
+            {quizBenefits.map((p) => (
               <div key={p.label} className="border border-white/10 rounded-xl p-5 text-center" style={{ background: "#111" }}>
                 <span className="text-3xl">{p.emoji}</span>
                 <p className="text-sm text-white/70 mt-2">{p.label}</p>
@@ -447,7 +446,7 @@ function QuizSpotlight() {
           <div className="bg-orange-600/10 border border-orange-600/30 rounded-xl p-5 flex items-center gap-3 mt-8">
             <Zap className="text-orange-500 flex-shrink-0" size={24} />
             <p className="text-sm text-white/80 text-left">
-              Torcedores do Timão já estão ganhando prêmios —{" "}
+              Torcedores do Timão já estão subindo no ranking —{" "}
               <span className="text-orange-500 font-bold">e você vai ficar de fora?</span>
             </p>
           </div>
@@ -469,7 +468,7 @@ function QuizSpotlight() {
 const steps = [
   { num: "01", icon: CreditCard, title: "Assine o plano Fiel Fanático", body: "Acesse pelo site ou escaneie o QR Code para entrar no WhatsApp da FIEL IA." },
   { num: "02", icon: SlidersHorizontal, title: "Configure seus interesses", body: "Diga pra IA quais jogadores você acompanha, que notícias quer e como prefere ser notificado." },
-  { num: "03", icon: Zap, title: "Viva o Timão como nunca antes", body: "Chat, notícias verificadas, quiz com prêmios, memes — tudo 24/7 no site e no WhatsApp." },
+  { num: "03", icon: Zap, title: "Viva o Timão como nunca antes", body: "Chat, notícias verificadas, quiz com ranking, memes — tudo 24/7 no site e no WhatsApp." },
 ];
 
 function HowItWorks() {
@@ -507,7 +506,7 @@ function HowItWorks() {
 /* ─── Testimonials ─── */
 
 const testimonials = [
-  { quote: "Ganhei R$ 200 de PIX no quiz e ainda recebi ingresso pro clássico. Isso é real, galera.", name: "Rodrigo M.", city: "São Paulo – SP" },
+  { quote: "Subi no ranking no primeiro quiz e agora entro toda semana para tentar bater minha pontuação.", name: "Rodrigo M.", city: "São Paulo - SP" },
   { quote: "Acabou o negócio de ficar checando se a notícia é verdadeira. A FIEL IA já chega verificada.", name: "Fernanda C.", city: "Santo André – SP" },
   { quote: "Os memes que gerei humilharam meu amigo palmeirense por semanas. Impagável.", name: "Carlos T.", city: "Campinas – SP" },
 ];
@@ -518,7 +517,7 @@ function Testimonials() {
   const v = isVisible ? "visible" : "";
 
   const assinantes = useCounterAnimation(12847, statsVisible);
-  const premios = useCounterAnimation(48000, statsVisible);
+  const pontos = useCounterAnimation(48000, statsVisible);
   const mensagens = useCounterAnimation(4200000, statsVisible);
 
   const formatNumber = (n: number) => {
@@ -556,8 +555,8 @@ function Testimonials() {
             <p className="text-sm text-white/50">Assinantes</p>
           </div>
           <div className="py-4 md:py-0 md:px-6">
-            <p className="font-heading text-[40px] md:text-[56px] text-white">R$ {premios.toLocaleString("pt-BR")}</p>
-            <p className="text-sm text-white/50">em prêmios pagos</p>
+            <p className="font-heading text-[40px] md:text-[56px] text-white">{pontos.toLocaleString("pt-BR")}</p>
+            <p className="text-sm text-white/50">pontos disputados</p>
           </div>
           <div className="py-4 md:py-0 md:px-6">
             <p className="font-heading text-[40px] md:text-[56px] text-white">{formatNumber(mensagens)}</p>
@@ -574,7 +573,7 @@ function Testimonials() {
 const planFeatures = [
   "Chat IA especialista 24/7",
   "Notícias verificadas e personalizadas em tempo real",
-  "Quiz semanal — PIX, ingressos, camisas, artigos",
+  "Quiz semanal, ranking completo e evolução",
   "Gerador de memes com IA",
   "Acesso via site E WhatsApp",
   "Cancele quando quiser",
@@ -648,7 +647,7 @@ function Pricing() {
 
 const faqs = [
   { q: "Preciso instalar algum aplicativo?", a: "Não. A FIEL IA funciona direto no navegador e pelo WhatsApp. Sem app, sem complicação." },
-  { q: "Como funciona o quiz com premiação?", a: "Quizzes temáticos toda semana. Você acumula pontos, sobe no ranking e ganha prêmios enviados automaticamente: PIX via CPF, ingressos por e-mail e produtos pelos Correios." },
+  { q: "Como funciona o quiz e o ranking?", a: "Quizzes temáticos toda semana para assinantes premium. Você acumula pontos, acompanha sua evolução e disputa posição no ranking completo." },
   { q: "As notícias são mesmo verificadas?", a: "Sim. A FIEL IA só entrega notícias de fontes confiáveis, com verificação em tempo real. Chega de perder tempo checando se o que você leu é verdadeiro." },
   { q: "A IA realmente sabe tudo sobre o Corinthians?", a: "Foi treinada com todo o histórico do clube — títulos, jogadores, estatísticas, curiosidades e polêmicas — e é atualizada em tempo real." },
   { q: "Posso cancelar quando quiser?", a: "Sim. Cancele a qualquer momento, sem burocracia e sem multa." },

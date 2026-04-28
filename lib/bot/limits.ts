@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { User } from '@prisma/client';
+import { getPremiumAccess } from '@/lib/premium';
 
 export type LimitCheckResult = {
   allowed: boolean;
@@ -18,19 +18,10 @@ export async function checkUserLimit(whatsappId: string): Promise<LimitCheckResu
     return { allowed: false, message: 'Usuário não encontrado.', isPremium: false };
   }
 
-  // 1. Premium Check
   const now = new Date();
-  const isPremiumActive =
-    user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now);
+  const premiumAccess = await getPremiumAccess(user.id);
 
-  if (user.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isPremium: false, subscriptionEnd: null },
-    });
-  }
-
-  if (isPremiumActive) {
+  if (premiumAccess.isPremium) {
     return { allowed: true, isPremium: true };
   }
 

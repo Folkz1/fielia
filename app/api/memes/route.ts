@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { getPremiumAccess } from '@/lib/premium';
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,34 +30,18 @@ export async function GET(req: NextRequest) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isPremium: true, subscriptionEnd: true, isAdmin: true },
-    });
-
     const memesToday = await prisma.meme.count({
       where: { userId, createdAt: { gte: today } },
     });
 
-    const now = new Date();
-    const isPremiumActive =
-      Boolean(user?.isPremium) &&
-      (!user?.subscriptionEnd || user.subscriptionEnd > now);
-
-    if (user?.isPremium && user.subscriptionEnd && user.subscriptionEnd <= now) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { isPremium: false, subscriptionEnd: null },
-      });
-    }
-
-    const dailyLimit = user?.isAdmin ? 999 : isPremiumActive ? 15 : 3;
+    const premiumAccess = await getPremiumAccess(userId);
+    const dailyLimit = premiumAccess.isAdmin ? 999 : premiumAccess.isPremium ? 15 : 0;
 
     return NextResponse.json({
       memes,
       remaining: Math.max(0, dailyLimit - memesToday),
       dailyLimit,
-      isPremium: isPremiumActive,
+      isPremium: premiumAccess.isPremium,
       nextCursor: memes.length === limit ? memes[memes.length - 1]?.id : null,
     });
   } catch (error) {

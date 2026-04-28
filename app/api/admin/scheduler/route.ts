@@ -30,6 +30,10 @@ export async function GET() {
         podcast: process.env.CRON_PODCAST_SCHEDULE || '0 8 * * *',
         newsletter: process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *',
         weeklyQuiz: process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1',
+        whatsappFunnel: process.env.CRON_WHATSAPP_FUNNEL_SCHEDULE || '* * * * *',
+      },
+      whatsappFunnel: {
+        enabled: process.env.WHATSAPP_FUNNEL_ENABLED === 'true',
       },
       freshRss: {
         url: process.env.FRESHRSS_URL ? 'configured' : 'missing',

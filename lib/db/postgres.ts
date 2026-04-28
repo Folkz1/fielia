@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 type ExistsRow = { exists: boolean };
 
-let cache: Record<string, { checkedAt: number; value: boolean }> = {};
+const cache: Record<string, { checkedAt: number; value: boolean }> = {};
 
 export async function postgresTableExists(qualifiedName: string, ttlMs = 60_000) {
   const now = Date.now();
@@ -28,4 +28,3 @@ export async function postgresTableExists(qualifiedName: string, ttlMs = 60_000)
 export async function hasBlogPostsTable(ttlMs = 60_000) {
   return postgresTableExists('public.blog_posts', ttlMs);
 }
-

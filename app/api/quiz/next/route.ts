@@ -4,10 +4,13 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: NextRequest) {
   try {
     const now = new Date();
+    const { searchParams } = new URL(req.url);
+    const audience = searchParams.get('audience') === 'premium' ? 'premium' : 'free';
 
     // Buscar proximo quiz (que ainda nao comecou)
     const nextQuiz = await prisma.quiz.findFirst({
       where: {
+        audience,
         isActive: true,
         startDate: { gt: now },
       },

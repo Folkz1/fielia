@@ -2,47 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { routeMessage } from '@/lib/bot/router';
-
-const FREE_DAILY_LIMIT = 10;
-
-async function checkWebChatLimit(userId: string): Promise<{ allowed: boolean; message?: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isPremium: true, subscriptionEnd: true, dailyMessageCount: true, lastMessageDate: true },
-  });
-
-  if (!user) return { allowed: false, message: 'Usuário não encontrado.' };
-
-  const now = new Date();
-  const isPremiumActive = user.isPremium && (!user.subscriptionEnd || user.subscriptionEnd > now);
-  if (isPremiumActive) return { allowed: true };
-
-  // Daily reset
-  const lastMessage = new Date(user.lastMessageDate);
-  const isDifferentDay = now.toDateString() !== lastMessage.toDateString();
-
-  if (isDifferentDay) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { dailyMessageCount: 1, lastMessageDate: now },
-    });
-    return { allowed: true };
-  }
-
-  if (user.dailyMessageCount >= FREE_DAILY_LIMIT) {
-    return {
-      allowed: false,
-      message: `Você atingiu o limite de ${FREE_DAILY_LIMIT} mensagens diárias. Assine o plano premium para conversas ilimitadas!`,
-    };
-  }
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { dailyMessageCount: { increment: 1 }, lastMessageDate: now },
-  });
-
-  return { allowed: true };
-}
+import { getPremiumAccess } from '@/lib/premium';
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,21 +14,22 @@ export async function POST(req: NextRequest) {
     const { message, platform = 'web' } = await req.json();
     const userId = session.user.id;
 
-    if (!message) {
+    if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Check usage limit for free users
-    const limitCheck = await checkWebChatLimit(userId);
-    if (!limitCheck.allowed) {
-      return NextResponse.json({
-        response: limitCheck.message,
-        type: 'limit',
-        limitReached: true,
-      });
+    const premiumAccess = await getPremiumAccess(userId);
+    if (!premiumAccess.isPremium) {
+      return NextResponse.json(
+        {
+          response: 'Chat com IA no app e exclusivo para assinantes Fiel Premium.',
+          type: 'premium_required',
+          requiresPremium: true,
+        },
+        { status: 403 }
+      );
     }
 
-    // Find or create chat session
     let chat = await prisma.aIChat.findFirst({
       where: { userId, platform },
       orderBy: { createdAt: 'desc' },
@@ -84,15 +45,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Save user message
     await prisma.aIMessage.create({
       data: { chatId: chat.id, role: 'user', content: message },
     });
 
-    // Use the SAME router as WhatsApp bot
-    const botResponse = await routeMessage(userId, message);
+    const botResponse = await routeMessage(userId, message, platform);
 
-    // Save bot response
     await prisma.aIMessage.create({
       data: { chatId: chat.id, role: 'assistant', content: botResponse.content },
     });

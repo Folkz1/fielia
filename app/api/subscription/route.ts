@@ -13,6 +13,7 @@ import {
   serializeBillingOverview,
   upsertAsaasPaymentRecord,
 } from '@/lib/billing';
+import { hashCpf, normalizeCpf } from '@/lib/identity';
 
 export const runtime = 'nodejs';
 
@@ -45,11 +46,6 @@ function generateValidCpf(seed: string) {
   const d2 = calcCheck([...digits, d1]);
 
   return [...digits, d1, d2].join('');
-}
-
-function normalizeCpf(value?: string | null) {
-  const digits = String(value || '').replace(/\D/g, '');
-  return digits || null;
 }
 
 function buildSubscriptionResponse(params: {
@@ -162,6 +158,7 @@ export async function POST(req: NextRequest) {
         name: true,
         phone: true,
         cpfCnpj: true,
+        cpfHash: true,
         isPremium: true,
         subscriptionEnd: true,
         asaasCustomerId: true,
@@ -183,8 +180,8 @@ export async function POST(req: NextRequest) {
 
     let asaasCustomerId = user.asaasCustomerId;
     const cpfCnpj =
-      normalizeCpf(user.cpfCnpj) ||
       normalizeCpf(body?.cpfCnpj) ||
+      normalizeCpf(user.cpfCnpj) ||
       (process.env.NODE_ENV !== 'production' ? generateValidCpf(user.id) : null);
 
     if (!cpfCnpj || cpfCnpj.length < 11) {
@@ -194,10 +191,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (user.cpfCnpj !== cpfCnpj) {
+    const cpfHash = hashCpf(cpfCnpj);
+    if (user.cpfHash !== cpfHash) {
       const cpfConflict = await prisma.user.findFirst({
         where: {
-          cpfCnpj,
+          OR: [{ cpfHash }, { cpfCnpj }],
           id: { not: userId },
         },
         select: { id: true },
@@ -223,12 +221,12 @@ export async function POST(req: NextRequest) {
 
       await prisma.user.update({
         where: { id: userId },
-        data: { asaasCustomerId, ...(user.cpfCnpj ? {} : { cpfCnpj }) },
+        data: { asaasCustomerId, ...(user.cpfHash ? {} : { cpfHash }) },
       });
-    } else if (!user.cpfCnpj) {
+    } else if (!user.cpfHash) {
       await prisma.user.update({
         where: { id: userId },
-        data: { cpfCnpj },
+        data: { cpfHash },
       });
     }
 

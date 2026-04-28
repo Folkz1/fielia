@@ -104,9 +104,9 @@ export default function MemesPage() {
   async function handleGenerate(customPrompt?: string, newsId?: string) {
     if (remaining <= 0) {
       setError(
-        dailyLimit <= 3
-          ? "Limite diário atingido! Assine Premium para gerar até 15 memes/dia."
-          : "Limite diário atingido! Volte amanhã."
+        dailyLimit === 0
+          ? "Geracao de memes e exclusiva para assinantes Fiel Premium."
+          : "Limite diario atingido! Volte amanha."
       );
       return;
     }
@@ -211,9 +211,15 @@ export default function MemesPage() {
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
           <ImageIcon className="w-4 h-4 text-yellow-500" />
           <span className="text-sm text-gray-300">
-            <span className="font-bold text-white">{remaining}</span>/{dailyLimit} restantes hoje
+            {dailyLimit === 0 ? (
+              <span className="font-bold text-white">Exclusivo Premium</span>
+            ) : (
+              <>
+                <span className="font-bold text-white">{remaining}</span>/{dailyLimit} restantes hoje
+              </>
+            )}
           </span>
-          {dailyLimit <= 3 && (
+          {dailyLimit === 0 && (
             <span className="text-xs text-yellow-500 flex items-center gap-1 ml-2">
               <Crown className="w-3 h-3" />
               Premium = 15/dia

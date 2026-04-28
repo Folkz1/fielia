@@ -7,17 +7,44 @@ import { Progress } from "@/components/ui/progress";
 import { Timer, ArrowRight, XCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+const TIME_PER_QUESTION = 10;
+
+type QuizQuestion = {
+  id: string;
+  question: string;
+  options: string[];
+};
+
+type QuizData = {
+  id: string;
+  questions?: QuizQuestion[];
+};
+
+type QuizAnswerPayload = {
+  questionId: string;
+  answer: string;
+  timeTaken: number;
+};
+
+type QuizResult = {
+  attemptId: string;
+  score: number;
+  accuracy: number;
+  correctAnswers: number;
+  totalQuestions: number;
+};
+
 interface QuizGameProps {
-  quiz: any;
-  onComplete: (result: any) => void;
+  quiz: QuizData;
+  onComplete: (result: QuizResult) => void;
   onCancel: () => void;
 }
 
 export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
   const { data: session } = useSession();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState(5);
+  const [answers, setAnswers] = useState<QuizAnswerPayload[]>([]);
+  const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -35,7 +62,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
 
   const startTimer = () => {
     stopTimer();
-    setTimeLeft(5);
+    setTimeLeft(TIME_PER_QUESTION);
     startTimeRef.current = Date.now();
     
     timerRef.current = setInterval(() => {
@@ -74,7 +101,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
   };
 
   const submitAnswer = (answer: string | null) => {
-    const timeTaken = Math.min(5, (Date.now() - startTimeRef.current) / 1000);
+    const timeTaken = Math.min(TIME_PER_QUESTION + 1, (Date.now() - startTimeRef.current) / 1000);
     
     const newAnswer = {
       questionId: currentQuestion.id,
@@ -93,7 +120,7 @@ export function QuizGame({ quiz, onComplete, onCancel }: QuizGameProps) {
     }
   };
 
-  const finishQuiz = async (finalAnswers: any[]) => {
+  const finishQuiz = async (finalAnswers: QuizAnswerPayload[]) => {
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/quiz/submit", {

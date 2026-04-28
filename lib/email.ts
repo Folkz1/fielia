@@ -125,7 +125,7 @@ export async function sendMagicLinkEmail({
                 </tr>
               </table>
               <p style="color:#666;font-size:13px;text-align:center;margin:0 0 32px;">
-                Este link expira em 24 horas. Clique para entrar automaticamente.
+                Este link expira em 15 minutos. Clique para entrar automaticamente.
               </p>
 
               <!-- Divider -->

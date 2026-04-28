@@ -22,7 +22,7 @@ export default function PrivacidadePage() {
             <h2 className="text-white text-xl font-bold mb-3">1. Dados que Coletamos</h2>
             <p>Coletamos os seguintes dados pessoais:</p>
             <ul className="list-disc list-inside space-y-1 ml-4">
-              <li><strong>Cadastro:</strong> nome, e-mail, CPF (para pagamento e premiação), telefone (opcional)</li>
+              <li><strong>Cadastro:</strong> nome, e-mail, CPF para identificacao e pagamento, telefone/WhatsApp</li>
               <li><strong>Uso:</strong> histórico de mensagens com a IA, pontuação do quiz, preferências</li>
               <li><strong>Pagamento:</strong> dados de cobrança processados pela Asaas (não armazenamos dados de cartão)</li>
               <li><strong>WhatsApp:</strong> número de telefone e mensagens trocadas com o bot</li>
@@ -33,7 +33,7 @@ export default function PrivacidadePage() {
             <h2 className="text-white text-xl font-bold mb-3">2. Como Usamos seus Dados</h2>
             <ul className="list-disc list-inside space-y-1 ml-4">
               <li>Fornecer e personalizar os serviços da Plataforma</li>
-              <li>Processar pagamentos e distribuir prêmios</li>
+              <li>Processar pagamentos, identificar usuarios e manter rankings</li>
               <li>Enviar notificações sobre o serviço (e-mail e WhatsApp)</li>
               <li>Melhorar a qualidade das respostas da IA</li>
               <li>Gerar estatísticas anônimas de uso</li>

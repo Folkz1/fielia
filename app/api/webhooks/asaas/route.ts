@@ -1,11 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { sendMagicLinkEmail } from '@/lib/email';
 import { evolutionAPI } from '@/lib/evolution-api';
 import { addOneMonth, isPremiumActive, isSuccessPaymentStatus, parseAsaasDate } from '@/lib/billing';
 
 export const runtime = 'nodejs';
+
+type AsaasPaymentPayload = {
+  id?: string;
+  customer?: string;
+  subscription?: string | null;
+  externalReference?: string;
+  status?: string;
+  billingType?: string;
+  value?: number | string;
+  dueDate?: string;
+  paymentDate?: string;
+  confirmedDate?: string;
+  creditDate?: string;
+  invoiceUrl?: string | null;
+  description?: string | null;
+};
+
+type AsaasWebhookPayload = {
+  id?: string;
+  event?: string;
+  subscription?: { id?: string };
+  payment?: AsaasPaymentPayload;
+} & Record<string, unknown>;
 
 function getWebhookToken(req: NextRequest) {
   return req.headers.get('asaas-access-token') || req.headers.get('asaas_access_token') || '';
@@ -17,11 +41,11 @@ function parseUserIdFromExternalReference(externalReference?: string | null) {
   return match?.[1] || null;
 }
 
-function getSubscriptionIdFromPayload(payload: Record<string, any>) {
+function getSubscriptionIdFromPayload(payload: AsaasWebhookPayload) {
   return payload?.subscription?.id || payload?.payment?.subscription || null;
 }
 
-async function syncSubscriptionLifecycleEvent(eventType: string, payload: Record<string, any>) {
+async function syncSubscriptionLifecycleEvent(eventType: string, payload: AsaasWebhookPayload) {
   if (!['SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED'].includes(eventType)) {
     return;
   }
@@ -67,7 +91,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = (await req.json()) as Record<string, any>;
+    const payload = (await req.json()) as AsaasWebhookPayload;
     const webhookEventId: string | undefined = payload?.id;
     const eventType = String(payload?.event || '');
     const payment = payload?.payment;
@@ -80,11 +104,11 @@ export async function POST(req: NextRequest) {
             id: webhookEventId,
             event: eventType || 'UNKNOWN',
             asaasPaymentId: asaasPaymentId || null,
-            payload,
+            payload: payload as Prisma.InputJsonValue,
           },
         });
-      } catch (error: any) {
-        if (error?.code === 'P2002') {
+      } catch (error) {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
           return NextResponse.json({ ok: true });
         }
         throw error;
@@ -228,7 +252,7 @@ export async function POST(req: NextRequest) {
           console.warn('[Webhook] shouldNotify=true mas isPremium=false após transação — abortando notificações');
         } else {
           const magicToken = crypto.randomBytes(32).toString('hex');
-          const magicTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          const magicTokenExp = new Date(Date.now() + 15 * 60 * 1000);
           await prisma.user.update({
             where: { id: user.id },
             data: { magicToken, magicTokenExp },
@@ -255,7 +279,7 @@ export async function POST(req: NextRequest) {
             try {
               await evolutionAPI.sendTextMessage({
                 number,
-                text: `🎉 *Bem-vindo ao FIEL.IA Premium!*\n\nSua assinatura foi confirmada!\n\nAcesse agora: ${magicUrl}\n\n_Link válido por 24h_`,
+                text: `🎉 *Bem-vindo ao FIEL.IA Premium!*\n\nSua assinatura foi confirmada!\n\nAcesse agora: ${magicUrl}\n\n_Link valido por 15 minutos_`,
               });
               console.log('[Webhook] WhatsApp enviado OK');
             } catch (waErr) {

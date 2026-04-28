@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { deriveBillingOverview, serializeBillingOverview } from '@/lib/billing';
+import { hashCpf, isValidCpf, normalizeCpf } from '@/lib/identity';
 
 function normalizeEmail(value?: string | null) {
   return String(value || '').trim().toLowerCase();
@@ -9,11 +10,6 @@ function normalizeEmail(value?: string | null) {
 
 function normalizePhone(value?: string | null) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 15);
-  return digits || null;
-}
-
-function normalizeCpfCnpj(value?: string | null) {
-  const digits = String(value || '').replace(/\D/g, '');
   return digits || null;
 }
 
@@ -33,6 +29,7 @@ export async function GET() {
         email: true,
         phone: true,
         cpfCnpj: true,
+        cpfHash: true,
         isPremium: true,
         subscriptionEnd: true,
         asaasCustomerId: true,
@@ -57,6 +54,7 @@ export async function GET() {
           email: true,
           phone: true,
           cpfCnpj: true,
+          cpfHash: true,
           isPremium: true,
           subscriptionEnd: true,
           asaasCustomerId: true,
@@ -91,7 +89,7 @@ export async function GET() {
       name: user.name,
       email: user.email,
       phone: user.phone,
-      cpfCnpj: user.cpfCnpj,
+      hasCpf: Boolean(user.cpfHash || user.cpfCnpj),
       isPremium: overview.isPremiumActive,
       hasSubscription: Boolean(overview.lastSubscriptionId),
       createdAt: user.createdAt.toISOString(),
@@ -133,7 +131,7 @@ export async function PATCH(req: NextRequest) {
     if (body.email && typeof body.email === 'string') {
       const email = normalizeEmail(body.email);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+        return NextResponse.json({ error: 'Email invalido' }, { status: 400 });
       }
 
       const existing = await prisma.user.findUnique({
@@ -142,7 +140,7 @@ export async function PATCH(req: NextRequest) {
       });
 
       if (existing && existing.id !== session.user.id) {
-        return NextResponse.json({ error: 'Este email já está em uso' }, { status: 409 });
+        return NextResponse.json({ error: 'Este email ja esta em uso' }, { status: 409 });
       }
 
       updates.email = email;
@@ -151,7 +149,7 @@ export async function PATCH(req: NextRequest) {
     if (body.phone && typeof body.phone === 'string') {
       const phone = normalizePhone(body.phone);
       if (!phone || phone.length < 10) {
-        return NextResponse.json({ error: 'Telefone inválido' }, { status: 400 });
+        return NextResponse.json({ error: 'Telefone invalido' }, { status: 400 });
       }
 
       const existing = await prisma.user.findFirst({
@@ -163,31 +161,32 @@ export async function PATCH(req: NextRequest) {
       });
 
       if (existing) {
-        return NextResponse.json({ error: 'Este telefone já está em uso' }, { status: 409 });
+        return NextResponse.json({ error: 'Este telefone ja esta em uso' }, { status: 409 });
       }
 
       updates.phone = phone;
     }
 
     if (body.cpfCnpj && typeof body.cpfCnpj === 'string') {
-      const cleaned = normalizeCpfCnpj(body.cpfCnpj);
-      if (!cleaned || (cleaned.length !== 11 && cleaned.length !== 14)) {
-        return NextResponse.json({ error: 'CPF/CNPJ inválido' }, { status: 400 });
+      const cpf = normalizeCpf(body.cpfCnpj);
+      if (!isValidCpf(cpf)) {
+        return NextResponse.json({ error: 'CPF invalido' }, { status: 400 });
       }
 
+      const cpfHash = hashCpf(cpf);
       const existing = await prisma.user.findFirst({
         where: {
-          cpfCnpj: cleaned,
+          OR: [{ cpfHash }, { cpfCnpj: cpf }],
           id: { not: session.user.id },
         },
         select: { id: true },
       });
 
       if (existing) {
-        return NextResponse.json({ error: 'Este CPF/CNPJ já está em uso' }, { status: 409 });
+        return NextResponse.json({ error: 'Este CPF ja esta em uso' }, { status: 409 });
       }
 
-      updates.cpfCnpj = cleaned;
+      updates.cpfHash = cpfHash;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -202,11 +201,17 @@ export async function PATCH(req: NextRequest) {
         name: true,
         email: true,
         phone: true,
-        cpfCnpj: true,
+        cpfHash: true,
       },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      hasCpf: Boolean(user.cpfHash),
+    });
   } catch (error) {
     console.error('Update user error:', error);
     return NextResponse.json({ error: 'Erro ao atualizar perfil' }, { status: 500 });

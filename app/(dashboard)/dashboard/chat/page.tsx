@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Loader2, Bot, User } from "lucide-react";
+import { Send, Loader2, Bot, User, Crown, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Message {
@@ -58,6 +58,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -66,12 +67,16 @@ export default function ChatPage() {
     fetch('/api/user/me')
       .then(res => res.json())
       .then(data => {
+        setIsPremium(Boolean(data.isPremium));
         if (data.userId) {
           setUserId(data.userId);
           loadChatHistory(data.userId);
         }
       })
-      .catch(error => console.error('Error getting user:', error));
+      .catch(error => {
+        setIsPremium(false);
+        console.error('Error getting user:', error);
+      });
   }, []);
 
   useEffect(() => {
@@ -129,11 +134,18 @@ export default function ChatPage() {
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (response.ok) {
-        const data = await response.json();
         const assistantMessage: Message = {
           role: "assistant",
           content: data.response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else if (response.status === 403 && data.requiresPremium) {
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: data.response || "Chat com IA no app e exclusivo para assinantes Fiel Premium.",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
@@ -152,6 +164,29 @@ export default function ChatPage() {
       setIsLoading(false);
     }
   };
+
+  if (isPremium === false) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-xl rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/20">
+            <Lock className="h-7 w-7 text-yellow-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Chat IA exclusivo Premium</h1>
+          <p className="mt-3 text-sm text-gray-300">
+            O plano gratuito mantem quiz mensal, ranking limitado e conteudo do grupo. O chat com IA no app fica liberado apos a assinatura.
+          </p>
+          <a
+            href="/dashboard/settings"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-bold text-black transition-colors hover:bg-yellow-600"
+          >
+            <Crown className="h-4 w-4" />
+            Assinar Premium
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col">

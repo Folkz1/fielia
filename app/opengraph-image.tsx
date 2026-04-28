@@ -87,7 +87,7 @@ export default async function Image() {
               marginTop: "40px",
             }}
           >
-            {["Chat IA 24/7", "Quiz com Prêmios", "Notícias Verificadas"].map(
+            {["Chat IA 24/7", "Quiz e Ranking", "Noticias Verificadas"].map(
               (item) => (
                 <div
                   key={item}

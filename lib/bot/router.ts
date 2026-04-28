@@ -4,6 +4,7 @@ import { getTopUsers, formatRankingMessage } from './services/ranking.service';
 import { getUserProfile, formatProfileMessage } from './services/user.service';
 import { startQuiz, processQuizAnswer } from './services/quiz.service';
 import { getChatHistory } from './services/chat-history.service';
+import { isPremiumUser } from '@/lib/premium';
 
 async function getAffiliateCTA(source: string): Promise<string> {
   try {
@@ -140,20 +141,6 @@ async function handleChat(userId: string, message: string, platform: string = 'w
   };
 }
 
-async function checkPremium(userId: string): Promise<boolean> {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isPremium: true, subscriptionEnd: true },
-    });
-    if (!user?.isPremium) return false;
-    if (user.subscriptionEnd && user.subscriptionEnd <= new Date()) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function premiumRequiredMessage(feature: string): BotResponse {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
   return {
@@ -162,7 +149,7 @@ function premiumRequiredMessage(feature: string): BotResponse {
       `Com o Premium você tem:\n` +
       `• Chat ilimitado com a IA\n` +
       `• Geração de memes e imagens\n` +
-      `• Participação em sorteios do Quiz\n` +
+      `• Quiz semanal e ranking completo\n` +
       `• Newsletter exclusiva\n\n` +
       (appUrl ? `Assine agora: ${appUrl}/dashboard/settings\n\n` : '') +
       `Digite */menu* para ver as opções gratuitas.`,
@@ -235,7 +222,7 @@ export async function routeMessage(userId: string, message: string, platform: st
   }
 
   if (lowerMsg.includes('meme') || lowerMsg.includes('imagem') || lowerMsg.includes('figura')) {
-    const isPremium = await checkPremium(userId);
+    const isPremium = await isPremiumUser(userId);
     if (!isPremium) return premiumRequiredMessage('Geração de Imagens');
     return handleMeme(userId, message);
   }
@@ -257,7 +244,7 @@ export async function routeMessage(userId: string, message: string, platform: st
   }
 
   // 3. Fallback to LLM (premium only)
-  const isPremium = await checkPremium(userId);
+  const isPremium = await isPremiumUser(userId);
   if (!isPremium) {
     return {
       content:

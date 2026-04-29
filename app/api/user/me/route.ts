@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { deriveBillingOverview, serializeBillingOverview } from '@/lib/billing';
-import { hashCpf, isValidCpf, normalizeCpf } from '@/lib/identity';
+import { hashCpf, isFreeLeadEmail, isValidCpf, normalizeCpf } from '@/lib/identity';
 
 function normalizeEmail(value?: string | null) {
   return String(value || '').trim().toLowerCase();
@@ -27,6 +27,7 @@ export async function GET() {
         id: true,
         name: true,
         email: true,
+        password: true,
         phone: true,
         cpfCnpj: true,
         cpfHash: true,
@@ -52,6 +53,7 @@ export async function GET() {
           id: true,
           name: true,
           email: true,
+          password: true,
           phone: true,
           cpfCnpj: true,
           cpfHash: true,
@@ -88,8 +90,10 @@ export async function GET() {
       userId: user.id,
       name: user.name,
       email: user.email,
+      emailIsSynthetic: isFreeLeadEmail(user.email),
       phone: user.phone,
       hasCpf: Boolean(user.cpfHash || user.cpfCnpj),
+      hasPassword: Boolean(user.password),
       isPremium: overview.isPremiumActive,
       hasSubscription: Boolean(overview.lastSubscriptionId),
       createdAt: user.createdAt.toISOString(),

@@ -5,7 +5,8 @@ import {
   hashCpf,
   isValidBrazilianMobilePhone,
   isValidCpf,
-  makeFreeLeadEmail,
+  isValidEmail,
+  normalizeEmail,
   normalizeBrazilianPhone,
   normalizeCpf,
 } from '@/lib/identity';
@@ -29,6 +30,12 @@ function buildMagicUrl(req: NextRequest, token: string, next = '/quiz-free') {
   return `${base}/api/auth/magic/${token}?next=${encodeURIComponent(next)}`;
 }
 
+function buildPostRegistrationNext(quizUrl: string | null, hasPassword: boolean) {
+  const destination = quizUrl || '/dashboard';
+  if (hasPassword) return destination;
+  return `/auth/criar-senha?from=free&next=${encodeURIComponent(destination)}`;
+}
+
 async function getActiveQuizUrl() {
   const now = new Date();
   const activeQuiz = await prisma.quiz.findFirst({
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const name = cleanName(body?.name);
+    const email = normalizeEmail(body?.email);
     const phone = normalizeBrazilianPhone(body?.phone);
     const cpf = normalizeCpf(body?.cpf);
     const acceptedTerms = body?.acceptedTerms === true;
@@ -55,6 +63,10 @@ export async function POST(req: NextRequest) {
 
     if (name.length < 3) {
       return NextResponse.json({ error: 'Informe seu nome completo.' }, { status: 400 });
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: 'Informe um email valido para login.' }, { status: 400 });
     }
 
     if (!isValidBrazilianMobilePhone(phone)) {
@@ -72,20 +84,26 @@ export async function POST(req: NextRequest) {
     const cpfHash = hashCpf(cpf);
     const now = new Date();
 
-    const [phoneOwner, cpfOwner] = await Promise.all([
+    const [phoneOwner, cpfOwner, emailOwner] = await Promise.all([
       prisma.user.findFirst({
         where: { phone },
-        select: { id: true, phone: true, cpfHash: true, freeRegisteredAt: true },
+        select: { id: true, email: true, phone: true, cpfHash: true, freeRegisteredAt: true, password: true },
       }),
       prisma.user.findFirst({
         where: { OR: [{ cpfHash }, { cpfCnpj: cpf }] },
-        select: { id: true, phone: true, cpfHash: true, freeRegisteredAt: true },
+        select: { id: true, email: true, phone: true, cpfHash: true, freeRegisteredAt: true, password: true },
+      }),
+      prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, phone: true, cpfHash: true, freeRegisteredAt: true, password: true },
       }),
     ]);
 
-    if (phoneOwner && cpfOwner && phoneOwner.id !== cpfOwner.id) {
+    const owners = [phoneOwner, cpfOwner, emailOwner].filter(Boolean);
+    const ownerIds = new Set(owners.map((owner) => owner!.id));
+    if (ownerIds.size > 1) {
       return NextResponse.json(
-        { error: 'Telefone e CPF ja estao vinculados a cadastros diferentes.' },
+        { error: 'Email, telefone ou CPF ja estao vinculados a cadastros diferentes.' },
         { status: 409 }
       );
     }
@@ -104,7 +122,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existingUser = phoneOwner || cpfOwner;
+    if (emailOwner?.phone && emailOwner.phone !== phone) {
+      return NextResponse.json(
+        { error: 'Este email ja esta vinculado a outro WhatsApp.' },
+        { status: 409 }
+      );
+    }
+
+    if (emailOwner?.cpfHash && emailOwner.cpfHash !== cpfHash) {
+      return NextResponse.json(
+        { error: 'Este email ja esta vinculado a outro CPF.' },
+        { status: 409 }
+      );
+    }
+
+    const existingUser = phoneOwner || cpfOwner || emailOwner;
     const magicToken = crypto.randomBytes(32).toString('hex');
     const magicTokenExp = new Date(Date.now() + 15 * 60 * 1000);
 
@@ -113,6 +145,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingUser.id },
           data: {
             name,
+            email,
             phone,
             cpfHash,
             freeRegisteredAt: existingUser.freeRegisteredAt || now,
@@ -123,12 +156,12 @@ export async function POST(req: NextRequest) {
             magicToken,
             magicTokenExp,
           },
-          select: { id: true, name: true },
+          select: { id: true, name: true, password: true },
         })
       : await prisma.user.create({
           data: {
             name,
-            email: makeFreeLeadEmail(phone),
+            email,
             password: '',
             phone,
             cpfHash,
@@ -140,18 +173,19 @@ export async function POST(req: NextRequest) {
             magicToken,
             magicTokenExp,
           },
-          select: { id: true, name: true },
+          select: { id: true, name: true, password: true },
         });
 
     const quizUrl = await getActiveQuizUrl();
-    const redirectUrl = quizUrl ? buildMagicUrl(req, magicToken, quizUrl) : null;
+    const nextUrl = buildPostRegistrationNext(quizUrl, Boolean(user.password));
+    const redirectUrl = buildMagicUrl(req, magicToken, nextUrl);
 
     await enqueueRegistrationFunnel({
       userId: user.id,
       phone,
       name: user.name,
-      registrationUrl: redirectUrl || `${(process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin).replace(/\/$/, '')}/cadastro-free`,
-      quizUrl: redirectUrl,
+      registrationUrl: redirectUrl,
+      quizUrl: quizUrl ? redirectUrl : null,
       quizOpen: Boolean(quizUrl),
     }).catch((error) => {
       console.error('[Cadastro Free] Failed to enqueue funnel:', error instanceof Error ? error.message : error);
@@ -164,8 +198,8 @@ export async function POST(req: NextRequest) {
       quizOpen: Boolean(quizUrl),
       redirectUrl,
       message: quizUrl
-        ? 'Cadastro confirmado. Vamos liberar seu quiz.'
-        : 'Cadastro confirmado. Avisaremos no WhatsApp quando o proximo quiz abrir.',
+        ? 'Cadastro confirmado. Crie sua senha para liberar o quiz.'
+        : 'Cadastro confirmado. Crie sua senha para acessar sua conta.',
     });
   } catch (error) {
     console.error('[Cadastro Free] Error:', error instanceof Error ? error.message : 'Unknown error');

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Crown,
   ShieldCheck,
   User,
+  Mail,
+  KeyRound,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -26,8 +29,10 @@ type UserData = {
   userId: string;
   name: string;
   email: string;
+  emailIsSynthetic: boolean;
   phone: string | null;
-  cpfCnpj: string | null;
+  hasCpf: boolean;
+  hasPassword: boolean;
   isPremium: boolean;
   subscriptionEnd: string | null;
   hasSubscription: boolean;
@@ -100,6 +105,7 @@ export default function AccountPage() {
   const [subMsg, setSubMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
 
@@ -113,8 +119,9 @@ export default function AccountPage() {
     const data: UserData = await meRes.json();
     setUser(data);
     setName(data.name || "");
+    setEmail(data.emailIsSynthetic ? "" : data.email || "");
     setPhone(data.phone ? formatPhone(data.phone) : "");
-    setCpfCnpj(data.cpfCnpj ? formatCpf(data.cpfCnpj) : "");
+    setCpfCnpj("");
     return data;
   }, []);
 
@@ -128,8 +135,9 @@ export default function AccountPage() {
         if (cancelled) return;
         setUser(payload);
         setName(payload.name || "");
+        setEmail(payload.emailIsSynthetic ? "" : payload.email || "");
         setPhone(payload.phone ? formatPhone(payload.phone) : "");
-        setCpfCnpj(payload.cpfCnpj ? formatCpf(payload.cpfCnpj) : "");
+        setCpfCnpj("");
       } catch (error) {
         if (!cancelled) {
           setSubMsg({ type: "err", text: error instanceof Error ? error.message : "Erro ao carregar conta" });
@@ -149,9 +157,12 @@ export default function AccountPage() {
     setSaveMsg(null);
     try {
       const body: Record<string, string> = {};
+      const cleanEmail = email.trim().toLowerCase();
+      const cpfDigits = cpfCnpj.replace(/\D/g, "");
       if (name !== user?.name) body.name = name;
+      if (cleanEmail && cleanEmail !== user?.email) body.email = cleanEmail;
       if (phone.replace(/\D/g, "") !== (user?.phone || "")) body.phone = phone;
-      if (cpfCnpj.replace(/\D/g, "") !== (user?.cpfCnpj || "")) body.cpfCnpj = cpfCnpj;
+      if (cpfDigits) body.cpfCnpj = cpfCnpj;
 
       if (Object.keys(body).length === 0) {
         setSaveMsg({ type: "ok", text: "Nenhuma alteração detectada." });
@@ -250,6 +261,23 @@ export default function AccountPage() {
             <h2 className="font-heading text-2xl">Perfil do Torcedor</h2>
           </div>
 
+          {!user?.hasPassword && (
+            <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-100">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-2">
+                  <KeyRound className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-400" />
+                  <p>Crie uma senha para conseguir entrar depois com email e senha.</p>
+                </div>
+                <Link
+                  href="/auth/criar-senha?from=free&next=/dashboard/account"
+                  className="inline-flex items-center justify-center rounded-lg bg-yellow-500 px-3 py-2 text-xs font-bold text-black transition-colors hover:bg-yellow-400"
+                >
+                  Criar senha
+                </Link>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-gray-400">Nome</label>
@@ -261,11 +289,19 @@ export default function AccountPage() {
             </div>
             <div>
               <label className="text-xs text-gray-400">Email</label>
-              <input
-                className="w-full mt-2 rounded-lg bg-corinthians-gray-dark border border-gray-700 px-3 py-2 text-gray-500 cursor-not-allowed"
-                value={user?.email || ""}
-                readOnly
-              />
+              <div className="relative mt-2">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <input
+                  className="w-full rounded-lg bg-corinthians-gray-dark border border-gray-700 px-10 py-2 text-white focus:outline-none focus:border-yellow-500"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  type="email"
+                />
+              </div>
+              {user?.emailIsSynthetic && (
+                <p className="mt-1 text-xs text-yellow-400">Informe seu email real para login.</p>
+              )}
             </div>
             <div>
               <label className="text-xs text-gray-400">Telefone</label>
@@ -284,8 +320,13 @@ export default function AccountPage() {
                 className="w-full mt-2 rounded-lg bg-corinthians-gray-dark border border-gray-700 px-3 py-2 text-white focus:outline-none focus:border-yellow-500"
                 value={cpfCnpj}
                 onChange={(e) => setCpfCnpj(formatCpf(e.target.value))}
-                placeholder="000.000.000-00"
+                placeholder={user?.hasCpf ? "CPF ja cadastrado" : "000.000.000-00"}
               />
+              <p className="mt-1 text-xs text-gray-500">
+                {user?.hasCpf
+                  ? "Por seguranca, nao exibimos o CPF. Digite novamente apenas para atualizar ou assinar."
+                  : "O CPF sera salvo apenas como hash."}
+              </p>
             </div>
           </div>
 

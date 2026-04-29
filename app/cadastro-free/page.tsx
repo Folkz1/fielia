@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { ArrowRight, CheckCircle2, ClipboardCheck, Loader2, ShieldCheck, Trophy, User, Phone, IdCard } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardCheck, Loader2, ShieldCheck, Trophy, User, Phone, Mail, IdCard } from "lucide-react";
 
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -20,6 +20,7 @@ function formatCpf(value: string) {
 
 export default function CadastroFreePage() {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -39,6 +40,7 @@ export default function CadastroFreePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          email,
           phone,
           cpf,
           acceptedTerms,
@@ -137,6 +139,21 @@ export default function CadastroFreePage() {
                     onChange={(event) => setName(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-black px-10 py-3 text-sm text-white outline-none transition focus:border-yellow-400"
                     placeholder="Seu nome"
+                    required
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-zinc-400">Email</span>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    className="w-full rounded-lg border border-white/10 bg-black px-10 py-3 text-sm text-white outline-none transition focus:border-yellow-400"
+                    placeholder="seu@email.com"
                     required
                   />
                 </div>

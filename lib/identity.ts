@@ -27,6 +27,15 @@ export function normalizeCpf(value?: string | null) {
   return onlyDigits(value).slice(0, 11);
 }
 
+export function normalizeEmail(value?: string | null) {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function isValidEmail(value?: string | null) {
+  const email = normalizeEmail(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export function isValidCpf(value?: string | null) {
   const cpf = normalizeCpf(value);
   if (!/^\d{11}$/.test(cpf)) return false;
@@ -60,4 +69,8 @@ export function hashCpf(value: string) {
 export function makeFreeLeadEmail(phone: string) {
   const normalized = normalizeBrazilianPhone(phone);
   return `lead+${normalized}@fielia.local`;
+}
+
+export function isFreeLeadEmail(email?: string | null) {
+  return /^lead\+\d+@fielia\.local$/i.test(String(email || '').trim());
 }

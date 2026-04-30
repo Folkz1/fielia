@@ -20,6 +20,18 @@ Implementar primeiro uma rotina propria:
 
 NotebookLM/Google Podcast API fica como caminho Growth se houver acesso oficial.
 
+## Validacao Local Do MCP
+
+Em 2026-04-30, o MCP `notebooklm-mcp` foi instalado no Codex e autenticado com Google.
+
+- Servidor MCP: `notebooklm`
+- Comando: `npx notebooklm-mcp@latest`
+- Ferramentas expostas: `ask_question`, `add_notebook`, `list_notebooks`, `get_health`, `setup_auth`, entre outras.
+- Health: `authenticated: true`
+- Estado pendente: biblioteca sem notebook (`notebooks: []`), portanto `ask_question` ainda retorna `Notebook URL is required to create a session`.
+
+Proximo passo: registrar o link compartilhado do notebook Fiel.IA no MCP.
+
 ## Achados Oficiais
 
 - NotebookLM Enterprise tem API oficial para criar/listar/deletar notebooks, mas exige setup e licencas do NotebookLM Enterprise.
@@ -40,6 +52,7 @@ NotebookLM/Google Podcast API fica como caminho Growth se houver acesso oficial.
 - `lib/news/newsletter.ts`: monta newsletter e envia para usuarios premium no privado.
 - `lib/evolution-api.ts`: envia texto, midia, audio e sticker pela Evolution.
 - `lib/bot/services/meme.service.ts`: ja tem exemplo de geracao de imagem via OpenRouter.
+- `docs/operations/notebooklm-mcp-fielia.md`: guia operacional com estado do MCP e prompts do formato Panorama Alvinegro.
 
 ## Gap Atual
 
@@ -95,4 +108,3 @@ Se qualquer rotina local/proxy/NotebookLM for usada, criar antes:
 - como rodar localmente;
 - como desligar com seguranca;
 - plano de fallback para voltar ao pipeline proprio.
-

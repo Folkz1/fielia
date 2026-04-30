@@ -12,6 +12,7 @@ Producao: https://fielchat.com
   - `[CE] Create Epics and Stories` para transformar pendencias em historias.
   - `[SP] Sprint Planning` para ordenar execucao.
   - `[TR] Technical Research` para NotebookLM/audio/imagem, porque ainda ha decisao tecnica aberta.
+- Technical Research NotebookLM/conteudo diario salvo em `notebooklm-content-automation-research.md`.
 
 ## Validado em Producao
 
@@ -59,11 +60,10 @@ Producao: https://fielchat.com
    - Noticias curadas.
    - Audio curto.
    - Imagem/infografico.
-7. Fazer Technical Research para NotebookLM:
-   - NotebookLM Enterprise tem API oficial para notebooks e fontes, mas exige Google Cloud/Gemini Enterprise.
-   - NotebookLM consumer nao deve ser assumido como API estavel.
-   - Alternativa MVP: gerar audio/imagem com pipeline proprio usando noticias + OpenRouter/Gemini/TTS + gerador de imagem.
-   - Alternativa experimental: automacao local/browser, documentada como dependencia fragil.
+7. Implementar a primeira story de conteudo diario do grupo usando `notebooklm-content-automation-research.md`:
+   - MVP proprio com noticias curadas + podcast/TTS existente + imagem/infografico proprio.
+   - NotebookLM/Podcast API oficial apenas se houver acesso Google Cloud habilitado.
+   - Automacao local/browser somente como experimento documentado e com fallback.
 8. Criar documentacao de reinstalacao/migracao para qualquer ponte local, proxy, NotebookLM ou rotina externa.
 
 ## Riscos

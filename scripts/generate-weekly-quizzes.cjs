@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
 require('dotenv').config();
+require('dotenv').config({ path: '.env.local', override: true });
 
 async function loadOpenRouter() {
   const mod = await import('@openrouter/sdk');
@@ -146,7 +147,10 @@ Gere ${count} quizzes no formato JSON:
   ]
 }`;
 
-  await prisma.quiz.updateMany({ where: { isActive: true }, data: { isActive: false } });
+  await prisma.quiz.updateMany({
+    where: { isActive: true, audience: 'premium', cadence: 'weekly' },
+    data: { isActive: false },
+  });
 
   const created = [];
   const now = new Date();
@@ -198,6 +202,8 @@ Gere ${count} quizzes no formato JSON:
           description: normalized.description,
           category: normalized.category,
           difficulty: normalized.difficulty,
+          audience: 'premium',
+          cadence: 'weekly',
           isActive: cursor === 0,
           startDate,
           endDate,

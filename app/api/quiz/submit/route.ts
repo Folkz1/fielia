@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       select: { phone: true, name: true },
     });
 
-    if (updatedUser.phone) {
+    if (quiz.audience === 'free' && !premiumAccess.isPremium && updatedUser.phone) {
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
       await enqueuePostQuizCta({
         userId,

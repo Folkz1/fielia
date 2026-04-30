@@ -153,11 +153,15 @@ export async function generateWeeklyQuizzes(options?: {
   questionCount?: number;
   windowDays?: number;
   activateFirst?: boolean;
+  audience?: 'free' | 'premium';
+  cadence?: 'monthly' | 'weekly';
 }) {
   const count = Math.max(1, options?.count || 1);
   const questionCount = Math.max(1, options?.questionCount || 5);
   const windowDays = Math.max(1, options?.windowDays || 7);
   const activateFirst = options?.activateFirst !== false;
+  const audience = options?.audience || 'premium';
+  const cadence = options?.cadence || (audience === 'premium' ? 'weekly' : 'monthly');
 
   const news = await getRecentNews(windowDays);
   const newsDigest = news
@@ -179,7 +183,10 @@ export async function generateWeeklyQuizzes(options?: {
   const now = new Date();
 
   if (activateFirst) {
-    await prisma.quiz.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    await prisma.quiz.updateMany({
+      where: { isActive: true, audience, cadence },
+      data: { isActive: false },
+    });
   }
 
   for (let i = 0; i < Math.min(count, quizzes.length); i++) {
@@ -196,6 +203,8 @@ export async function generateWeeklyQuizzes(options?: {
         description: normalized.description,
         category: normalized.category,
         difficulty: normalized.difficulty,
+        audience,
+        cadence,
         isActive: activateFirst && i === 0,
         startDate,
         endDate,
@@ -213,6 +222,8 @@ export async function generateWeeklyQuizIfMissing() {
   const now = new Date();
   const active = await prisma.quiz.findFirst({
     where: {
+      audience: 'premium',
+      cadence: 'weekly',
       isActive: true,
       startDate: { lte: now },
       endDate: { gte: now },
@@ -224,5 +235,11 @@ export async function generateWeeklyQuizIfMissing() {
   }
 
   const questionCount = Number.parseInt(process.env.QUIZ_WEEKLY_QUESTION_COUNT || '5', 10) || 5;
-  return generateWeeklyQuizzes({ count: 1, questionCount, activateFirst: true });
+  return generateWeeklyQuizzes({
+    count: 1,
+    questionCount,
+    activateFirst: true,
+    audience: 'premium',
+    cadence: 'weekly',
+  });
 }

@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
 require('dotenv').config();
+require('dotenv').config({ path: '.env.local', override: true });
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -38,7 +39,7 @@ async function main() {
   const endDate = endOfWeekUTC(now);
 
   await prisma.quiz.updateMany({
-    where: { isActive: true },
+    where: { isActive: true, audience: 'premium', cadence: 'weekly' },
     data: { isActive: false },
   });
 
@@ -48,6 +49,8 @@ async function main() {
       description: '3 perguntas sobre o Corinthians e notícias recentes.',
       difficulty: 'medium',
       category: 'news',
+      audience: 'premium',
+      cadence: 'weekly',
       isActive: true,
       startDate,
       endDate,

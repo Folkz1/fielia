@@ -19,6 +19,18 @@ interface SendStickerParams {
   sticker: string; // base64 encoded WebP image
 }
 
+function normalizeRecipient(value: string) {
+  const recipient = String(value || '').trim();
+  if (recipient.includes('@')) return recipient;
+
+  const digits = recipient.replace(/\D/g, '');
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+    return `55${digits}`;
+  }
+
+  return digits || recipient;
+}
+
 export class EvolutionAPIClient {
   private baseURL: string;
   private apiKey: string;
@@ -52,7 +64,7 @@ export class EvolutionAPIClient {
 
   async sendTextMessage({ number, text, delay = 0 }: SendTextMessageParams) {
     return this.makeRequest(`/message/sendText/${this.instance}`, 'POST', {
-      number,
+      number: normalizeRecipient(number),
       text,
       delay,
     });
@@ -60,7 +72,7 @@ export class EvolutionAPIClient {
 
   async sendMediaMessage({ number, mediaUrl, caption }: SendMediaMessageParams) {
     return this.makeRequest(`/message/sendMedia/${this.instance}`, 'POST', {
-      number,
+      number: normalizeRecipient(number),
       mediaUrl,
       caption,
     });
@@ -68,7 +80,7 @@ export class EvolutionAPIClient {
 
   async sendSticker({ number, sticker }: SendStickerParams) {
     return this.makeRequest(`/message/sendSticker/${this.instance}`, 'POST', {
-      number,
+      number: normalizeRecipient(number),
       sticker,
     });
   }
@@ -98,7 +110,7 @@ export class EvolutionAPIClient {
     }));
 
     return this.makeRequest(`/message/sendList/${this.instance}`, 'POST', {
-      number,
+      number: normalizeRecipient(number),
       title,
       description: text,
       footerText: footer,

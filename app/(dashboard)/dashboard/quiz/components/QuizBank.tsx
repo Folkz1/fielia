@@ -28,7 +28,7 @@ export function QuizBank({ quizzes, onBack }: QuizBankProps) {
         <CardHeader>
           <CardTitle>Histórico de Desafios</CardTitle>
           <CardDescription>
-            Veja todos os quizzes já realizados.
+            Veja os quizzes liberados para seu plano.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -48,6 +48,9 @@ export function QuizBank({ quizzes, onBack }: QuizBankProps) {
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant={quiz.isActive ? "default" : "secondary"} className={quiz.isActive ? "bg-green-500/20 text-green-500" : "bg-gray-700 text-gray-400"}>
                           {quiz.isActive ? "Ativo" : "Encerrado"}
+                        </Badge>
+                        <Badge variant="outline" className="border-gray-600 text-gray-300">
+                          {quiz.audience === "premium" ? "Premium" : "Free"}
                         </Badge>
                         <span className="text-xs text-gray-500 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />

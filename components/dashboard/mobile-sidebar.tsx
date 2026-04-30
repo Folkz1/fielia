@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/chat", icon: MessageSquare, label: "Chat IA" },
   { href: "/dashboard/memes", icon: Sparkles, label: "Memes IA" },
-  { href: "/dashboard/quiz", icon: Trophy, label: "Quiz Semanal" },
+  { href: "/dashboard/quiz", icon: Trophy, label: "Quiz" },
   { href: "/dashboard/ranking", icon: Crown, label: "Ranking" },
   { href: "/dashboard/news", icon: Newspaper, label: "Noticias" },
   { href: "/dashboard/account", icon: User, label: "Conta" },

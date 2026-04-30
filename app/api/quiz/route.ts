@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
     }
 
     const quizzes = await prisma.quiz.findMany({
+      where: premiumAccess.isPremium ? undefined : { audience: "free" },
       orderBy: { createdAt: "desc" },
       take: 30,
       include: { _count: { select: { questions: true } } },

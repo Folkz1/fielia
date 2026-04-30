@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { getPremiumAccess } from "@/lib/premium";
 import {
   MessageSquare,
   Trophy,
@@ -25,6 +26,7 @@ export default async function DashboardPage() {
   let activeQuiz = null;
 
   if (userId) {
+    const premiumAccess = await getPremiumAccess(userId);
     userData = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -50,9 +52,10 @@ export default async function DashboardPage() {
       totalRanked = await prisma.user.count({ where: { totalPoints: { gt: 0 } } });
     }
 
-    // Quiz ativo da semana
+    // Quiz ativo disponivel para o plano atual
     activeQuiz = await prisma.quiz.findFirst({
       where: {
+        audience: premiumAccess.isPremium ? undefined : "free",
         startDate: { lte: new Date() },
         endDate: { gte: new Date() },
         isActive: true
@@ -162,13 +165,15 @@ export default async function DashboardPage() {
 
       {/* Grid Principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quiz da Semana */}
+        {/* Quiz disponivel */}
         <div className="lg:col-span-2">
           <div className="bg-gradient-to-br from-[var(--gradient-accent-start)]/20 to-transparent border border-[var(--gradient-accent-start)]/30 rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
               <Trophy className="w-8 h-8 text-[var(--gradient-accent-start)]" />
               <div>
-                <h3 className="text-xl font-bold">Quiz da Semana</h3>
+                <h3 className="text-xl font-bold">
+                  {activeQuiz?.audience === "premium" ? "Quiz Premium" : "Quiz Mensal Free"}
+                </h3>
                 <p className="text-sm text-gray-400">
                   {activeQuiz ? `${activeQuiz._count.questions} perguntas disponíveis` : 'Nenhum quiz ativo'}
                 </p>

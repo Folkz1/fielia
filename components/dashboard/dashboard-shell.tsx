@@ -18,7 +18,7 @@ interface DashboardShellProps {
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Inicio",
   "/dashboard/chat": "Chat IA",
-  "/dashboard/quiz": "Quiz Semanal",
+  "/dashboard/quiz": "Quiz",
   "/dashboard/ranking": "Ranking",
   "/dashboard/news": "Noticias",
   "/dashboard/account": "Minha Conta",

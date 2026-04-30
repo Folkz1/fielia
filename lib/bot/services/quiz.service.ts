@@ -1,9 +1,31 @@
 import { prisma } from '@/lib/prisma';
+import { getPremiumAccess } from '@/lib/premium';
+import { enqueuePostQuizCta } from '@/lib/funnel/queue';
 
 type BotTextResponse = {
   content: string;
   type: 'text';
 };
+
+type QuizAudience = 'free' | 'premium';
+
+function quizLabel(audience: string) {
+  return audience === 'premium' ? 'quiz premium da semana' : 'quiz mensal free';
+}
+
+function findActiveQuiz(audience: QuizAudience) {
+  const now = new Date();
+  return prisma.quiz.findFirst({
+    where: {
+      audience,
+      isActive: true,
+      startDate: { lte: now },
+      endDate: { gte: now },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { questions: { orderBy: { order: 'asc' } } },
+  });
+}
 
 export async function startQuiz(userId: string): Promise<BotTextResponse> {
   try {
@@ -22,10 +44,12 @@ export async function startQuiz(userId: string): Promise<BotTextResponse> {
     }
 
     // 2. Get Active Quiz
-    const quiz = await prisma.quiz.findFirst({
-      where: { isActive: true },
-      include: { questions: { orderBy: { order: 'asc' } } },
-    });
+    const premiumAccess = await getPremiumAccess(user.id);
+    let quiz = await findActiveQuiz(premiumAccess.isPremium ? 'premium' : 'free');
+
+    if (!quiz && premiumAccess.isPremium) {
+      quiz = await findActiveQuiz('free');
+    }
 
     if (!quiz || quiz.questions.length === 0) {
       return { 
@@ -45,7 +69,7 @@ export async function startQuiz(userId: string): Promise<BotTextResponse> {
 
     if (existingAttempt) {
       return {
-        content: "Você já respondeu o quiz da semana. Volte na próxima semana para um novo!",
+        content: `Voce ja respondeu o ${quizLabel(quiz.audience)}. Volte quando um novo desafio abrir!`,
         type: 'text',
       };
     }
@@ -80,7 +104,7 @@ export async function processQuizAnswer(
   answer: string
 ): Promise<BotTextResponse> {
   try {
-    const [_, quizId, attemptId] = userAction.split(':');
+    const [, , attemptId] = userAction.split(':');
     
     // 1. Get current state
     const attempt = await prisma.quizAttempt.findUnique({
@@ -161,13 +185,30 @@ export async function processQuizAnswer(
       });
 
       // Update User Points
-      await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: { 
           currentAction: null,
           totalPoints: { increment: updatedPoints }
-        }
+        },
+        select: { phone: true, name: true },
       });
+
+      const premiumAccess = await getPremiumAccess(userId);
+      if (!premiumAccess.isPremium && updatedUser.phone) {
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+        await enqueuePostQuizCta({
+          userId,
+          phone: updatedUser.phone,
+          name: updatedUser.name,
+          registrationUrl: appUrl ? `${appUrl}/dashboard/settings` : '/dashboard/settings',
+          score: updatedPoints,
+          correctAnswers: updatedScore,
+          totalQuestions: questions.length,
+        }).catch((error) => {
+          console.error('Failed to enqueue WhatsApp post-quiz CTA:', error instanceof Error ? error.message : error);
+        });
+      }
 
       return {
         content: feedback + `🏁 *Quiz Finalizado!*\n\nVocê acertou ${updatedScore} de ${questions.length} perguntas.\nGanhou *${updatedPoints} pontos*! 🚀`,

@@ -20,6 +20,10 @@ export function WelcomeScreen({
   onStart,
   onViewBank,
 }: WelcomeScreenProps) {
+  const isPremiumQuiz = activeQuiz?.audience === "premium";
+  const quizBadge = isPremiumQuiz ? "Quiz Semanal Premium" : "Quiz Mensal Free";
+  const attemptLabel = isPremiumQuiz ? "quiz premium" : "quiz mensal free";
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -48,7 +52,7 @@ export function WelcomeScreen({
               <div className="flex justify-between items-start">
                 <div>
                   <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 mb-2">
-                    Quiz da Semana
+                    {quizBadge}
                   </Badge>
                   <CardTitle className="text-2xl text-white">
                     {activeQuiz.title}
@@ -126,7 +130,7 @@ export function WelcomeScreen({
             Regras do Jogo
           </h4>
           <ul className="text-sm text-gray-400 space-y-1 ml-6 list-disc">
-            <li>Você só tem uma tentativa por quiz semanal.</li>
+            <li>Voce so tem uma tentativa por {attemptLabel}.</li>
             <li>Cada pergunta tem um tempo limite de 10 segundos.</li>
             <li>Quanto mais rápido responder, mais pontos bônus você ganha.</li>
             <li>Respostas erradas não pontuam.</li>

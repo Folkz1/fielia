@@ -102,6 +102,8 @@ Primeiro corte web/admin:
 - opcao manual de enviar no grupo Fiel.IA;
 - opcao manual de enviar para usuarios premium ativos;
 - listagem dos ultimos audios/imagens manuais.
+- envio de imagem pela Evolution v2 usando `media`;
+- envio de audio pela Evolution v2 usando `sendWhatsAppAudio`.
 
 Essa versao nao cria custo OpenRouter. Ela apenas recebe arquivos prontos, salva e envia via Evolution quando o admin marca a opcao.
 

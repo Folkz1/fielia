@@ -73,14 +73,21 @@ async function sendMediaSafely(input: {
   fileName?: string;
 }): Promise<SendResult> {
   try {
-    await evolutionAPI.sendMediaMessage({
-      number: input.target,
-      mediaUrl: input.mediaUrl,
-      caption: input.caption,
-      mediatype: input.kind,
-      mimetype: input.mimetype,
-      fileName: input.fileName,
-    });
+    if (input.kind === 'audio') {
+      await evolutionAPI.sendWhatsAppAudio({
+        number: input.target,
+        audioUrl: input.mediaUrl,
+      });
+    } else {
+      await evolutionAPI.sendMediaMessage({
+        number: input.target,
+        mediaUrl: input.mediaUrl,
+        caption: input.caption,
+        mediatype: input.kind,
+        mimetype: input.mimetype,
+        fileName: input.fileName,
+      });
+    }
     return { target: input.target, kind: input.kind, ok: true };
   } catch (error) {
     return {

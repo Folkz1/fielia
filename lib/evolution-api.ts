@@ -22,6 +22,11 @@ interface SendStickerParams {
   sticker: string; // base64 encoded WebP image
 }
 
+interface SendWhatsAppAudioParams {
+  number: string;
+  audioUrl: string;
+}
+
 function normalizeRecipient(value: string) {
   const recipient = String(value || '').trim();
   if (recipient.includes('@')) return recipient;
@@ -76,11 +81,18 @@ export class EvolutionAPIClient {
   async sendMediaMessage({ number, mediaUrl, caption, mediatype, mimetype, fileName }: SendMediaMessageParams) {
     return this.makeRequest(`/message/sendMedia/${this.instance}`, 'POST', {
       number: normalizeRecipient(number),
-      mediaUrl,
+      media: mediaUrl,
       caption,
       mediatype,
       mimetype,
       fileName,
+    });
+  }
+
+  async sendWhatsAppAudio({ number, audioUrl }: SendWhatsAppAudioParams) {
+    return this.makeRequest(`/message/sendWhatsAppAudio/${this.instance}`, 'POST', {
+      number: normalizeRecipient(number),
+      audio: audioUrl,
     });
   }
 

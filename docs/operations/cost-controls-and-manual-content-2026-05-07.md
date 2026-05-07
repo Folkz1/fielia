@@ -113,6 +113,33 @@ Validacao local:
 - `npx tsc --noEmit`
 - `npx eslint "app\api\admin\manual-content\route.ts" "app\api\admin\scheduler\route.ts" "app\(admin)\admin\envio-manual\page.tsx" "app\(admin)\admin\layout.tsx" "lib\evolution-api.ts" "lib\news\sync.ts"`
 
+## Validacao em producao
+
+Validado em 2026-05-07:
+
+- GitHub Actions passou com sucesso para a imagem publicada em `main`.
+- EasyPanel aceitou deploy via webhook.
+- `GET https://fielchat.com/admin/envio-manual` retornou 200.
+- `GET https://fielchat.com/api/admin/manual-content` sem login retornou 401, como esperado.
+- Login admin temporario funcionou e acessou `/admin/envio-manual`.
+- Upload manual sem envio salvou imagem e audio.
+- URLs publicas criadas:
+  - imagem retornou 200 com `image/jpeg`;
+  - audio retornou 200 com `audio/wav`.
+- Envio pelo endpoint admin para o grupo Fiel.IA retornou:
+  - imagem `ok: true`;
+  - audio `ok: true`;
+  - target `120363422991914861@g.us`.
+- Conta admin temporaria usada no teste foi removida.
+- Registros de podcast manual de teste foram removidos do banco apos a validacao.
+- Freios de custo confirmados no EasyPanel apos o deploy:
+  - `CRON_ENABLED=false`;
+  - `WHATSAPP_FUNNEL_ENABLED=false`;
+  - `NEWS_CURATION_USE_AI=false`;
+  - `NEWS_REWRITE_ENABLED=false`;
+  - `BLOG_AUTO_GENERATE=false`;
+  - `FRONTEND_URL=https://fielchat.com`.
+
 ## Reativacao segura quando houver cliente ativo
 
 Antes de religar:

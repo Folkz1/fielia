@@ -12,6 +12,9 @@ interface SendMediaMessageParams {
   number: string;
   mediaUrl: string;
   caption?: string;
+  mediatype?: 'image' | 'video' | 'audio' | 'document';
+  mimetype?: string;
+  fileName?: string;
 }
 
 interface SendStickerParams {
@@ -42,7 +45,7 @@ export class EvolutionAPIClient {
     this.instance = INSTANCE_NAME;
   }
 
-  private async makeRequest(endpoint: string, method: string = 'GET', body?: any) {
+  private async makeRequest(endpoint: string, method: string = 'GET', body?: unknown) {
     const url = `${this.baseURL}${endpoint}`;
     
     const response = await fetch(url, {
@@ -70,11 +73,14 @@ export class EvolutionAPIClient {
     });
   }
 
-  async sendMediaMessage({ number, mediaUrl, caption }: SendMediaMessageParams) {
+  async sendMediaMessage({ number, mediaUrl, caption, mediatype, mimetype, fileName }: SendMediaMessageParams) {
     return this.makeRequest(`/message/sendMedia/${this.instance}`, 'POST', {
       number: normalizeRecipient(number),
       mediaUrl,
       caption,
+      mediatype,
+      mimetype,
+      fileName,
     });
   }
 

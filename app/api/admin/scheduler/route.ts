@@ -35,6 +35,11 @@ export async function GET() {
       whatsappFunnel: {
         enabled: process.env.WHATSAPP_FUNNEL_ENABLED === 'true',
       },
+      recurringAi: {
+        newsCurationUseAI: process.env.NEWS_CURATION_USE_AI === 'true',
+        newsRewriteEnabled: process.env.NEWS_REWRITE_ENABLED !== 'false',
+        blogAutoGenerate: process.env.BLOG_AUTO_GENERATE === 'true',
+      },
       freshRss: {
         url: process.env.FRESHRSS_URL ? 'configured' : 'missing',
         categoryId: process.env.FRESHRSS_CATEGORY_ID || 'not set',

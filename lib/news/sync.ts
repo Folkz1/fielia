@@ -177,7 +177,8 @@ export async function syncNewsFromFreshRSS() {
     let rewriteFailed = 0;
     let contentFallback = 0;
     const createdNewsIds: string[] = [];
-    const rewriteEnabled = true;
+    const rewriteEnabled =
+      (process.env.NEWS_REWRITE_ENABLED || 'true').toLowerCase() === 'true';
     const seenInBatch = new Set<string>();
 
     for (const item of items.slice(0, limit)) {

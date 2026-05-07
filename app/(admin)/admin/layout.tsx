@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Shield, BarChart3, Trophy, Database, Newspaper, Users,
-  Settings, ChevronLeft, Menu, X, Megaphone, Bot, Mic, CreditCard
+  Settings, ChevronLeft, Menu, X, Megaphone, Bot, Mic, CreditCard, FileUp
 } from "lucide-react";
 import Image from "next/image";
 
@@ -15,6 +15,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/usuarios", icon: Users, label: "Usuarios" },
   { href: "/admin/assinaturas", icon: CreditCard, label: "Assinaturas" },
   { href: "/admin/noticias", icon: Newspaper, label: "Conteudo" },
+  { href: "/admin/envio-manual", icon: FileUp, label: "Envio Manual" },
   { href: "/admin/divulgacao", icon: Megaphone, label: "Divulgacao" },
   { href: "/admin/rag", icon: Database, label: "Base RAG" },
   { href: "/admin/ia", icon: Bot, label: "IA Chat" },
@@ -55,7 +56,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Fechar sidebar ao mudar de rota em mobile
   useEffect(() => {
-    setSidebarOpen(false);
+    const id = window.setTimeout(() => setSidebarOpen(false), 0);
+    return () => window.clearTimeout(id);
   }, [pathname]);
 
   if (isAdmin === null) {

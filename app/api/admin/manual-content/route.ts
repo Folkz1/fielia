@@ -45,7 +45,19 @@ function getGroupTarget() {
 }
 
 function getPublicBaseUrl(req: NextRequest) {
-  return (process.env.FRONTEND_URL || req.nextUrl.origin).replace(/\/$/, '');
+  const configured =
+    process.env.FRONTEND_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.AUTH_URL;
+  if (configured) return configured.replace(/\/$/, '');
+
+  const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  if (forwardedHost && !forwardedHost.startsWith('0.0.0.0')) {
+    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, '');
+  }
+
+  return req.nextUrl.origin.replace(/\/$/, '');
 }
 
 function getImageExtension(file: File) {

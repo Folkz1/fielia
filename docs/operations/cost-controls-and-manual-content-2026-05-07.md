@@ -104,6 +104,7 @@ Primeiro corte web/admin:
 - listagem dos ultimos audios/imagens manuais.
 - envio de imagem pela Evolution v2 usando `media`;
 - envio de audio pela Evolution v2 usando `sendWhatsAppAudio`.
+- URLs publicas de midia usam `FRONTEND_URL`/`NEXTAUTH_URL` ou headers de proxy, evitando `0.0.0.0` em producao.
 
 Essa versao nao cria custo OpenRouter. Ela apenas recebe arquivos prontos, salva e envia via Evolution quando o admin marca a opcao.
 

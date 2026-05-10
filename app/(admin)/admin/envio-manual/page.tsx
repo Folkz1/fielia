@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { FileUp, Image as ImageIcon, RefreshCw, Send, Volume2 } from "lucide-react";
+import { Clock, FileUp, Image as ImageIcon, RefreshCw, Send, ShieldCheck, Volume2 } from "lucide-react";
 import Image from "next/image";
 
 type ManualItem = {
@@ -23,6 +23,12 @@ type ManualImage = ManualItem & {
 type ManualContentList = {
   podcasts: ManualPodcast[];
   images: ManualImage[];
+  queue?: {
+    pending: number;
+    sent: number;
+    failed: number;
+    processing: number;
+  };
 };
 
 export default function ManualContentPage() {
@@ -32,8 +38,11 @@ export default function ManualContentPage() {
   const [audio, setAudio] = useState<File | null>(null);
   const [sendToGroup, setSendToGroup] = useState(false);
   const [sendToPremium, setSendToPremium] = useState(false);
+  const [safeSend, setSafeSend] = useState(true);
+  const [scheduledFor, setScheduledFor] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [processingQueue, setProcessingQueue] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [items, setItems] = useState<ManualContentList>({ podcasts: [], images: [] });
 
@@ -64,6 +73,8 @@ export default function ManualContentPage() {
       data.set("caption", caption);
       data.set("sendToGroup", String(sendToGroup));
       data.set("sendToPremium", String(sendToPremium));
+      data.set("safeSend", String(safeSend));
+      if (scheduledFor) data.set("scheduledFor", scheduledFor);
       if (image) data.set("image", image);
       if (audio) data.set("audio", audio);
 
@@ -82,19 +93,46 @@ export default function ManualContentPage() {
       const sent = Array.isArray(payload.sent)
         ? payload.sent.filter((item: { ok: boolean }) => item.ok).length
         : 0;
+      const queued = payload.queued?.queued || 0;
       setResult(
-        failed
+        queued
+          ? `Conteudo salvo e agendado na fila segura (${queued} itens para ${payload.queued.targets} destino(s)).`
+          : failed
           ? `Conteudo salvo. Envios OK: ${sent}. Falhas: ${failed}.`
           : `Conteudo salvo${sent ? ` e enviado (${sent} midias/mensagens).` : "."}`
       );
       setImage(null);
       setAudio(null);
       setCaption("");
+      setScheduledFor("");
       await loadItems();
     } catch (error) {
       setResult(error instanceof Error ? error.message : "Erro ao salvar conteudo");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function processQueueNow() {
+    if (!confirm("Processar agora os envios manuais vencidos? Isso pode enviar mensagens reais no WhatsApp.")) {
+      return;
+    }
+    setProcessingQueue(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/manual-content/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 10 }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "Erro ao processar fila");
+      setResult(`Fila processada. Itens: ${payload.processed}. Enviados: ${payload.sent}. Falhas: ${payload.failed}.`);
+      await loadItems();
+    } catch (error) {
+      setResult(error instanceof Error ? error.message : "Erro ao processar fila");
+    } finally {
+      setProcessingQueue(false);
     }
   }
 
@@ -120,15 +158,41 @@ export default function ManualContentPage() {
             Suba imagem, audio e legenda para publicar no grupo ou preparar envio premium.
           </p>
         </div>
-        <button
-          onClick={loadItems}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Atualizar
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={processQueueNow}
+            disabled={processingQueue}
+            className="inline-flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm text-orange-100 hover:bg-orange-500/20 disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+            Processar fila
+          </button>
+          <button
+            onClick={loadItems}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </button>
+        </div>
       </div>
+
+      {items.queue && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[
+            ["Pendentes", items.queue.pending],
+            ["Processando", items.queue.processing],
+            ["Enviados", items.queue.sent],
+            ["Falhas", items.queue.failed],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="mt-1 text-xl font-bold text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {result && (
         <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-100">
@@ -168,6 +232,39 @@ export default function ManualContentPage() {
               Enviar para premium
             </label>
           </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-white/15 bg-black/30 px-3 py-3 text-sm text-gray-200">
+            <input
+              type="checkbox"
+              checked={safeSend}
+              onChange={(event) => setSafeSend(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-orange-500"
+            />
+            <span>
+              <span className="flex items-center gap-2 font-medium text-white">
+                <ShieldCheck className="h-4 w-4 text-orange-500" />
+                Envio seguro
+              </span>
+              <span className="mt-1 block text-xs text-gray-500">
+                Coloca na fila com retry e intervalo entre mensagens. Para premium/listas, a fila e obrigatoria.
+              </span>
+            </span>
+          </label>
+
+          <label className="space-y-1">
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              <Clock className="h-3.5 w-3.5" />
+              Agendar para
+            </span>
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(event) => setScheduledFor(event.target.value)}
+              className="w-full rounded-md border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/60"
+            />
+          </label>
         </div>
 
         <label className="space-y-1 block">

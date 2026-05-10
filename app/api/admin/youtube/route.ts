@@ -10,6 +10,7 @@ import {
   transcribeBatch,
   diagProxy,
 } from "@/lib/youtube/transcript";
+import { enqueueYouTubeRagJob } from "@/lib/youtube/jobs";
 
 /**
  * Middleware de autenticacao admin
@@ -53,11 +54,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const runInBackground = body.background === true || body.async === true;
+
     // Modo: video unico
     if (body.videoUrl) {
       const videoId = extractVideoId(body.videoUrl);
       if (!videoId) {
         return NextResponse.json({ error: "URL de video invalida" }, { status: 400 });
+      }
+
+      if (runInBackground) {
+        const job = enqueueYouTubeRagJob({
+          kind: "video",
+          inputUrl: body.videoUrl,
+          videoId,
+          title: body.title,
+          category,
+        });
+
+        return NextResponse.json({ queued: true, jobs: [job] }, { status: 202 });
       }
 
       // Buscar info do video (titulo) - nao bloquear por hasCaptions
@@ -71,6 +86,23 @@ export async function POST(req: NextRequest) {
     // Modo: canal (listar e transcrever)
     if (body.channelUrl) {
       const limit = Math.min(body.limit || 5, 20);
+
+      const channelInfo = extractChannelInfo(body.channelUrl);
+      if (!channelInfo) {
+        return NextResponse.json({ error: "URL de canal invalida" }, { status: 400 });
+      }
+
+      if (runInBackground) {
+        const job = enqueueYouTubeRagJob({
+          kind: "channel",
+          inputUrl: body.channelUrl,
+          channelUrl: body.channelUrl,
+          category,
+          limit,
+        });
+
+        return NextResponse.json({ queued: true, jobs: [job] }, { status: 202 });
+      }
 
       const videos = await getChannelVideos(body.channelUrl, limit);
       if (videos.length === 0) {

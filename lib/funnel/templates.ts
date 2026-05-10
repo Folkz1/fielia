@@ -4,7 +4,8 @@ export type FunnelStage =
   | 'registration_link'
   | 'quiz_reminder'
   | 'quiz_open'
-  | 'post_quiz_cta';
+  | 'post_quiz_cta'
+  | 'manual_content';
 
 export type FunnelTemplateParams = {
   name?: string | null;
@@ -41,6 +42,10 @@ export function buildFunnelMessage(stage: FunnelStage, params: FunnelTemplatePar
 
   if (stage === 'quiz_open') {
     return `Quiz liberado, ${name}. Responda agora e veja seu resultado: ${quizUrl}`;
+  }
+
+  if (stage === 'manual_content') {
+    return '';
   }
 
   const scoreText =

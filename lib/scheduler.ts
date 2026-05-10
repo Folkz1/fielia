@@ -4,7 +4,12 @@ import { runNewsCuration } from '@/lib/news/curation';
 import { sendNewsletterToPremiumUsers } from '@/lib/news/newsletter';
 import { generateWeeklyQuizIfMissing } from '@/lib/quiz/generator';
 import { generateDailyPodcast } from '@/lib/podcast/daily';
-import { isFunnelEnabled, processDueFunnelMessages } from '@/lib/funnel/queue';
+import {
+  isFunnelEnabled,
+  isManualContentSendEnabled,
+  processDueFunnelMessages,
+  processDueManualContentMessages,
+} from '@/lib/funnel/queue';
 
 let started = false;
 
@@ -26,7 +31,10 @@ async function runTaskSafe(name: string, task: () => Promise<unknown>) {
 }
 
 export function startScheduler() {
-  if (started || !isEnabled() || process.env.NODE_ENV !== 'production') {
+  const recurringCronEnabled = isEnabled();
+  const manualContentEnabled = isManualContentSendEnabled();
+
+  if (started || (!recurringCronEnabled && !manualContentEnabled) || process.env.NODE_ENV !== 'production') {
     return;
   }
 
@@ -39,27 +47,42 @@ export function startScheduler() {
   const newsletterSchedule = process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *';
   const quizSchedule = process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1';
   const funnelSchedule = process.env.CRON_WHATSAPP_FUNNEL_SCHEDULE || '* * * * *';
+  const manualContentSchedule = process.env.CRON_MANUAL_CONTENT_SEND_SCHEDULE || '* * * * *';
 
-  cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
-  cron.schedule(curateSchedule, () => runTaskSafe('news curation', runNewsCuration));
-  cron.schedule(podcastSchedule, () => runTaskSafe('daily podcast', generateDailyPodcast));
-  cron.schedule(newsletterSchedule, () =>
-    runTaskSafe('newsletter', sendNewsletterToPremiumUsers)
-  );
-  cron.schedule(quizSchedule, () =>
-    runTaskSafe('weekly quiz generation', generateWeeklyQuizIfMissing)
-  );
-  if (isFunnelEnabled()) {
+  if (recurringCronEnabled) {
+    cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
+    cron.schedule(curateSchedule, () => runTaskSafe('news curation', runNewsCuration));
+    cron.schedule(podcastSchedule, () => runTaskSafe('daily podcast', generateDailyPodcast));
+    cron.schedule(newsletterSchedule, () =>
+      runTaskSafe('newsletter', sendNewsletterToPremiumUsers)
+    );
+    cron.schedule(quizSchedule, () =>
+      runTaskSafe('weekly quiz generation', generateWeeklyQuizIfMissing)
+    );
+  }
+
+  if (recurringCronEnabled && isFunnelEnabled()) {
     cron.schedule(funnelSchedule, () =>
       runTaskSafe('whatsapp funnel queue', processDueFunnelMessages)
     );
   }
 
-  log(`sync schedule: ${syncSchedule}`);
-  log(`curation schedule: ${curateSchedule}`);
-  log(`podcast schedule: ${podcastSchedule}`);
-  log(`newsletter schedule: ${newsletterSchedule}`);
-  log(`weekly quiz schedule: ${quizSchedule}`);
+  if (manualContentEnabled) {
+    cron.schedule(manualContentSchedule, () =>
+      runTaskSafe('manual content whatsapp queue', processDueManualContentMessages)
+    );
+  }
+
+  log(`recurring cron enabled: ${recurringCronEnabled}`);
+  if (recurringCronEnabled) {
+    log(`sync schedule: ${syncSchedule}`);
+    log(`curation schedule: ${curateSchedule}`);
+    log(`podcast schedule: ${podcastSchedule}`);
+    log(`newsletter schedule: ${newsletterSchedule}`);
+    log(`weekly quiz schedule: ${quizSchedule}`);
+  }
   log(`whatsapp funnel enabled: ${isFunnelEnabled()}`);
-  if (isFunnelEnabled()) log(`whatsapp funnel schedule: ${funnelSchedule}`);
+  if (recurringCronEnabled && isFunnelEnabled()) log(`whatsapp funnel schedule: ${funnelSchedule}`);
+  log(`manual content whatsapp enabled: ${manualContentEnabled}`);
+  if (manualContentEnabled) log(`manual content whatsapp schedule: ${manualContentSchedule}`);
 }

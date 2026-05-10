@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Database, Search, RefreshCw, Trash2, FileText, Upload, Plus, Youtube, Link, Tv, X, CheckSquare, Square } from "lucide-react";
+import { Database, Search, RefreshCw, Trash2, FileText, Upload, Plus, Youtube, Link, Tv, X, CheckSquare, Square, Clock } from "lucide-react";
 
 interface KnowledgeItem {
   id: string;
@@ -40,6 +40,42 @@ interface VideoPreview {
   thumbnailUrl?: string;
 }
 
+interface YtJobResult {
+  videoId: string;
+  title: string;
+  chunks: number;
+  success: boolean;
+  error?: string;
+}
+
+interface YtJob {
+  id: string;
+  kind: "video" | "channel";
+  inputUrl: string;
+  title?: string;
+  category: string;
+  status: "queued" | "running" | "success" | "partial" | "failed";
+  progress: string;
+  totalVideos: number;
+  processedVideos: number;
+  successVideos: number;
+  totalChunks: number;
+  error?: string;
+  results: YtJobResult[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface YtJobSummary {
+  queued: number;
+  running: number;
+  success: number;
+  partial: number;
+  failed: number;
+  active: number;
+  concurrency: number;
+}
+
 type ActiveTab = "documents" | "youtube" | "pdf";
 
 export default function AdminRAGPage() {
@@ -72,6 +108,10 @@ export default function AdminRAGPage() {
   const [ytLimit, setYtLimit] = useState(5);
   const [ytProcessing, setYtProcessing] = useState(false);
   const [ytResult, setYtResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [ytBackground, setYtBackground] = useState(true);
+  const [ytJobs, setYtJobs] = useState<YtJob[]>([]);
+  const [ytJobSummary, setYtJobSummary] = useState<YtJobSummary | null>(null);
+  const [ytJobsLoading, setYtJobsLoading] = useState(false);
   const [ytChannels, setYtChannels] = useState<YouTubeChannel[]>([]);
   const [ytVideos, setYtVideos] = useState<VideoPreview[]>([]);
   const [ytLoadingVideos, setYtLoadingVideos] = useState(false);
@@ -179,6 +219,26 @@ export default function AdminRAGPage() {
     }
   }
 
+  async function fetchYtJobs(showLoading = false) {
+    if (showLoading) setYtJobsLoading(true);
+    try {
+      const res = await fetch("/api/admin/youtube/jobs?limit=20");
+      if (!res.ok) return;
+      const data = await res.json();
+      const jobs = data.jobs || [];
+      setYtJobs(jobs);
+      setYtJobSummary(data.summary || null);
+      if (jobs.some((job: YtJob) => job.status === "success" || job.status === "partial")) {
+        fetchYtSources();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error("Erro ao buscar fila YouTube:", error);
+    } finally {
+      if (showLoading) setYtJobsLoading(false);
+    }
+  }
+
   async function handleDeleteSource(sourceUrl: string) {
     if (!confirm("Remover este vídeo e todos os seus chunks do RAG?")) return;
     setDeletingSource(sourceUrl);
@@ -208,7 +268,18 @@ export default function AdminRAGPage() {
     if (activeTab === "youtube") {
       fetchChannels();
       fetchYtSources();
+      fetchYtJobs(true);
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "youtube") return;
+
+    const timer = window.setInterval(() => {
+      fetchYtJobs();
+    }, 5000);
+
+    return () => window.clearInterval(timer);
   }, [activeTab]);
 
   async function handleDelete(id: string) {
@@ -293,7 +364,10 @@ export default function AdminRAGPage() {
     setYtResult(null);
 
     try {
-      const body: Record<string, unknown> = { category: ytCategory };
+      const body: Record<string, unknown> = {
+        category: ytCategory,
+        background: ytBackground,
+      };
 
       if (isVideoUrl(ytUrl)) {
         body.videoUrl = ytUrl;
@@ -315,7 +389,15 @@ export default function AdminRAGPage() {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.videosTranscribed !== undefined) {
+        if (data.queued) {
+          setYtResult({
+            success: true,
+            message: "Transcricao enviada para a fila. Pode colar outro link enquanto ela roda em segundo plano.",
+          });
+          setYtUrl("");
+          setYtVideos([]);
+          fetchYtJobs(true);
+        } else if (data.videosTranscribed !== undefined) {
           setYtResult({
             success: true,
             message: `${data.videosTranscribed}/${data.videosFound} videos transcritos. ${data.totalChunks} chunks criados.`,
@@ -790,6 +872,24 @@ export default function AdminRAGPage() {
                 )}
               </div>
 
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={ytBackground}
+                  onChange={(e) => setYtBackground(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-red-600"
+                />
+                <span>
+                  <span className="flex items-center gap-2 font-medium text-white">
+                    <Clock className="h-4 w-4 text-red-400" />
+                    Processar em segundo plano
+                  </span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    Enfileira a transcricao e libera a tela para adicionar novos links.
+                  </span>
+                </span>
+              </label>
+
               <div className="flex gap-3">
                 {isChannelUrl(ytUrl) && (
                   <button
@@ -813,16 +913,96 @@ export default function AdminRAGPage() {
                   {ytProcessing ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Transcrevendo...
+                      {ytBackground ? "Enfileirando..." : "Transcrevendo..."}
                     </>
                   ) : (
                     <>
                       <Upload className="w-4 h-4" />
-                      Transcrever e Adicionar ao RAG
+                      {ytBackground ? "Enviar para Fila do RAG" : "Transcrever Agora"}
                     </>
                   )}
                 </button>
               </div>
+            </div>
+
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-red-400" />
+                  Fila de Transcricoes
+                  {ytJobSummary && (
+                    <span className="ml-1 text-xs font-normal px-2 py-0.5 rounded-full bg-red-600/20 text-red-400">
+                      {ytJobSummary.active}/{ytJobSummary.concurrency} rodando
+                    </span>
+                  )}
+                </h3>
+                <button
+                  onClick={() => fetchYtJobs(true)}
+                  disabled={ytJobsLoading}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  title="Atualizar fila"
+                >
+                  <RefreshCw className={`w-4 h-4 ${ytJobsLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+
+              {ytJobSummary && (
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {[
+                    ["Na fila", ytJobSummary.queued],
+                    ["Rodando", ytJobSummary.running],
+                    ["OK", ytJobSummary.success],
+                    ["Parcial", ytJobSummary.partial],
+                    ["Falhas", ytJobSummary.failed],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-lg font-bold text-white">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ytJobs.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhuma transcricao em andamento.</p>
+              ) : (
+                <div className="space-y-2">
+                  {ytJobs.map((job) => {
+                    const statusClass =
+                      job.status === "success"
+                        ? "bg-green-500/15 text-green-300"
+                        : job.status === "failed"
+                          ? "bg-red-500/15 text-red-300"
+                          : job.status === "partial"
+                            ? "bg-yellow-500/15 text-yellow-300"
+                            : "bg-blue-500/15 text-blue-300";
+
+                    return (
+                      <div key={job.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">
+                              {job.title || (job.kind === "channel" ? "Canal YouTube" : job.inputUrl)}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-gray-500">{job.inputUrl}</p>
+                          </div>
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass}`}>
+                            {job.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-400">
+                          <span>{job.progress}</span>
+                          <span>{job.processedVideos}/{job.totalVideos || 1} videos</span>
+                          <span>{job.totalChunks} chunks</span>
+                        </div>
+                        {job.error && (
+                          <p className="mt-2 text-xs text-red-300">{job.error}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Preview de videos do canal */}

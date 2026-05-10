@@ -31,9 +31,16 @@ export async function GET() {
         newsletter: process.env.CRON_NEWSLETTER_SCHEDULE || '0 9 * * *',
         weeklyQuiz: process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1',
         whatsappFunnel: process.env.CRON_WHATSAPP_FUNNEL_SCHEDULE || '* * * * *',
+        manualContentSend: process.env.CRON_MANUAL_CONTENT_SEND_SCHEDULE || '* * * * *',
       },
       whatsappFunnel: {
         enabled: process.env.WHATSAPP_FUNNEL_ENABLED === 'true',
+      },
+      manualContentSend: {
+        enabled: process.env.WHATSAPP_MANUAL_CONTENT_ENABLED === 'true',
+        batchLimit: Number.parseInt(process.env.WHATSAPP_MANUAL_CONTENT_BATCH_LIMIT || '10', 10) || 10,
+        queueDelayMs: Number.parseInt(process.env.WHATSAPP_QUEUE_DELAY_MS || '8000', 10) || 8000,
+        queueJitterMs: Number.parseInt(process.env.WHATSAPP_QUEUE_JITTER_MS || '3000', 10) || 3000,
       },
       recurringAi: {
         newsCurationUseAI: process.env.NEWS_CURATION_USE_AI === 'true',

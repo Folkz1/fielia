@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { evolutionAPI } from '@/lib/evolution-api';
+import { enqueueManualContentNotifications } from '@/lib/funnel/queue';
 
 export const runtime = 'nodejs';
 
@@ -131,7 +132,7 @@ export async function GET() {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
   }
 
-  const [podcasts, images] = await Promise.all([
+  const [podcasts, images, pending, sent, failed, processing] = await Promise.all([
     prisma.podcast.findMany({
       where: { ttsModel: 'manual-upload' },
       orderBy: { createdAt: 'desc' },
@@ -155,9 +156,25 @@ export async function GET() {
         createdAt: true,
       },
     }),
+    prisma.whatsAppFunnelMessage.count({
+      where: { stage: 'manual_content', status: 'pending' },
+    }),
+    prisma.whatsAppFunnelMessage.count({
+      where: { stage: 'manual_content', status: 'sent' },
+    }),
+    prisma.whatsAppFunnelMessage.count({
+      where: { stage: 'manual_content', status: 'failed' },
+    }),
+    prisma.whatsAppFunnelMessage.count({
+      where: { stage: 'manual_content', status: 'processing' },
+    }),
   ]);
 
-  return NextResponse.json({ podcasts, images });
+  return NextResponse.json({
+    podcasts,
+    images,
+    queue: { pending, sent, failed, processing },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -171,6 +188,8 @@ export async function POST(req: NextRequest) {
   const caption = String(form.get('caption') || '').trim();
   const sendToGroup = String(form.get('sendToGroup') || 'false') === 'true';
   const sendToPremium = String(form.get('sendToPremium') || 'false') === 'true';
+  const safeSend = String(form.get('safeSend') || 'false') === 'true';
+  const scheduledForRaw = String(form.get('scheduledFor') || '').trim();
   const imageFile = form.get('image');
   const audioFile = form.get('audio');
 
@@ -257,9 +276,13 @@ export async function POST(req: NextRequest) {
   }
 
   const targets: string[] = [];
+  const queueTargets: Array<{ phone: string; targetKind: 'group' | 'premium'; userId?: string | null }> = [];
   if (sendToGroup) {
     const groupTarget = getGroupTarget();
-    if (groupTarget) targets.push(groupTarget);
+    if (groupTarget) {
+      targets.push(groupTarget);
+      queueTargets.push({ phone: groupTarget, targetKind: 'group' });
+    }
   }
 
   if (sendToPremium) {
@@ -272,13 +295,42 @@ export async function POST(req: NextRequest) {
       select: { phone: true },
       take: 500,
     });
-    targets.push(...premiumUsers.map((user) => user.phone).filter((phone): phone is string => Boolean(phone)));
+    for (const user of premiumUsers) {
+      if (user.phone) {
+        targets.push(user.phone);
+        queueTargets.push({ phone: user.phone, targetKind: 'premium' });
+      }
+    }
   }
 
   const uniqueTargets = Array.from(new Set(targets));
   const sent: SendResult[] = [];
+  const shouldQueue = safeSend || Boolean(scheduledForRaw) || sendToPremium || uniqueTargets.length > 1;
+  let queued: { targets: number; queued: number } | null = null;
 
-  for (const target of uniqueTargets) {
+  if (uniqueTargets.length > 0 && shouldQueue) {
+    const scheduledFor = scheduledForRaw ? new Date(scheduledForRaw) : new Date();
+    if (Number.isNaN(scheduledFor.getTime())) {
+      return NextResponse.json({ error: 'Data de agendamento invalida' }, { status: 400 });
+    }
+
+    queued = await enqueueManualContentNotifications({
+      title,
+      caption,
+      targets: queueTargets,
+      scheduledFor,
+      imageUrl: created.image?.absoluteUrl,
+      imageMimetype: imageFile instanceof File ? imageFile.type : undefined,
+      imageFileName: `${title}.${imageFile instanceof File ? getImageExtension(imageFile) : 'jpg'}`,
+      imageId: created.image?.id,
+      audioUrl: created.podcast?.absoluteUrl,
+      audioMimetype: audioFile instanceof File ? audioFile.type : undefined,
+      audioFileName: `${title}.${audioFile instanceof File ? getAudioExtension(audioFile) : 'mp3'}`,
+      podcastId: created.podcast?.id,
+    });
+  }
+
+  for (const target of shouldQueue ? [] : uniqueTargets) {
     if (created.image) {
       sent.push(
         await sendMediaSafely({
@@ -312,5 +364,7 @@ export async function POST(req: NextRequest) {
     created,
     sent,
     sendTargets: uniqueTargets.length,
+    queued,
+    deliveryMode: shouldQueue ? 'queued' : 'immediate',
   });
 }

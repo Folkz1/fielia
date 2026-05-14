@@ -10,6 +10,16 @@ export const runtime = 'nodejs';
 type WhatsAppPayload = Record<string, any>;
 
 const DEFAULT_FIELIA_GROUP_ID = '120363422991914861@g.us';
+const MESSAGE_DEDUPE_TTL_MS = 10 * 60 * 1000;
+const MAX_DEDUPE_KEYS = 500;
+
+const globalForWebhook = globalThis as unknown as {
+  fieliaWebhookMessageKeys?: Map<string, number>;
+};
+
+const processedMessageKeys =
+  globalForWebhook.fieliaWebhookMessageKeys ?? new Map<string, number>();
+globalForWebhook.fieliaWebhookMessageKeys = processedMessageKeys;
 
 function getAllowedGroupIds() {
   return String(
@@ -24,6 +34,14 @@ function getAllowedGroupIds() {
 
 function getBotScope() {
   return String(process.env.WHATSAPP_BOT_SCOPE || 'group').toLowerCase();
+}
+
+function getAppUrl() {
+  return String(
+    process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.FRONTEND_URL ||
+      'https://fielchat.com'
+  ).replace(/\/$/, '');
 }
 
 function normalizeTriggerText(value: string) {
@@ -101,12 +119,48 @@ function getMessageText(message: WhatsAppPayload) {
   );
 }
 
+function getMessageDedupeKey(body: WhatsAppPayload, message: WhatsAppPayload) {
+  const id = message?.key?.id;
+  const remoteJid = message?.key?.remoteJid;
+  if (!id || !remoteJid) return null;
+
+  const participant =
+    message?.key?.participant ||
+    message?.participant ||
+    message?.sender ||
+    'direct';
+
+  return [body?.instance || 'unknown', remoteJid, participant, id].join(':');
+}
+
+function isDuplicateMessage(dedupeKey: string | null) {
+  if (!dedupeKey) return false;
+
+  const now = Date.now();
+  for (const [key, expiresAt] of processedMessageKeys) {
+    if (expiresAt <= now || processedMessageKeys.size > MAX_DEDUPE_KEYS) {
+      processedMessageKeys.delete(key);
+    }
+  }
+
+  const existing = processedMessageKeys.get(dedupeKey);
+  if (existing && existing > now) return true;
+
+  processedMessageKeys.set(dedupeKey, now + MESSAGE_DEDUPE_TTL_MS);
+  return false;
+}
+
+function isDirectGroupCommand(normalized: string) {
+  const commands = ['menu', 'ajuda', 'noticia', 'noticias', 'news', 'quiz', 'ranking', 'premium', 'assinar'];
+  return commands.some((command) => normalized === command || normalized.startsWith(`${command} `));
+}
+
 function shouldAnswerGroupMessage(messageText: string) {
   const mode = String(process.env.WHATSAPP_GROUP_REPLY_MODE || 'mention').toLowerCase();
   if (mode === 'always') return true;
 
   const normalized = normalizeTriggerText(messageText);
-  if (['menu', 'quiz', 'ranking', '1', '2', '4'].includes(normalized)) return true;
+  if (isDirectGroupCommand(normalized)) return true;
 
   const triggerAliases = [
     'fielia',
@@ -146,6 +200,48 @@ function stripGroupTrigger(messageText: string) {
     .replace(/^fiel ia[:,\s-]*/i, '')
     .replace(/^fan[aá]tico[:,\s-]*/i, '')
     .trim();
+}
+
+function groupHelpResponse(): BotResponse {
+  return {
+    content:
+      'No grupo eu respondo pedido direto, sem menu individual.\n\n' +
+      'Pode chamar assim:\n' +
+      '*fanatico noticias*\n' +
+      '*fanatico quiz*\n' +
+      '*fanatico ranking*\n' +
+      '*fanatico premium*\n\n' +
+      'Perfil e conta ficam no app: ' + `${getAppUrl()}/dashboard/account`,
+    type: 'text',
+  };
+}
+
+function groupQuizResponse(): BotResponse {
+  return {
+    content:
+      'Quiz da Fiel:\n' +
+      `${getAppUrl()}/quiz-free\n\n` +
+      'Responde pelo app para salvar seus pontos no ranking.',
+    type: 'text',
+  };
+}
+
+function groupSubscribeResponse(): BotResponse {
+  return {
+    content:
+      'Premium e pago desde o inicio, sem free trial e sem sorteio.\n\n' +
+      'Para assinar: ' + `${getAppUrl()}/assinar`,
+    type: 'text',
+  };
+}
+
+function groupProfileResponse(): BotResponse {
+  return {
+    content:
+      'Perfil e dado individual, entao nao exponho isso no grupo.\n\n' +
+      'Acesse sua conta aqui: ' + `${getAppUrl()}/dashboard/account`,
+    type: 'text',
+  };
 }
 
 function getWebhookDebugPayload(body: WhatsAppPayload) {
@@ -188,18 +284,38 @@ async function trySend(fn: () => Promise<unknown>, context: string): Promise<boo
 
 async function routeGroupMessage(userId: string, messageText: string): Promise<BotResponse> {
   const stripped = stripGroupTrigger(messageText);
-  const normalized = stripped.toLowerCase();
+  const normalized = normalizeTriggerText(stripped);
+
+  if (!normalized || normalized === '/menu' || normalized === 'menu' || normalized === 'ajuda') {
+    return groupHelpResponse();
+  }
 
   if (
-    normalized === '/menu' ||
-    normalized === 'menu' ||
-    normalized === 'quiz' ||
-    normalized === 'ranking' ||
-    normalized === '1' ||
-    normalized === '2' ||
-    normalized === '4'
+    normalized.includes('noticia') ||
+    normalized.includes('news')
   ) {
-    return routeMessage(userId, stripped || '/menu', 'whatsapp_group');
+    return routeMessage(userId, 'noticias', 'whatsapp_group');
+  }
+
+  if (normalized === 'quiz' || normalized.startsWith('quiz ')) {
+    return groupQuizResponse();
+  }
+
+  if (normalized === 'ranking' || normalized.startsWith('ranking ')) {
+    return routeMessage(userId, 'ranking', 'whatsapp_group');
+  }
+
+  if (
+    normalized === 'premium' ||
+    normalized === 'assinar' ||
+    normalized.includes('premium') ||
+    normalized.includes('assinar')
+  ) {
+    return groupSubscribeResponse();
+  }
+
+  if (normalized === 'perfil' || normalized.includes('meu perfil') || normalized.includes('minha conta')) {
+    return groupProfileResponse();
   }
 
   try {
@@ -216,7 +332,7 @@ async function routeGroupMessage(userId: string, messageText: string): Promise<B
     console.error('[Webhook] Group AI fallback:', error instanceof Error ? error.message : error);
     return {
       content:
-        'Estou com a IA instavel agora, Fiel. Posso ajudar com *menu*, *quiz* ou *ranking* enquanto isso.',
+        'Estou com a IA instavel agora. Me pede direto: *fanatico noticias*, *fanatico quiz* ou *fanatico ranking*.',
       type: 'text',
     };
   }
@@ -323,6 +439,11 @@ export async function POST(req: NextRequest) {
 
     if (isGroup && !shouldAnswerGroupMessage(messageText)) {
       return NextResponse.json({ status: 'ignored', reason: 'group_not_triggered' });
+    }
+
+    const dedupeKey = getMessageDedupeKey(body, message);
+    if (isDuplicateMessage(dedupeKey)) {
+      return NextResponse.json({ status: 'ignored', reason: 'duplicate_message' });
     }
 
     const userWhatsappId = isGroup ? `${fromJid}:${participantNumber}` : fromJid;

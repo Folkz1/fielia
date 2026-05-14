@@ -43,6 +43,46 @@ function getParticipantNumber(message: WhatsAppPayload, fallback: string) {
     : String(participant);
 }
 
+function getOwnWhatsAppIdentifiers() {
+  return String(
+    [
+      process.env.FIELIA_WHATSAPP_SENDER_JID,
+      process.env.FIELIA_WHATSAPP_OWN_PARTICIPANT_IDS,
+      process.env.EVOLUTION_OWNER_JID,
+    ]
+      .filter(Boolean)
+      .join(',')
+  )
+    .split(',')
+    .flatMap((item) => {
+      const normalized = String(item).trim().toLowerCase();
+      if (!normalized) return [];
+      const digits = normalized.replace(/\D/g, '');
+      return digits ? [normalized, digits] : [normalized];
+    })
+    .filter(Boolean);
+}
+
+function isOwnParticipant(message: WhatsAppPayload) {
+  const ownIdentifiers = getOwnWhatsAppIdentifiers();
+  if (ownIdentifiers.length === 0) return false;
+
+  const candidates = [
+    message?.key?.participant,
+    message?.participant,
+    message?.sender,
+    message?.participantPn,
+    message?.key?.participantPn,
+  ].flatMap((value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return [];
+    const digits = normalized.replace(/\D/g, '');
+    return digits ? [normalized, digits] : [normalized];
+  });
+
+  return candidates.some((candidate) => ownIdentifiers.includes(candidate));
+}
+
 function getMessageText(message: WhatsAppPayload) {
   return (
     message?.message?.conversation ||
@@ -224,8 +264,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'ignored', reason: 'invalid_structure_no_from' });
     }
 
-    if (Boolean(key?.fromMe)) {
-      return NextResponse.json({ status: 'ignored', reason: 'from_me' });
+    if (Boolean(key?.fromMe) || isOwnParticipant(message)) {
+      return NextResponse.json({ status: 'ignored', reason: Boolean(key?.fromMe) ? 'from_me' : 'own_participant' });
     }
 
     const isGroup = fromJid.endsWith('@g.us');

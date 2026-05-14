@@ -184,6 +184,12 @@ function shouldAnswerGroupMessage(messageText: string) {
 
   if (calledByAlias) return true;
 
+  const mentionsAlias = triggerAliases.some((alias) => normalized.includes(alias));
+  const hasGroupAction = ['noticia', 'news', 'quiz', 'ranking', 'premium', 'assinar', 'menu', 'ajuda'].some(
+    (keyword) => normalized.includes(keyword)
+  );
+  if (mentionsAlias && hasGroupAction) return true;
+
   return (
     normalized.startsWith('/menu') ||
     normalized.startsWith('/ia') ||
@@ -297,11 +303,11 @@ async function routeGroupMessage(userId: string, messageText: string): Promise<B
     return routeMessage(userId, 'noticias', 'whatsapp_group');
   }
 
-  if (normalized === 'quiz' || normalized.startsWith('quiz ')) {
+  if (normalized === 'quiz' || normalized.startsWith('quiz ') || normalized.includes(' quiz')) {
     return groupQuizResponse();
   }
 
-  if (normalized === 'ranking' || normalized.startsWith('ranking ')) {
+  if (normalized === 'ranking' || normalized.startsWith('ranking ') || normalized.includes('ranking')) {
     return routeMessage(userId, 'ranking', 'whatsapp_group');
   }
 

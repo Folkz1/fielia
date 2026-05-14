@@ -26,6 +26,14 @@ function getBotScope() {
   return String(process.env.WHATSAPP_BOT_SCOPE || 'group').toLowerCase();
 }
 
+function normalizeTriggerText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function isAllowedGroup(fromJid: string) {
   const allowedGroups = getAllowedGroupIds();
   return allowedGroups.length > 0 && allowedGroups.includes(fromJid);
@@ -97,16 +105,36 @@ function shouldAnswerGroupMessage(messageText: string) {
   const mode = String(process.env.WHATSAPP_GROUP_REPLY_MODE || 'mention').toLowerCase();
   if (mode === 'always') return true;
 
-  const normalized = messageText.trim().toLowerCase();
+  const normalized = normalizeTriggerText(messageText);
   if (['menu', 'quiz', 'ranking', '1', '2', '4'].includes(normalized)) return true;
+
+  const triggerAliases = [
+    'fielia',
+    'fiel ia',
+    'fiel.ia',
+    'fanatico',
+    ...String(process.env.WHATSAPP_GROUP_TRIGGER_ALIASES || '')
+      .split(',')
+      .map((item) => normalizeTriggerText(item))
+      .filter(Boolean),
+  ];
+
+  const calledByAlias = triggerAliases.some((alias) => {
+    const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return (
+      normalized === alias ||
+      new RegExp(`^${escapedAlias}([\\s:,.!?-]|$)`).test(normalized) ||
+      normalized.includes(`@${alias}`)
+    );
+  });
+
+  if (calledByAlias) return true;
 
   return (
     normalized.startsWith('/menu') ||
     normalized.startsWith('/ia') ||
-    normalized.startsWith('fielia') ||
-    normalized.startsWith('fiel ia') ||
     normalized.includes('@fiel') ||
-    normalized.includes('fiel.ia')
+    normalized.includes('@fanatico')
   );
 }
 
@@ -116,6 +144,7 @@ function stripGroupTrigger(messageText: string) {
     .replace(/^\/ia\s*/i, '')
     .replace(/^fiel\.?ia[:,\s-]*/i, '')
     .replace(/^fiel ia[:,\s-]*/i, '')
+    .replace(/^fan[aá]tico[:,\s-]*/i, '')
     .trim();
 }
 

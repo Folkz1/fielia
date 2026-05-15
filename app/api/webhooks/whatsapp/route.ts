@@ -11,15 +11,54 @@ type WhatsAppPayload = Record<string, any>;
 
 const DEFAULT_FIELIA_GROUP_ID = '120363422991914861@g.us';
 const MESSAGE_DEDUPE_TTL_MS = 10 * 60 * 1000;
+const MESSAGE_FINGERPRINT_BUCKET_MS = 60 * 1000;
 const MAX_DEDUPE_KEYS = 500;
 
 const globalForWebhook = globalThis as unknown as {
   fieliaWebhookMessageKeys?: Map<string, number>;
+  fieliaWebhookDedupeTablePromise?: Promise<void>;
+  fieliaWebhookDedupeCleanupAt?: number;
 };
 
 const processedMessageKeys =
   globalForWebhook.fieliaWebhookMessageKeys ?? new Map<string, number>();
 globalForWebhook.fieliaWebhookMessageKeys = processedMessageKeys;
+
+async function ensureWebhookDedupeTable() {
+  if (!globalForWebhook.fieliaWebhookDedupeTablePromise) {
+    globalForWebhook.fieliaWebhookDedupeTablePromise = (async () => {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "whatsapp_webhook_events" (
+          "dedupe_key" TEXT PRIMARY KEY,
+          "remote_jid" TEXT NOT NULL,
+          "participant" TEXT,
+          "message_id" TEXT,
+          "event" TEXT,
+          "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "whatsapp_webhook_events_created_at_idx"
+        ON "whatsapp_webhook_events" ("created_at")
+      `);
+    })();
+  }
+
+  await globalForWebhook.fieliaWebhookDedupeTablePromise;
+}
+
+async function cleanupOldWebhookDedupeRows() {
+  const now = Date.now();
+  const lastCleanupAt = globalForWebhook.fieliaWebhookDedupeCleanupAt ?? 0;
+  if (now - lastCleanupAt < 60 * 60 * 1000) return;
+
+  globalForWebhook.fieliaWebhookDedupeCleanupAt = now;
+  await prisma.$executeRawUnsafe(`
+    DELETE FROM "whatsapp_webhook_events"
+    WHERE "created_at" < NOW() - INTERVAL '2 days'
+  `);
+}
 
 function getAllowedGroupIds() {
   return String(
@@ -131,6 +170,68 @@ function getMessageDedupeKey(body: WhatsAppPayload, message: WhatsAppPayload) {
     'direct';
 
   return [body?.instance || 'unknown', remoteJid, participant, id].join(':');
+}
+
+function getMessageFingerprintKey(body: WhatsAppPayload, message: WhatsAppPayload, messageText: string) {
+  const remoteJid = message?.key?.remoteJid;
+  if (!remoteJid || !messageText) return null;
+
+  const participant =
+    message?.key?.participant ||
+    message?.participant ||
+    message?.sender ||
+    'direct';
+
+  const normalizedText = normalizeTriggerText(messageText).replace(/\s+/g, ' ').slice(0, 240);
+  if (!normalizedText) return null;
+
+  const bucket = Math.floor(Date.now() / MESSAGE_FINGERPRINT_BUCKET_MS);
+  return ['text', body?.instance || 'unknown', remoteJid, participant, normalizedText, bucket].join(':');
+}
+
+async function claimWebhookMessage({
+  dedupeKey,
+  fingerprintKey,
+  body,
+  message,
+}: {
+  dedupeKey: string | null;
+  fingerprintKey: string | null;
+  body: WhatsAppPayload;
+  message: WhatsAppPayload;
+}) {
+  const keys = [dedupeKey, fingerprintKey].filter((key): key is string => Boolean(key));
+  if (keys.length === 0) return true;
+
+  try {
+    await ensureWebhookDedupeTable();
+    await cleanupOldWebhookDedupeRows();
+
+    const remoteJid = String(message?.key?.remoteJid || '');
+    const participant = String(
+      message?.key?.participant ||
+        message?.participant ||
+        message?.sender ||
+        'direct'
+    );
+    const messageId = message?.key?.id ? String(message.key.id) : null;
+    const eventName = body?.event ? String(body.event) : null;
+
+    for (const key of keys) {
+      const inserted = await prisma.$executeRaw`
+        INSERT INTO "whatsapp_webhook_events" ("dedupe_key", "remote_jid", "participant", "message_id", "event")
+        VALUES (${key}, ${remoteJid}, ${participant}, ${messageId}, ${eventName})
+        ON CONFLICT ("dedupe_key") DO NOTHING
+      `;
+
+      if (inserted === 0) return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Webhook] Persistent dedupe failed, continuing with memory dedupe:', error instanceof Error ? error.message : error);
+    return true;
+  }
 }
 
 function isDuplicateMessage(dedupeKey: string | null) {
@@ -459,6 +560,17 @@ export async function POST(req: NextRequest) {
 
     const dedupeKey = getMessageDedupeKey(body, message);
     if (isDuplicateMessage(dedupeKey)) {
+      return NextResponse.json({ status: 'ignored', reason: 'duplicate_message' });
+    }
+
+    const fingerprintKey = getMessageFingerprintKey(body, message, messageText);
+    const claimed = await claimWebhookMessage({
+      dedupeKey,
+      fingerprintKey,
+      body,
+      message,
+    });
+    if (!claimed) {
       return NextResponse.json({ status: 'ignored', reason: 'duplicate_message' });
     }
 

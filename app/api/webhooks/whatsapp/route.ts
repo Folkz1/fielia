@@ -75,6 +75,20 @@ function getBotScope() {
   return String(process.env.WHATSAPP_BOT_SCOPE || 'group').toLowerCase();
 }
 
+function isAllowedWebhookInstance(body: WhatsAppPayload) {
+  const incomingInstance = String(body?.instance || '').trim().toLowerCase();
+  const expectedInstance = String(process.env.EVOLUTION_INSTANCE_NAME || '').trim().toLowerCase();
+
+  if (!incomingInstance || !expectedInstance) return true;
+
+  const allowedInstances = String(process.env.WHATSAPP_ALLOWED_WEBHOOK_INSTANCES || expectedInstance)
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  return allowedInstances.includes(incomingInstance);
+}
+
 function getAppUrl() {
   return String(
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -158,7 +172,7 @@ function getMessageText(message: WhatsAppPayload) {
   );
 }
 
-function getMessageDedupeKey(body: WhatsAppPayload, message: WhatsAppPayload) {
+function getMessageDedupeKey(message: WhatsAppPayload) {
   const id = message?.key?.id;
   const remoteJid = message?.key?.remoteJid;
   if (!id || !remoteJid) return null;
@@ -169,10 +183,10 @@ function getMessageDedupeKey(body: WhatsAppPayload, message: WhatsAppPayload) {
     message?.sender ||
     'direct';
 
-  return [body?.instance || 'unknown', remoteJid, participant, id].join(':');
+  return ['message', remoteJid, participant, id].join(':');
 }
 
-function getMessageFingerprintKey(body: WhatsAppPayload, message: WhatsAppPayload, messageText: string) {
+function getMessageFingerprintKey(message: WhatsAppPayload, messageText: string) {
   const remoteJid = message?.key?.remoteJid;
   if (!remoteJid || !messageText) return null;
 
@@ -186,7 +200,7 @@ function getMessageFingerprintKey(body: WhatsAppPayload, message: WhatsAppPayloa
   if (!normalizedText) return null;
 
   const bucket = Math.floor(Date.now() / MESSAGE_FINGERPRINT_BUCKET_MS);
-  return ['text', body?.instance || 'unknown', remoteJid, participant, normalizedText, bucket].join(':');
+  return ['text', remoteJid, participant, normalizedText, bucket].join(':');
 }
 
 async function claimWebhookMessage({
@@ -513,6 +527,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'ignored' });
     }
 
+    if (!isAllowedWebhookInstance(body)) {
+      return NextResponse.json({ status: 'ignored', reason: 'instance_not_allowed' });
+    }
+
     if (process.env.WHATSAPP_WEBHOOK_DEBUG === 'true') {
       console.log('WEBHOOK_DEBUG', JSON.stringify(getWebhookDebugPayload(body), null, 2));
     }
@@ -558,12 +576,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'ignored', reason: 'group_not_triggered' });
     }
 
-    const dedupeKey = getMessageDedupeKey(body, message);
+    const dedupeKey = getMessageDedupeKey(message);
     if (isDuplicateMessage(dedupeKey)) {
       return NextResponse.json({ status: 'ignored', reason: 'duplicate_message' });
     }
 
-    const fingerprintKey = getMessageFingerprintKey(body, message, messageText);
+    const fingerprintKey = getMessageFingerprintKey(message, messageText);
     const claimed = await claimWebhookMessage({
       dedupeKey,
       fingerprintKey,

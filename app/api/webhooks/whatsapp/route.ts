@@ -250,6 +250,16 @@ function groupProfileResponse(): BotResponse {
   };
 }
 
+async function groupRankingResponse(): Promise<BotResponse> {
+  const { getFreeQuizRanking, formatFreeQuizRankingMessage } = await import('@/lib/bot/services/ranking.service');
+  const ranking = await getFreeQuizRanking(10);
+
+  return {
+    content: formatFreeQuizRankingMessage(ranking),
+    type: 'text',
+  };
+}
+
 function getWebhookDebugPayload(body: WhatsAppPayload) {
   const data = body?.data;
   const message = data?.key ? data : data?.message || data;
@@ -308,7 +318,7 @@ async function routeGroupMessage(userId: string, messageText: string): Promise<B
   }
 
   if (normalized === 'ranking' || normalized.startsWith('ranking ') || normalized.includes('ranking')) {
-    return routeMessage(userId, 'ranking', 'whatsapp_group');
+    return groupRankingResponse();
   }
 
   if (

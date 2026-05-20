@@ -110,16 +110,59 @@ function isAllowedGroup(fromJid: string) {
   return allowedGroups.length > 0 && allowedGroups.includes(fromJid);
 }
 
+function getJidDigits(value: unknown) {
+  return String(value || '')
+    .split('@')[0]
+    .replace(/\D/g, '');
+}
+
+function getBrazilianPhoneLookupVariants(value: unknown) {
+  const digits = getJidDigits(value);
+  const variants = new Set<string>();
+  if (!digits) return [];
+
+  variants.add(digits);
+
+  const addLocalVariants = (local: string) => {
+    if (!local) return;
+    variants.add(local);
+    variants.add(`55${local}`);
+
+    if (local.length === 10) {
+      const withNinthDigit = `${local.slice(0, 2)}9${local.slice(2)}`;
+      variants.add(withNinthDigit);
+      variants.add(`55${withNinthDigit}`);
+    }
+  };
+
+  if (digits.startsWith('55')) {
+    addLocalVariants(digits.slice(2));
+  } else {
+    addLocalVariants(digits);
+  }
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function getParticipantPhoneCandidate(message: WhatsAppPayload, fallback: string) {
+  const participantAlt =
+    message?.key?.participantAlt ||
+    message?.participantAlt ||
+    message?.key?.participantPn ||
+    message?.participantPn;
+
+  return getJidDigits(participantAlt || fallback);
+}
+
 function getParticipantNumber(message: WhatsAppPayload, fallback: string) {
   const participant =
+    getParticipantPhoneCandidate(message, '') ||
     message?.key?.participant ||
     message?.participant ||
     message?.sender ||
     fallback;
 
-  return String(participant).includes('@')
-    ? String(participant).split('@')[0]
-    : String(participant);
+  return getJidDigits(participant);
 }
 
 function getOwnWhatsAppIdentifiers() {
@@ -148,7 +191,9 @@ function isOwnParticipant(message: WhatsAppPayload) {
 
   const candidates = [
     message?.key?.participant,
+    message?.key?.participantAlt,
     message?.participant,
+    message?.participantAlt,
     message?.sender,
     message?.participantPn,
     message?.key?.participantPn,
@@ -565,6 +610,9 @@ export async function POST(req: NextRequest) {
 
     const fromNumber = fromJid.includes('@') ? fromJid.split('@')[0] : fromJid;
     const participantNumber = isGroup ? getParticipantNumber(message, fromNumber) : fromNumber;
+    const participantPhoneCandidates = isGroup
+      ? getBrazilianPhoneLookupVariants(getParticipantPhoneCandidate(message, participantNumber))
+      : getBrazilianPhoneLookupVariants(fromNumber);
     const sendTarget = isGroup ? fromJid : fromNumber;
     const messageText = getMessageText(message);
 
@@ -593,9 +641,18 @@ export async function POST(req: NextRequest) {
     }
 
     const userWhatsappId = isGroup ? `${fromJid}:${participantNumber}` : fromJid;
-    let user = await prisma.user.findUnique({
-      where: { whatsappId: userWhatsappId },
-    });
+    let user = isGroup && participantPhoneCandidates.length > 0
+      ? await prisma.user.findFirst({
+          where: { phone: { in: participantPhoneCandidates } },
+          orderBy: { updatedAt: 'desc' },
+        })
+      : null;
+
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { whatsappId: userWhatsappId },
+      });
+    }
 
     let isNewUser = false;
     if (!user) {
@@ -609,6 +666,18 @@ export async function POST(req: NextRequest) {
           password: 'whatsapp-user',
         },
       });
+    }
+
+    if (isGroup && user && !user.whatsappId) {
+      try {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { whatsappId: userWhatsappId },
+        });
+      } catch {
+        // Another historical temporary WhatsApp user may already own this group id.
+        // Keep the registered app user for routing and history; rate-limit can use the temp id.
+      }
     }
 
     const normalizedText = messageText.trim().toLowerCase();
@@ -626,7 +695,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { checkUserLimit } = await import('@/lib/bot/limits');
-    const limitResult = await checkUserLimit(userWhatsappId);
+    const limitResult = await checkUserLimit(user.whatsappId || userWhatsappId);
     if (!limitResult.allowed) {
       await trySend(
         () => evolutionAPI.sendTextMessage({ number: sendTarget, text: limitResult.message || 'Limite diario atingido.' }),

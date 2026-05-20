@@ -280,6 +280,7 @@ export async function enqueuePostQuizCta(input: {
 async function processDueMessages(input: {
   limit: number;
   manualContentOnly?: boolean;
+  testOnly?: boolean;
 }): Promise<FunnelProcessResult> {
   const dueMessages = await prisma.whatsAppFunnelMessage.findMany({
     where: {
@@ -287,6 +288,7 @@ async function processDueMessages(input: {
       attempts: { lt: MAX_ATTEMPTS },
       scheduledFor: { lte: new Date() },
       stage: input.manualContentOnly ? 'manual_content' : { not: 'manual_content' },
+      ...(input.testOnly ? { dedupeKey: { startsWith: 'funnel-test:' } } : {}),
     },
     orderBy: { scheduledFor: 'asc' },
     take: input.limit,
@@ -358,12 +360,15 @@ async function processDueMessages(input: {
   return result;
 }
 
-export async function processDueFunnelMessages(limit = 20): Promise<FunnelProcessResult> {
-  if (!isFunnelEnabled()) {
+export async function processDueFunnelMessages(
+  limit = 20,
+  options: { testOnly?: boolean } = {}
+): Promise<FunnelProcessResult> {
+  if (!isFunnelEnabled() && !options.testOnly) {
     return { processed: 0, sent: 0, failed: 0 };
   }
 
-  return processDueMessages({ limit, manualContentOnly: false });
+  return processDueMessages({ limit, manualContentOnly: false, testOnly: options.testOnly });
 }
 
 export async function processDueManualContentMessages(limit?: number): Promise<FunnelProcessResult> {

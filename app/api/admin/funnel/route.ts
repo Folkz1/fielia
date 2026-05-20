@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { isFunnelEnabled, processDueFunnelMessages } from '@/lib/funnel/queue';
@@ -39,16 +39,21 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin();
     if ('error' in admin) {
       return NextResponse.json({ error: admin.error }, { status: admin.status });
     }
 
-    const result = await processDueFunnelMessages();
+    const body = await req.json().catch(() => ({}));
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(body?.limit || '20'), 10) || 20));
+    const testOnly = body?.testOnly === true;
+
+    const result = await processDueFunnelMessages(limit, { testOnly });
     return NextResponse.json({
       enabled: isFunnelEnabled(),
+      testOnly,
       ...result,
     });
   } catch (error) {

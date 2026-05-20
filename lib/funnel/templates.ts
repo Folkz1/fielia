@@ -25,11 +25,11 @@ export function buildFunnelMessage(stage: FunnelStage, params: FunnelTemplatePar
   const quizUrl = params.quizUrl || registrationUrl;
 
   if (stage === 'welcome') {
-    return `Fala, ${name}! Bem-vindo ao Fiel.IA. Aqui voce recebe conteudo do Corinthians, participa dos quizzes e acompanha seu desempenho no ranking.`;
+    return `Fala, ${name}! Bem-vindo ao Fiel.IA. Aqui voce recebe conteudo do Corinthians, participa dos quizzes e acompanha seu desempenho no ranking. No free, a conversa com o bot acontece no grupo.`;
   }
 
   if (stage === 'why_register') {
-    return `O cadastro gratuito libera o quiz mensal e salva sua pontuacao com seguranca. Nao tem sorteio, nao tem trial: Premium e assinatura paga para quem quiser ranking completo, quiz semanal e IA no app.`;
+    return `O cadastro gratuito libera o quiz mensal e salva sua pontuacao com seguranca. Nao tem sorteio, nao tem trial: Premium e assinatura paga para quem quiser ranking completo, quiz semanal e IA no app e no privado.`;
   }
 
   if (stage === 'registration_link') {

@@ -75,6 +75,23 @@ function getBotScope() {
   return String(process.env.WHATSAPP_BOT_SCOPE || 'group').toLowerCase();
 }
 
+function isGroupScopeEnabled(scope: string) {
+  return ['group', 'both', 'all'].includes(scope);
+}
+
+function isDirectScopeEnabled(scope: string) {
+  return ['direct', 'both', 'all'].includes(scope);
+}
+
+function getDirectReplyMode() {
+  return String(process.env.WHATSAPP_DIRECT_REPLY_MODE || 'premium').toLowerCase();
+}
+
+function isDirectPremiumOnly() {
+  const mode = getDirectReplyMode();
+  return mode !== 'all' && mode !== 'free';
+}
+
 function isAllowedWebhookInstance(body: WhatsAppPayload) {
   const incomingInstance = String(body?.instance || '').trim().toLowerCase();
   const expectedInstance = String(process.env.EVOLUTION_INSTANCE_NAME || '').trim().toLowerCase();
@@ -410,6 +427,16 @@ function groupProfileResponse(): BotResponse {
   };
 }
 
+function directPremiumRequiredResponse(): BotResponse {
+  return {
+    content:
+      'No privado eu sou exclusivo para assinantes Premium.\n\n' +
+      `No plano free, participe pelo grupo: ${getAppUrl()}/grupo\n` +
+      `Para assinar Premium: ${getAppUrl()}/assinar`,
+    type: 'text',
+  };
+}
+
 async function groupRankingResponse(): Promise<BotResponse> {
   const { getFreeQuizRanking, formatFreeQuizRankingMessage } = await import('@/lib/bot/services/ranking.service');
   const ranking = await getFreeQuizRanking(10);
@@ -600,11 +627,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'ignored', reason: 'group_not_allowed' });
     }
 
-    if (!isGroup && botScope === 'group') {
+    if (!isGroup && !isDirectScopeEnabled(botScope)) {
       return NextResponse.json({ status: 'ignored', reason: 'direct_disabled' });
     }
 
-    if (isGroup && botScope === 'direct') {
+    if (isGroup && !isGroupScopeEnabled(botScope)) {
       return NextResponse.json({ status: 'ignored', reason: 'group_disabled' });
     }
 
@@ -641,7 +668,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userWhatsappId = isGroup ? `${fromJid}:${participantNumber}` : fromJid;
-    let user = isGroup && participantPhoneCandidates.length > 0
+    let user = participantPhoneCandidates.length > 0
       ? await prisma.user.findFirst({
           where: { phone: { in: participantPhoneCandidates } },
           orderBy: { updatedAt: 'desc' },
@@ -668,7 +695,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (isGroup && user && !user.whatsappId) {
+    if (user && !user.whatsappId) {
       try {
         user = await prisma.user.update({
           where: { id: user.id },
@@ -678,6 +705,14 @@ export async function POST(req: NextRequest) {
         // Another historical temporary WhatsApp user may already own this group id.
         // Keep the registered app user for routing and history; rate-limit can use the temp id.
       }
+    }
+
+    const { getPremiumAccess } = await import('@/lib/premium');
+    const premiumAccess = await getPremiumAccess(user.id);
+
+    if (!isGroup && isDirectPremiumOnly() && !premiumAccess.isPremium) {
+      await sendBotResponse(sendTarget, directPremiumRequiredResponse());
+      return NextResponse.json({ status: 'blocked', reason: 'direct_premium_required' });
     }
 
     const normalizedText = messageText.trim().toLowerCase();
@@ -695,13 +730,15 @@ export async function POST(req: NextRequest) {
     }
 
     const { checkUserLimit } = await import('@/lib/bot/limits');
-    const limitResult = await checkUserLimit(user.whatsappId || userWhatsappId);
-    if (!limitResult.allowed) {
-      await trySend(
-        () => evolutionAPI.sendTextMessage({ number: sendTarget, text: limitResult.message || 'Limite diario atingido.' }),
-        'rate_limit'
-      );
-      return NextResponse.json({ status: 'blocked', reason: 'daily_limit' });
+    if (!premiumAccess.isPremium) {
+      const limitResult = await checkUserLimit(user.whatsappId || userWhatsappId);
+      if (!limitResult.allowed) {
+        await trySend(
+          () => evolutionAPI.sendTextMessage({ number: sendTarget, text: limitResult.message || 'Limite diario atingido.' }),
+          'rate_limit'
+        );
+        return NextResponse.json({ status: 'blocked', reason: 'daily_limit' });
+      }
     }
 
     const botResponse = isGroup

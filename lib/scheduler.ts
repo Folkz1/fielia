@@ -32,9 +32,14 @@ async function runTaskSafe(name: string, task: () => Promise<unknown>) {
 
 export function startScheduler() {
   const recurringCronEnabled = isEnabled();
+  const funnelEnabled = isFunnelEnabled();
   const manualContentEnabled = isManualContentSendEnabled();
 
-  if (started || (!recurringCronEnabled && !manualContentEnabled) || process.env.NODE_ENV !== 'production') {
+  if (
+    started ||
+    (!recurringCronEnabled && !funnelEnabled && !manualContentEnabled) ||
+    process.env.NODE_ENV !== 'production'
+  ) {
     return;
   }
 
@@ -61,7 +66,7 @@ export function startScheduler() {
     );
   }
 
-  if (recurringCronEnabled && isFunnelEnabled()) {
+  if (funnelEnabled) {
     cron.schedule(funnelSchedule, () =>
       runTaskSafe('whatsapp funnel queue', processDueFunnelMessages)
     );
@@ -81,8 +86,8 @@ export function startScheduler() {
     log(`newsletter schedule: ${newsletterSchedule}`);
     log(`weekly quiz schedule: ${quizSchedule}`);
   }
-  log(`whatsapp funnel enabled: ${isFunnelEnabled()}`);
-  if (recurringCronEnabled && isFunnelEnabled()) log(`whatsapp funnel schedule: ${funnelSchedule}`);
+  log(`whatsapp funnel enabled: ${funnelEnabled}`);
+  if (funnelEnabled) log(`whatsapp funnel schedule: ${funnelSchedule}`);
   log(`manual content whatsapp enabled: ${manualContentEnabled}`);
   if (manualContentEnabled) log(`manual content whatsapp schedule: ${manualContentSchedule}`);
 }

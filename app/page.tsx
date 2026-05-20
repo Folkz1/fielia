@@ -56,6 +56,7 @@ function useCounterAnimation(target: number, isVisible: boolean, duration = 2000
 /* ─── constants ─── */
 
 const SUBSCRIBE_URL = "/assinar";
+const GROUP_URL = "/grupo";
 
 /* ─── page ─── */
 
@@ -74,6 +75,7 @@ export default function Home() {
       <FAQ />
       <FinalCTA />
       <Footer />
+      <WhatsAppGroupBubble />
       <MobileCTA />
     </main>
   );
@@ -196,16 +198,16 @@ function HeroSection() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <Link
-            href={SUBSCRIBE_URL}
+            href={GROUP_URL}
             className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
           >
-            Assinar por R$ 56,90/mês →
+            Entrar no grupo grátis →
           </Link>
           <a
-            href="#como-funciona"
+            href={SUBSCRIBE_URL}
             className="border border-white/40 text-white rounded-full px-9 py-4 text-lg hover:border-white hover:bg-white/10 transition-all"
           >
-            Ver como funciona ↓
+            Assinar Premium →
           </a>
         </div>
 
@@ -767,6 +769,21 @@ function Footer() {
 }
 
 /* ─── MobileCTA ─── */
+
+function WhatsAppGroupBubble() {
+  return (
+    <Link
+      href={GROUP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="fixed bottom-20 right-4 z-50 inline-flex h-14 items-center gap-2 rounded-full bg-green-600 px-4 text-sm font-bold text-white shadow-2xl shadow-green-950/40 transition hover:bg-green-500 md:bottom-6 md:right-6"
+      aria-label="Entrar no grupo gratuito da FIEL IA no WhatsApp"
+    >
+      <MessageCircle size={22} />
+      <span className="hidden sm:inline">Entrar no grupo</span>
+    </Link>
+  );
+}
 
 function MobileCTA() {
   const [visible, setVisible] = useState(true);

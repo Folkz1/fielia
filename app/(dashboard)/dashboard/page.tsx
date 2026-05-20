@@ -96,9 +96,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* WhatsApp Bot Banner */}
+      {/* WhatsApp Group Banner */}
       <a
-        href="https://wa.me/5511982129134?text=Ol%C3%A1%20FIEL%20IA!"
+        href="/grupo"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-4 bg-green-600/10 border border-green-600/30 rounded-2xl p-4 hover:bg-green-600/20 transition-colors"
@@ -107,8 +107,8 @@ export default async function DashboardPage() {
           <MessageSquare className="w-5 h-5 text-green-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm">Converse com a FIEL IA no WhatsApp!</p>
-          <p className="text-xs text-gray-400">Toque para abrir o chat e perguntar qualquer coisa sobre o Timão</p>
+          <p className="font-semibold text-sm">Entre no grupo gratuito da FIEL IA!</p>
+          <p className="text-xs text-gray-400">Toque para abrir o grupo oficial no WhatsApp e acompanhar a Fiel.</p>
         </div>
         <ChevronRight className="w-5 h-5 text-green-500 flex-shrink-0" />
       </a>

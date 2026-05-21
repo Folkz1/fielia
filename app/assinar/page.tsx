@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, CreditCard, User, Mail, Phone, FileText, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { CreditCard, User, Mail, Phone, FileText, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 function formatCPF(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -92,9 +93,7 @@ export default function AssinarPage() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
+          <FielLogo className="mb-4" priority />
           <h1 className="text-3xl font-bold text-white tracking-widest mb-2">FIEL.IA</h1>
           <p className="text-zinc-400 text-sm tracking-wider uppercase">Premium Mensal</p>
         </div>

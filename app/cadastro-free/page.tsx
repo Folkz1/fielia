@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardCheck, Loader2, ShieldCheck, Trophy, User, Phone, Mail, IdCard } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -70,9 +71,7 @@ export default function CadastroFreePage() {
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-[0.95fr_1.05fr]">
         <section className="flex flex-col justify-between border-b border-white/10 p-6 sm:p-8 lg:border-b-0 lg:border-r">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/5">
-              <ShieldCheck className="h-5 w-5 text-zinc-100" />
-            </div>
+            <FielLogo size="sm" className="mx-0 shrink-0 shadow-none" priority />
             <div>
               <p className="text-sm font-semibold tracking-wide text-zinc-200">FIEL.IA</p>
               <p className="text-xs text-zinc-500">Cadastro do quiz mensal</p>
@@ -124,7 +123,7 @@ export default function CadastroFreePage() {
             )}
 
             {success && (
-              <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">
+              <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-100">
                 {success}
               </div>
             )}

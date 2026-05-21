@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FielLogo } from "@/components/fiel-logo";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade - FIEL.IA",
@@ -10,8 +11,9 @@ export default function PrivacidadePage() {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-3xl mx-auto px-6 py-20">
-        <Link href="/" className="font-heading text-2xl text-white tracking-wide">
-          FIEL IA<span className="text-orange-500 ml-1">●</span>
+        <Link href="/" className="inline-flex items-center gap-3">
+          <FielLogo size="sm" className="mx-0 shadow-none" />
+          <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
         </Link>
 
         <h1 className="font-heading text-4xl md:text-5xl mt-10 mb-8">Política de Privacidade</h1>

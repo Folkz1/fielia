@@ -4,7 +4,8 @@ import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shield, Lock, Mail, ArrowRight, User } from "lucide-react";
+import { Lock, Mail, ArrowRight, User } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 function getSafeCallbackUrl(value: string | null) {
   if (!value) return null;
@@ -91,9 +92,7 @@ function RegisterPageInner() {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
+          <FielLogo className="mb-4" priority />
           <h1 className="text-3xl font-bold text-white mb-2">Criar conta</h1>
           <p className="text-gray-400">Entre na comunidade Fiel IA</p>
         </div>
@@ -107,7 +106,7 @@ function RegisterPageInner() {
             )}
 
             {success && (
-              <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-4 rounded-xl text-center">
+              <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-100 text-sm p-4 rounded-xl text-center">
                 Cadastro realizado! Redirecionando para o login...
               </div>
             )}

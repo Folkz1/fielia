@@ -4,8 +4,8 @@ import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Lock, Mail, ArrowRight } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 function getSafeCallbackUrl(value: string | null) {
   if (!value) return null;
@@ -56,16 +56,7 @@ function LoginPageInner() {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="relative mx-auto mb-4 h-24 w-24 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl shadow-red-950/30">
-            <Image
-              src="/images/logo-fiel-ia.png"
-              alt="Fiel IA"
-              fill
-              priority
-              sizes="96px"
-              className="object-contain p-1.5"
-            />
-          </div>
+          <FielLogo className="mb-4" priority />
           <h1 className="text-3xl font-bold text-white mb-2">Fiel IA</h1>
           <p className="text-gray-400">A IA da Fiel Torcida</p>
         </div>

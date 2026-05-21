@@ -3,7 +3,8 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shield, Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 function ResetPasswordInner() {
   const [password, setPassword] = useState("");
@@ -68,9 +69,7 @@ function ResetPasswordInner() {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
+          <FielLogo className="mb-4" priority />
           <h1 className="text-3xl font-bold text-white mb-2">Nova senha</h1>
           <p className="text-gray-400">Escolha uma nova senha para sua conta</p>
         </div>
@@ -78,7 +77,7 @@ function ResetPasswordInner() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
           {success ? (
             <div className="text-center space-y-4">
-              <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
+              <CheckCircle className="w-12 h-12 text-yellow-300 mx-auto" />
               <h2 className="text-xl font-bold text-white">Senha redefinida!</h2>
               <p className="text-gray-400 text-sm">Redirecionando para o login...</p>
             </div>

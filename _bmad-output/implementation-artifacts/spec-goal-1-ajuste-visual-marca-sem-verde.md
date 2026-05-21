@@ -39,6 +39,10 @@ context:
 - `app/page.tsx` -- home publica; contem `WhatsAppGroupBubble` com classes verdes.
 - `app/(dashboard)/dashboard/page.tsx` -- dashboard do usuario; contem banner do grupo gratuito com classes verdes.
 - `app/auth/login/page.tsx` -- tela de login; hoje renderiza icone `Shield` no topo.
+- `app/auth/register/page.tsx`, `app/auth/forgot-password/page.tsx`, `app/auth/reset-password/page.tsx`, `app/auth/criar-senha/page.tsx` -- telas de auth com icone generico de escudo.
+- `app/cadastro-free/page.tsx`, `app/assinar/page.tsx` -- paginas de conversao/cadastro com marca no topo.
+- `app/termos/page.tsx`, `app/privacidade/page.tsx`, `app/contato/page.tsx` -- paginas publicas simples com marca textual no topo.
+- `components/fiel-logo.tsx` -- componente unico de logo oficial para reutilizar nas paginas.
 - `app/layout.tsx` -- metadata global; define ordem dos icones e favicon.
 - `public/manifest.json` -- manifest PWA; aponta apenas para `/favicon.ico`.
 - `public/images/logo-fiel-ia.png` -- logo oficial usado nas sidebars do dashboard/admin.
@@ -51,6 +55,7 @@ context:
 - [x] `app/page.tsx` -- trocar as classes verdes do `WhatsAppGroupBubble` por classes laranja/preto -- remove a cor proibida sem mexer no destino do grupo.
 - [x] `app/(dashboard)/dashboard/page.tsx` -- trocar classes verdes do banner do grupo por laranja/preto -- mantem o mesmo ajuste onde o CTA aparece no produto logado.
 - [x] `app/auth/login/page.tsx` -- substituir o `Shield` do topo por `Image` com `/images/logo-fiel-ia.png` -- alinha login ao logo do dashboard.
+- [x] `components/fiel-logo.tsx` e paginas publicas/auth restantes -- reutilizar o logo oficial nas telas que tinham escudo generico ou marca textual isolada -- evita repeticao e garante consistencia visual.
 - [x] `app/layout.tsx`, `public/manifest.json`, `app/favicon.ico`, `app/icon.png` -- apontar favicon/app icon para o logo oficial -- deixa navegador e PWA consistentes.
 - [x] Validar build/lint/typecheck aplicaveis e revisar visualmente a home/login -- confirma que a mudanca nao quebrou UI basica.
 
@@ -78,6 +83,9 @@ context:
 - Browser local em `http://localhost:3000` confirmou CTA da home com `/grupo`, sem classes `green`/`emerald`.
 - Browser local em `http://localhost:3000/auth/login` confirmou imagem `Fiel IA` no cabecalho.
 - `GET /icon.png` retornou `image/png`; `GET /favicon.ico` retornou `image/x-icon`.
+- Validacao de producao apontou prefetch indevido de `/grupo`; os Links do grupo foram marcados com `prefetch={false}` para evitar erro de CORS ao redirecionar para WhatsApp.
+- Apos revisao do Diego em `/cadastro-free`, a busca foi ampliada para todas as paginas publicas/auth; telas com escudo generico ou marca textual isolada passaram a usar `FielLogo`.
+- Acentos verdes residuais em paginas publicas/auth foram trocados por amarelo/laranja.
 
 ## Suggested Review Order
 
@@ -85,6 +93,12 @@ context:
 
 - Login usa o asset oficial ja usado no dashboard.
   [`login/page.tsx:61`](../../app/auth/login/page.tsx#L61)
+
+- Componente central reduz divergencia entre telas.
+  [`fiel-logo.tsx:20`](../../components/fiel-logo.tsx#L20)
+
+- Cadastro free usa o logo oficial no topo.
+  [`cadastro-free/page.tsx:74`](../../app/cadastro-free/page.tsx#L74)
 
 - Metadata prioriza o PNG oficial e mantem favicon.
   [`layout.tsx:44`](../../app/layout.tsx#L44)

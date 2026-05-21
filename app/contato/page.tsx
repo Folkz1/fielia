@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, MessageCircle } from "lucide-react";
+import { FielLogo } from "@/components/fiel-logo";
 
 export const metadata: Metadata = {
   title: "Contato - FIEL.IA",
@@ -11,8 +12,9 @@ export default function ContatoPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-3xl mx-auto px-6 py-20">
-        <Link href="/" className="font-heading text-2xl text-white tracking-wide">
-          FIEL IA<span className="text-orange-500 ml-1">●</span>
+        <Link href="/" className="inline-flex items-center gap-3">
+          <FielLogo size="sm" className="mx-0 shadow-none" />
+          <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
         </Link>
 
         <h1 className="font-heading text-4xl md:text-5xl mt-10 mb-4">Contato</h1>
@@ -37,11 +39,11 @@ export default function ContatoPage() {
             href="https://wa.me/5511982129134?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20FIEL%20IA"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-4 border border-white/10 rounded-2xl p-6 hover:border-green-600/40 transition-colors"
+            className="flex items-center gap-4 border border-white/10 rounded-2xl p-6 hover:border-orange-600/40 transition-colors"
             style={{ background: "#1A1A1A" }}
           >
-            <div className="w-12 h-12 rounded-xl bg-green-600/15 flex items-center justify-center flex-shrink-0">
-              <MessageCircle className="text-green-500" size={24} />
+            <div className="w-12 h-12 rounded-xl bg-orange-600/15 flex items-center justify-center flex-shrink-0">
+              <MessageCircle className="text-orange-500" size={24} />
             </div>
             <div>
               <h3 className="font-bold text-white text-lg">WhatsApp</h3>

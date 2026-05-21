@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { FielLogo } from "@/components/fiel-logo";
 
 /* ─── hooks ─── */
 
@@ -108,8 +109,9 @@ function Navbar() {
       style={scrolled ? { backgroundColor: "rgba(10,10,10,0.95)" } : undefined}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-        <a href="#" className="font-heading text-2xl text-white tracking-wide">
-          FIEL IA<span className="text-orange-500 ml-1">●</span>
+        <a href="#" className="inline-flex items-center gap-2">
+          <FielLogo size="sm" className="mx-0 h-9 w-9 shadow-none" priority />
+          <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
         </a>
 
         <div className="hidden md:flex items-center gap-8">
@@ -199,6 +201,7 @@ function HeroSection() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <Link
             href={GROUP_URL}
+            prefetch={false}
             className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
           >
             Entrar no grupo grátis →
@@ -715,9 +718,10 @@ function FinalCTA() {
           🔒 Pagamento seguro · Cancele quando quiser · Acesso imediato
         </p>
 
-        <p className="font-heading text-2xl text-white mt-16 tracking-wide">
-          FIEL IA<span className="text-orange-500 ml-1">●</span>
-        </p>
+        <div className="mt-16 inline-flex items-center gap-2">
+          <FielLogo size="sm" className="mx-0 h-9 w-9 shadow-none" />
+          <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
+        </div>
       </div>
     </section>
   );
@@ -730,9 +734,10 @@ function Footer() {
     <footer className="border-t border-white/10 py-12 px-6" style={{ background: "#0A0A0A" }}>
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="font-heading text-xl text-white tracking-wide">
-            FIEL IA<span className="text-orange-500 ml-1">●</span>
-          </p>
+          <div className="inline-flex items-center gap-2">
+            <FielLogo size="sm" className="mx-0 h-8 w-8 shadow-none" />
+            <span className="font-heading text-xl text-white tracking-wide">FIEL IA</span>
+          </div>
 
           <nav className="flex flex-wrap items-center justify-center gap-6">
             {["Como Funciona", "Recursos", "Quiz", "Planos"].map((item) => (
@@ -774,6 +779,7 @@ function WhatsAppGroupBubble() {
   return (
     <Link
       href={GROUP_URL}
+      prefetch={false}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-20 right-4 z-50 inline-flex h-14 items-center gap-2 rounded-full border border-orange-400/40 bg-orange-600 px-4 text-sm font-bold text-white shadow-2xl shadow-orange-950/40 transition hover:bg-orange-500 md:bottom-6 md:right-6"

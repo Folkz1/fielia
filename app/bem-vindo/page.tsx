@@ -9,8 +9,8 @@ export default async function BemVindoPage() {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
         {/* Success icon */}
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/10 border border-green-500/30 mb-6">
-          <CheckCircle className="w-10 h-10 text-green-400" />
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/10 border border-yellow-500/30 mb-6">
+          <CheckCircle className="w-10 h-10 text-yellow-300" />
         </div>
 
         {/* Title */}
@@ -54,7 +54,7 @@ export default async function BemVindoPage() {
 
             <div className="flex items-start gap-3 text-left">
               <div className="p-2 rounded-lg bg-white/5 border border-white/10 shrink-0">
-                <MessageCircle className="w-4 h-4 text-green-400" />
+                <MessageCircle className="w-4 h-4 text-orange-400" />
               </div>
               <div>
                 <p className="text-white text-sm font-medium mb-1">

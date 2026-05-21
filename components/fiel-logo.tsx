@@ -4,17 +4,25 @@ import { cn } from "@/lib/utils";
 type FielLogoProps = {
   className?: string;
   priority?: boolean;
-  size?: "sm" | "lg";
+  size?: "sm" | "md" | "lg";
 };
 
 const sizeClasses = {
   sm: "h-10 w-10 rounded-lg",
+  md: "h-12 w-12 rounded-xl",
   lg: "h-24 w-24 rounded-2xl",
 };
 
 const imageSizes = {
   sm: "40px",
+  md: "48px",
   lg: "96px",
+};
+
+const imagePaddingClasses = {
+  sm: "p-0.5",
+  md: "p-0.5",
+  lg: "p-1.5",
 };
 
 export function FielLogo({ className, priority = false, size = "lg" }: FielLogoProps) {
@@ -32,7 +40,7 @@ export function FielLogo({ className, priority = false, size = "lg" }: FielLogoP
         fill
         priority={priority}
         sizes={imageSizes[size]}
-        className="object-contain p-1.5"
+        className={cn("object-contain", imagePaddingClasses[size])}
       />
     </div>
   );

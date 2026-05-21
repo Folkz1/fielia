@@ -109,9 +109,9 @@ function Navbar() {
       style={scrolled ? { backgroundColor: "rgba(10,10,10,0.95)" } : undefined}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-        <a href="#" className="inline-flex items-center gap-2">
-          <FielLogo size="sm" className="mx-0 h-9 w-9 shadow-none" priority />
-          <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
+        <a href="#" className="inline-flex items-center gap-3">
+          <FielLogo size="md" className="mx-0 border-white/20 bg-black/70 shadow-lg shadow-black/40" priority />
+          <span className="font-heading text-[28px] leading-none text-white tracking-wide">FIEL IA</span>
         </a>
 
         <div className="hidden md:flex items-center gap-8">
@@ -173,7 +173,7 @@ function HeroSection() {
           fill
           className="object-cover"
           priority
-          quality={80}
+          quality={75}
           sizes="100vw"
         />
       </div>
@@ -718,8 +718,8 @@ function FinalCTA() {
           🔒 Pagamento seguro · Cancele quando quiser · Acesso imediato
         </p>
 
-        <div className="mt-16 inline-flex items-center gap-2">
-          <FielLogo size="sm" className="mx-0 h-9 w-9 shadow-none" />
+        <div className="mt-16 inline-flex items-center gap-3">
+          <FielLogo size="md" className="mx-0 border-white/15 bg-black/70 shadow-lg shadow-black/40" />
           <span className="font-heading text-2xl text-white tracking-wide">FIEL IA</span>
         </div>
       </div>
@@ -734,8 +734,8 @@ function Footer() {
     <footer className="border-t border-white/10 py-12 px-6" style={{ background: "#0A0A0A" }}>
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="inline-flex items-center gap-2">
-            <FielLogo size="sm" className="mx-0 h-8 w-8 shadow-none" />
+          <div className="inline-flex items-center gap-2.5">
+            <FielLogo size="sm" className="mx-0 border-white/15 bg-black/70 shadow-none" />
             <span className="font-heading text-xl text-white tracking-wide">FIEL IA</span>
           </div>
 

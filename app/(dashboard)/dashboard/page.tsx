@@ -101,16 +101,16 @@ export default async function DashboardPage() {
         href="/grupo"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-4 bg-green-600/10 border border-green-600/30 rounded-2xl p-4 hover:bg-green-600/20 transition-colors"
+        className="flex items-center gap-4 rounded-2xl border border-orange-500/30 bg-orange-600/10 p-4 transition-colors hover:bg-orange-600/20"
       >
-        <div className="p-2.5 rounded-xl bg-green-600/20 flex-shrink-0">
-          <MessageSquare className="w-5 h-5 text-green-500" />
+        <div className="p-2.5 rounded-xl bg-orange-600/20 flex-shrink-0">
+          <MessageSquare className="w-5 h-5 text-orange-400" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm">Entre no grupo gratuito da FIEL IA!</p>
           <p className="text-xs text-gray-400">Toque para abrir o grupo oficial no WhatsApp e acompanhar a Fiel.</p>
         </div>
-        <ChevronRight className="w-5 h-5 text-green-500 flex-shrink-0" />
+        <ChevronRight className="w-5 h-5 text-orange-400 flex-shrink-0" />
       </a>
 
       {/* Cards do Torcedor */}
@@ -154,8 +154,8 @@ export default async function DashboardPage() {
         {/* Quiz */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-[var(--gradient-accent-start)]/50 transition-all">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 rounded-xl bg-green-500/20">
-              <Target className="w-5 h-5 text-green-500" />
+            <div className="p-2 rounded-xl bg-orange-500/20">
+              <Target className="w-5 h-5 text-orange-400" />
             </div>
           </div>
           <p className="text-gray-400 text-xs mb-1">Quizzes</p>

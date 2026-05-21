@@ -776,7 +776,7 @@ function WhatsAppGroupBubble() {
       href={GROUP_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-20 right-4 z-50 inline-flex h-14 items-center gap-2 rounded-full bg-green-600 px-4 text-sm font-bold text-white shadow-2xl shadow-green-950/40 transition hover:bg-green-500 md:bottom-6 md:right-6"
+      className="fixed bottom-20 right-4 z-50 inline-flex h-14 items-center gap-2 rounded-full border border-orange-400/40 bg-orange-600 px-4 text-sm font-bold text-white shadow-2xl shadow-orange-950/40 transition hover:bg-orange-500 md:bottom-6 md:right-6"
       aria-label="Entrar no grupo gratuito da FIEL IA no WhatsApp"
     >
       <MessageCircle size={22} />

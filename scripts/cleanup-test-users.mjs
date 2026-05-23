@@ -9,6 +9,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true });
 
 const applyChanges = process.argv.includes('--apply');
+const skipAsaasCancel = process.argv.includes('--skip-asaas-cancel');
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
@@ -24,14 +25,55 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg(pool),
 });
 
+async function cancelAsaasSubscription(subscriptionId) {
+  if (skipAsaasCancel) {
+    return { subscriptionId, status: 'skipped' };
+  }
+
+  const baseUrl = process.env.ASAAS_API_URL || 'https://sandbox.asaas.com/api/v3';
+  const apiKey = process.env.ASAAS_API_KEY;
+
+  if (!apiKey) {
+    return { subscriptionId, status: 'missing_api_key' };
+  }
+
+  const response = await fetch(`${baseUrl}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      access_token: apiKey,
+    },
+  });
+
+  if (response.ok) {
+    return { subscriptionId, status: 'cancelled' };
+  }
+
+  if (response.status === 404) {
+    return { subscriptionId, status: 'not_found' };
+  }
+
+  let reason = `HTTP ${response.status}`;
+  try {
+    const data = await response.json();
+    reason = data?.errors?.[0]?.description || data?.errors?.[0]?.code || reason;
+  } catch {
+    // Keep the HTTP status when the provider returns a non-JSON body.
+  }
+
+  return { subscriptionId, status: 'failed', reason };
+}
+
 async function main() {
   const users = await prisma.user.findMany({
     where: {
+      isAdmin: false,
       OR: [
         { email: 'teste@fiel.ia' },
         { email: 'free@fielchat.com' },
         { email: 'premium@fielchat.com' },
         { email: 'diegovilson.1999+fielia@gmail.com' },
+        { email: { endsWith: '@whatsapp.temp' } },
         { email: { startsWith: 'billing_prod_' } },
         { email: { startsWith: 'sandbox+' } },
       ],
@@ -42,6 +84,7 @@ async function main() {
       name: true,
       isAdmin: true,
       isPremium: true,
+      asaasSubscriptionId: true,
       createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -52,7 +95,19 @@ async function main() {
     return;
   }
 
+  const asaasCancellations = [];
+
   if (applyChanges) {
+    for (const user of users) {
+      if (!user.asaasSubscriptionId) continue;
+      asaasCancellations.push(await cancelAsaasSubscription(user.asaasSubscriptionId));
+    }
+
+    const failedCancellations = asaasCancellations.filter((result) => result.status === 'failed');
+    if (failedCancellations.length) {
+      throw new Error(`Asaas cancellation failed for ${failedCancellations.length} test subscription(s)`);
+    }
+
     await prisma.user.deleteMany({
       where: {
         id: { in: users.map((user) => user.id) },
@@ -65,6 +120,7 @@ async function main() {
       {
         applyChanges,
         deleted: users.length,
+        asaasCancellations,
         users,
       },
       null,

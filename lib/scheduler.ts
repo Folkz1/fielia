@@ -17,6 +17,10 @@ function isEnabled() {
   return (process.env.CRON_ENABLED || 'true').toLowerCase() === 'true';
 }
 
+function isPodcastCronEnabled() {
+  return (process.env.PODCAST_CRON_ENABLED || 'false').toLowerCase() === 'true';
+}
+
 function log(message: string) {
   console.info(`[scheduler] ${message}`);
 }
@@ -32,6 +36,7 @@ async function runTaskSafe(name: string, task: () => Promise<unknown>) {
 
 export function startScheduler() {
   const recurringCronEnabled = isEnabled();
+  const podcastCronEnabled = recurringCronEnabled && isPodcastCronEnabled();
   const funnelEnabled = isFunnelEnabled();
   const manualContentEnabled = isManualContentSendEnabled();
 
@@ -57,7 +62,9 @@ export function startScheduler() {
   if (recurringCronEnabled) {
     cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
     cron.schedule(curateSchedule, () => runTaskSafe('news curation', runNewsCuration));
-    cron.schedule(podcastSchedule, () => runTaskSafe('daily podcast', generateDailyPodcast));
+    if (podcastCronEnabled) {
+      cron.schedule(podcastSchedule, () => runTaskSafe('daily podcast', generateDailyPodcast));
+    }
     cron.schedule(newsletterSchedule, () =>
       runTaskSafe('newsletter', sendNewsletterToPremiumUsers)
     );
@@ -82,7 +89,8 @@ export function startScheduler() {
   if (recurringCronEnabled) {
     log(`sync schedule: ${syncSchedule}`);
     log(`curation schedule: ${curateSchedule}`);
-    log(`podcast schedule: ${podcastSchedule}`);
+    log(`podcast cron enabled: ${podcastCronEnabled}`);
+    if (podcastCronEnabled) log(`podcast schedule: ${podcastSchedule}`);
     log(`newsletter schedule: ${newsletterSchedule}`);
     log(`weekly quiz schedule: ${quizSchedule}`);
   }

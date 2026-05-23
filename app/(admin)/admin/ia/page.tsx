@@ -33,7 +33,8 @@ REGRAS:
 - Defenda o Corinthians SEMPRE, mas sem ser cego (reconhece fase ruim com dor no coracao)`;
 
 const MODEL_OPTIONS = [
-  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast (Recomendado)" },
+  { value: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (Recomendado)" },
+  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
   { value: "google/gemini-2.5-pro-exp-03-25:free", label: "Gemini 2.5 Pro (Free)" },
   { value: "google/gemini-2.0-flash-exp:free", label: "Gemini 2.0 Flash (Free)" },
   { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
@@ -44,7 +45,7 @@ const MODEL_OPTIONS = [
 
 export default function AdminIAPage() {
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
-  const [primaryModel, setPrimaryModel] = useState("x-ai/grok-4.1-fast");
+  const [primaryModel, setPrimaryModel] = useState("google/gemini-3.1-flash-lite");
   const [fallbackModel, setFallbackModel] = useState("");
   const [temperature, setTemperature] = useState(0.8);
   const [saving, setSaving] = useState(false);

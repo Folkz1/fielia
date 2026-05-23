@@ -46,6 +46,12 @@ export async function GET() {
         newsCurationUseAI: process.env.NEWS_CURATION_USE_AI === 'true',
         newsRewriteEnabled: process.env.NEWS_REWRITE_ENABLED !== 'false',
         blogAutoGenerate: process.env.BLOG_AUTO_GENERATE === 'true',
+        podcastCronEnabled: process.env.PODCAST_CRON_ENABLED === 'true',
+      },
+      whatsappGroupJoinWelcome: {
+        enabled: process.env.WHATSAPP_GROUP_JOIN_WELCOME_ENABLED === 'true',
+        cooldownHours:
+          Number.parseInt(process.env.WHATSAPP_GROUP_JOIN_WELCOME_COOLDOWN_HOURS || '6', 10) || 6,
       },
       freshRss: {
         url: process.env.FRESHRSS_URL ? 'configured' : 'missing',

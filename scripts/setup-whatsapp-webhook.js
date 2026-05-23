@@ -37,7 +37,7 @@ function request(endpoint, method = 'GET', data = null) {
             console.error(`Error ${res.statusCode}: ${body}`);
             resolve(JSON.parse(body));
           }
-        } catch (e) {
+        } catch {
             if (body === 'OK') resolve({ status: 'OK' });
             else {
                 console.error('Invalid JSON response', body);
@@ -64,7 +64,8 @@ async function setup() {
         webhookBase64: false,
         enabled: true,
         events: [
-            "MESSAGES_UPSERT" // Fixed case
+            "MESSAGES_UPSERT",
+            "GROUP_PARTICIPANTS_UPDATE"
         ]
     }
   };

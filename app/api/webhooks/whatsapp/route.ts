@@ -13,6 +13,7 @@ const DEFAULT_FIELIA_GROUP_ID = '120363422991914861@g.us';
 const MESSAGE_DEDUPE_TTL_MS = 10 * 60 * 1000;
 const MESSAGE_FINGERPRINT_BUCKET_MS = 60 * 1000;
 const MAX_DEDUPE_KEYS = 500;
+const GROUP_JOIN_WELCOME_COOLDOWN_HOURS = 6;
 
 const globalForWebhook = globalThis as unknown as {
   fieliaWebhookMessageKeys?: Map<string, number>;
@@ -104,6 +105,11 @@ function isAllowedWebhookInstance(body: WhatsAppPayload) {
     .filter(Boolean);
 
   return allowedInstances.includes(incomingInstance);
+}
+
+function isGroupParticipantsUpdateEvent(event: string) {
+  const normalized = normalizeTriggerText(event).replace(/[._-]+/g, '_');
+  return normalized === 'group_participants_update';
 }
 
 function getAppUrl() {
@@ -232,6 +238,136 @@ function getMessageText(message: WhatsAppPayload) {
     message?.message?.videoMessage?.caption ||
     ''
   );
+}
+
+function isGroupJoinWelcomeEnabled() {
+  return (process.env.WHATSAPP_GROUP_JOIN_WELCOME_ENABLED || 'false').toLowerCase() === 'true';
+}
+
+function getGroupJoinWelcomeCooldownHours() {
+  const parsed = Number.parseInt(
+    process.env.WHATSAPP_GROUP_JOIN_WELCOME_COOLDOWN_HOURS || '',
+    10
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : GROUP_JOIN_WELCOME_COOLDOWN_HOURS;
+}
+
+function getGroupJoinWelcomeMessage() {
+  return (
+    'Bem-vindo ao grupo free da FIEL IA.\n\n' +
+    'Como funciona:\n' +
+    `- Cadastro e quiz free: ${getAppUrl()}/cadastro-free\n` +
+    `- Link direto do quiz: ${getAppUrl()}/quiz-free\n` +
+    '- Ranking free mostra o Top 10 do quiz mensal.\n' +
+    '- Premium e pago desde o inicio: quiz semanal, ranking completo e IA no privado.\n\n' +
+    'Sem sorteio e sem free trial.\n\n' +
+    'No grupo, chame o bot assim:\n' +
+    '*fanatico noticias*\n' +
+    '*fanatico quiz*\n' +
+    '*fanatico ranking*\n' +
+    '*fanatico premium*'
+  );
+}
+
+function getGroupParticipantsUpdateData(body: WhatsAppPayload) {
+  const data = body?.data || {};
+  const nested = data?.participantsUpdate || data?.groupParticipantsUpdate || data?.update || {};
+  const groupJid = String(
+    data?.jid ||
+      data?.id ||
+      data?.groupJid ||
+      data?.remoteJid ||
+      nested?.jid ||
+      nested?.id ||
+      nested?.groupJid ||
+      nested?.remoteJid ||
+      ''
+  );
+  const action = normalizeTriggerText(String(data?.action || nested?.action || ''));
+  const rawParticipants =
+    data?.participants ||
+    nested?.participants ||
+    data?.participant ||
+    nested?.participant ||
+    data?.users ||
+    nested?.users ||
+    [];
+  const participants = Array.isArray(rawParticipants)
+    ? rawParticipants.map((item) => String(item)).filter(Boolean)
+    : [String(rawParticipants)].filter(Boolean);
+
+  return { groupJid, action, participants };
+}
+
+async function claimWebhookEventKey({
+  key,
+  remoteJid,
+  participant,
+  eventName,
+}: {
+  key: string;
+  remoteJid: string;
+  participant?: string | null;
+  eventName: string;
+}) {
+  try {
+    await ensureWebhookDedupeTable();
+    await cleanupOldWebhookDedupeRows();
+
+    const inserted = await prisma.$executeRaw`
+      INSERT INTO "whatsapp_webhook_events" ("dedupe_key", "remote_jid", "participant", "message_id", "event")
+      VALUES (${key}, ${remoteJid}, ${participant || null}, ${null}, ${eventName})
+      ON CONFLICT ("dedupe_key") DO NOTHING
+    `;
+
+    return inserted > 0;
+  } catch (error) {
+    console.error('[Webhook] Event dedupe failed, blocking event for safety:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
+async function handleGroupParticipantsUpdateEvent(body: WhatsAppPayload) {
+  if (!isGroupJoinWelcomeEnabled()) {
+    return NextResponse.json({ status: 'ignored', reason: 'group_join_welcome_disabled' });
+  }
+
+  const { groupJid, action, participants } = getGroupParticipantsUpdateData(body);
+  if (!groupJid.endsWith('@g.us')) {
+    return NextResponse.json({ status: 'ignored', reason: 'invalid_group_participants_payload' });
+  }
+
+  if (!isAllowedGroup(groupJid)) {
+    return NextResponse.json({ status: 'ignored', reason: 'group_not_allowed' });
+  }
+
+  if (action !== 'add') {
+    return NextResponse.json({ status: 'ignored', reason: `group_participant_${action || 'unknown'}` });
+  }
+
+  const cooldownMs = getGroupJoinWelcomeCooldownHours() * 60 * 60 * 1000;
+  const bucket = Math.floor(Date.now() / cooldownMs);
+  const claimed = await claimWebhookEventKey({
+    key: `group_join_welcome:${groupJid}:${bucket}`,
+    remoteJid: groupJid,
+    participant: participants.join(',').slice(0, 500),
+    eventName: 'group_participants_update',
+  });
+
+  if (!claimed) {
+    return NextResponse.json({ status: 'ignored', reason: 'group_join_welcome_rate_limited' });
+  }
+
+  const sent = await trySend(
+    () => evolutionAPI.sendTextMessage({ number: groupJid, text: getGroupJoinWelcomeMessage(), delay: 1000 }),
+    'group_join_welcome'
+  );
+
+  return NextResponse.json({
+    status: sent ? 'processed_group_join_welcome' : 'failed_group_join_welcome',
+    participants: participants.length,
+    cooldownHours: getGroupJoinWelcomeCooldownHours(),
+  });
 }
 
 function getMessageDedupeKey(message: WhatsAppPayload) {
@@ -594,13 +730,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 });
     }
 
-    const normalizedEvent = String(event).toLowerCase();
-    if (normalizedEvent !== 'messages.upsert' && normalizedEvent !== 'messages_upsert') {
-      return NextResponse.json({ status: 'ignored' });
-    }
-
     if (!isAllowedWebhookInstance(body)) {
       return NextResponse.json({ status: 'ignored', reason: 'instance_not_allowed' });
+    }
+
+    const normalizedEvent = String(event).toLowerCase();
+    if (isGroupParticipantsUpdateEvent(normalizedEvent)) {
+      return handleGroupParticipantsUpdateEvent(body);
+    }
+
+    if (normalizedEvent !== 'messages.upsert' && normalizedEvent !== 'messages_upsert') {
+      return NextResponse.json({ status: 'ignored' });
     }
 
     if (process.env.WHATSAPP_WEBHOOK_DEBUG === 'true') {

@@ -351,7 +351,7 @@ export default function AdminQuizzesPage() {
             <Trophy className="w-8 h-8 text-orange-500" />
             Gerenciar Quizzes
           </h1>
-          <p className="text-gray-400">Crie e gerencie quizzes semanais</p>
+          <p className="text-gray-400">Crie quizzes free mensais e premium semanais</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

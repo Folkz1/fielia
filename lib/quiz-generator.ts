@@ -183,14 +183,30 @@ Responda APENAS com um JSON valido no seguinte formato (sem markdown, sem explic
 export async function saveGeneratedQuiz(
   quizData: GeneratedQuiz,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options?: {
+    audience?: 'free' | 'premium';
+    cadence?: 'monthly' | 'weekly' | 'on_demand';
+    difficulty?: 'easy' | 'medium' | 'hard';
+    category?: string;
+  }
 ) {
+  const audience = options?.audience || 'free';
+  const cadence = options?.cadence || (audience === 'premium' ? 'weekly' : 'monthly');
+
+  await prisma.quiz.updateMany({
+    where: { isActive: true, audience, cadence },
+    data: { isActive: false },
+  });
+
   const quiz = await prisma.quiz.create({
     data: {
       title: quizData.title,
       description: quizData.description,
-      difficulty: 'medium',
-      category: 'general',
+      difficulty: options?.difficulty || 'medium',
+      category: options?.category || 'general',
+      audience,
+      cadence,
       startDate,
       endDate,
       isActive: true,

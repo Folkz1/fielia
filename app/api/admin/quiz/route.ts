@@ -2,8 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
+type QuizAudience = 'free' | 'premium';
+type QuizCadence = 'monthly' | 'weekly' | 'on_demand';
+type RawQuestionPayload = {
+  question?: unknown;
+  options?: unknown;
+  correctAnswer?: unknown;
+  points?: unknown;
+};
+
+function normalizeAudience(value: unknown): QuizAudience {
+  return value === 'premium' ? 'premium' : 'free';
+}
+
+function normalizeCadence(value: unknown, audience: QuizAudience): QuizCadence {
+  if (value === 'weekly' || value === 'monthly' || value === 'on_demand') return value;
+  return audience === 'premium' ? 'weekly' : 'monthly';
+}
+
 // GET - Listar todos os quizzes (admin)
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -55,6 +73,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { title, description, difficulty, category, startDate, endDate, questions } = body;
+    const audience = normalizeAudience(body?.audience);
+    const cadence = normalizeCadence(body?.cadence, audience);
 
     if (!title || !startDate || !endDate) {
       return NextResponse.json(
@@ -63,25 +83,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Criar quiz com perguntas
+    await prisma.quiz.updateMany({
+      where: { isActive: true, audience, cadence },
+      data: { isActive: false },
+    });
+
+    const normalizedQuestions = Array.isArray(questions)
+      ? (questions as RawQuestionPayload[]).map((q, index) => ({
+          question: String(q.question || '').trim(),
+          options: Array.isArray(q.options)
+            ? q.options.map((option) => String(option).trim()).filter(Boolean)
+            : [],
+          correctAnswer: String(q.correctAnswer || '').trim(),
+          points: Number(q.points || 100),
+          order: index,
+        }))
+      : [];
+
     const quiz = await prisma.quiz.create({
       data: {
         title,
         description,
         difficulty: difficulty || 'medium',
         category: category || 'general',
+        audience,
+        cadence,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isActive: true,
-        questions: questions ? {
-          create: questions.map((q: any, index: number) => ({
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            points: q.points || 100,
-            order: index,
-          })),
-        } : undefined,
+        questions: normalizedQuestions.length ? { create: normalizedQuestions } : undefined,
       },
       include: {
         _count: { select: { questions: true } },

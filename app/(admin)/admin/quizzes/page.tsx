@@ -6,12 +6,18 @@ import {
   Calendar, Trash2, Clock, ChevronDown, ChevronUp, Save, X
 } from "lucide-react";
 
+type QuizAudience = "free" | "premium";
+type QuizCadence = "monthly" | "weekly";
+type QuizTypeValue = `${QuizAudience}:${QuizCadence}`;
+
 interface Quiz {
   id: string;
   title: string;
   description?: string;
   difficulty: string;
   category: string;
+  audience: QuizAudience;
+  cadence: QuizCadence;
   isActive: boolean;
   startDate: string;
   endDate: string;
@@ -39,6 +45,33 @@ interface ManualQuestion {
   points: number;
 }
 
+const QUIZ_TYPE_OPTIONS: Array<{
+  value: QuizTypeValue;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "free:monthly",
+    label: "Free mensal",
+    description: "Abre no /quiz-free, aparece no grupo e alimenta o ranking free.",
+  },
+  {
+    value: "premium:weekly",
+    label: "Premium semanal",
+    description: "Exclusivo para assinantes, com ranking completo por quiz.",
+  },
+];
+
+function splitQuizType(value: QuizTypeValue) {
+  const [audience, cadence] = value.split(":") as [QuizAudience, QuizCadence];
+  return { audience, cadence };
+}
+
+function quizTypeLabel(audience: string, cadence: string) {
+  if (audience === "premium") return cadence === "weekly" ? "Premium semanal" : "Premium";
+  return cadence === "monthly" ? "Free mensal" : "Free";
+}
+
 export default function AdminQuizzesPage() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +84,7 @@ export default function AdminQuizzesPage() {
 
   // Form para geracao IA
   const [genForm, setGenForm] = useState({
+    type: 'free:monthly' as QuizTypeValue,
     numQuestions: 10,
     difficulty: 'medium',
     category: 'general',
@@ -60,6 +94,7 @@ export default function AdminQuizzesPage() {
 
   // Form para quiz manual
   const [manualForm, setManualForm] = useState({
+    type: 'free:monthly' as QuizTypeValue,
     title: '',
     description: '',
     difficulty: 'medium',
@@ -110,6 +145,7 @@ export default function AdminQuizzesPage() {
     setGenerating(true);
     setGeneratedQuiz(null);
     try {
+      const { audience, cadence } = splitQuizType(genForm.type);
       const res = await fetch("/api/admin/quiz/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,6 +153,8 @@ export default function AdminQuizzesPage() {
           numQuestions: genForm.numQuestions,
           difficulty: genForm.difficulty,
           category: genForm.category,
+          audience,
+          cadence,
         }),
       });
 
@@ -139,6 +177,7 @@ export default function AdminQuizzesPage() {
 
     setSaving(true);
     try {
+      const { audience, cadence } = splitQuizType(genForm.type);
       const res = await fetch("/api/admin/quiz/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,6 +185,8 @@ export default function AdminQuizzesPage() {
           numQuestions: genForm.numQuestions,
           difficulty: genForm.difficulty,
           category: genForm.category,
+          audience,
+          cadence,
           startDate: genForm.startDate,
           endDate: genForm.endDate,
           saveToDb: true,
@@ -193,6 +234,7 @@ export default function AdminQuizzesPage() {
 
     setSaving(true);
     try {
+      const { audience, cadence } = splitQuizType(manualForm.type);
       const res = await fetch("/api/admin/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,6 +243,8 @@ export default function AdminQuizzesPage() {
           description: manualForm.description,
           difficulty: manualForm.difficulty,
           category: manualForm.category,
+          audience,
+          cadence,
           startDate: manualForm.startDate,
           endDate: manualForm.endDate,
           questions: validQuestions,
@@ -211,6 +255,7 @@ export default function AdminQuizzesPage() {
       if (res.ok && data.quiz) {
         // Reset form
         setManualForm({
+          type: 'free:monthly',
           title: '',
           description: '',
           difficulty: 'medium',
@@ -358,6 +403,21 @@ export default function AdminQuizzesPage() {
 
           {/* Info do Quiz */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo / Ranking *</label>
+              <select
+                value={manualForm.type}
+                onChange={(e) => setManualForm({ ...manualForm, type: e.target.value as QuizTypeValue })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+              >
+                {QUIZ_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                {QUIZ_TYPE_OPTIONS.find((option) => option.value === manualForm.type)?.description}
+              </p>
+            </div>
             <div className="md:col-span-2 lg:col-span-1">
               <label className="block text-sm font-medium mb-1">Titulo *</label>
               <input
@@ -543,7 +603,22 @@ export default function AdminQuizzesPage() {
             A IA usara o conhecimento da base RAG e noticias recentes para criar perguntas relevantes.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo / Ranking</label>
+              <select
+                value={genForm.type}
+                onChange={(e) => setGenForm({ ...genForm, type: e.target.value as QuizTypeValue })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+              >
+                {QUIZ_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                {QUIZ_TYPE_OPTIONS.find((option) => option.value === genForm.type)?.description}
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium mb-1">Perguntas</label>
               <select
@@ -785,6 +860,13 @@ function QuizCard({
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h3 className="font-bold text-white">{quiz.title}</h3>
+            <span className={`px-2 py-0.5 text-xs rounded ${
+              quiz.audience === 'premium'
+                ? 'bg-yellow-500/20 text-yellow-300'
+                : 'bg-blue-500/20 text-blue-300'
+            }`}>
+              {quizTypeLabel(quiz.audience, quiz.cadence)}
+            </span>
             {quiz.isActive && (
               <span className="px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-400">Ativo</span>
             )}
@@ -835,6 +917,9 @@ function QuizCard({
             </span>
             <span className="px-2 py-1 text-xs rounded bg-white/10">
               Categoria: {quiz.category}
+            </span>
+            <span className="px-2 py-1 text-xs rounded bg-white/10">
+              Ranking: {quiz.audience === 'premium' ? 'premium' : 'free'} / {quiz.cadence}
             </span>
           </div>
         </div>

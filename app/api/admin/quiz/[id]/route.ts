@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
+type QuizAudience = 'free' | 'premium';
+type QuizCadence = 'monthly' | 'weekly' | 'on_demand';
+
+function normalizeAudience(value: unknown): QuizAudience | undefined {
+  if (value === 'premium') return 'premium';
+  if (value === 'free') return 'free';
+  return undefined;
+}
+
+function normalizeCadence(value: unknown): QuizCadence | undefined {
+  if (value === 'weekly' || value === 'monthly' || value === 'on_demand') return value;
+  return undefined;
+}
+
 // GET - Buscar quiz especifico
 export async function GET(
   req: NextRequest,
@@ -69,6 +83,27 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
     const { title, description, difficulty, category, startDate, endDate, isActive } = body;
+    const audience = normalizeAudience(body?.audience);
+    const cadence = normalizeCadence(body?.cadence);
+
+    if (isActive === true || audience || cadence) {
+      const currentQuiz = await prisma.quiz.findUnique({
+        where: { id },
+        select: { audience: true, cadence: true },
+      });
+
+      if (currentQuiz) {
+        await prisma.quiz.updateMany({
+          where: {
+            id: { not: id },
+            isActive: true,
+            audience: audience || currentQuiz.audience,
+            cadence: cadence || currentQuiz.cadence,
+          },
+          data: { isActive: false },
+        });
+      }
+    }
 
     const quiz = await prisma.quiz.update({
       where: { id },
@@ -77,6 +112,8 @@ export async function PUT(
         ...(description !== undefined && { description }),
         ...(difficulty && { difficulty }),
         ...(category && { category }),
+        ...(audience && { audience }),
+        ...(cadence && { cadence }),
         ...(startDate && { startDate: new Date(startDate) }),
         ...(endDate && { endDate: new Date(endDate) }),
         ...(isActive !== undefined && { isActive }),

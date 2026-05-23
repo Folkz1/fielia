@@ -3,6 +3,18 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { generateQuizWithAI, saveGeneratedQuiz } from '@/lib/quiz-generator';
 
+type QuizAudience = 'free' | 'premium';
+type QuizCadence = 'monthly' | 'weekly' | 'on_demand';
+
+function normalizeAudience(value: unknown): QuizAudience {
+  return value === 'premium' ? 'premium' : 'free';
+}
+
+function normalizeCadence(value: unknown, audience: QuizAudience): QuizCadence {
+  if (value === 'weekly' || value === 'monthly' || value === 'on_demand') return value;
+  return audience === 'premium' ? 'weekly' : 'monthly';
+}
+
 // POST - Gerar quiz com IA
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +41,8 @@ export async function POST(req: NextRequest) {
       endDate,
       saveToDb = false,
     } = body;
+    const audience = normalizeAudience(body?.audience);
+    const cadence = normalizeCadence(body?.cadence, audience);
 
     // Gerar quiz com IA
     const generatedQuiz = await generateQuizWithAI({
@@ -42,7 +56,8 @@ export async function POST(req: NextRequest) {
       const quiz = await saveGeneratedQuiz(
         generatedQuiz,
         new Date(startDate),
-        new Date(endDate)
+        new Date(endDate),
+        { audience, cadence, difficulty, category }
       );
 
       return NextResponse.json({

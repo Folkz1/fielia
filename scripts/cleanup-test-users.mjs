@@ -11,6 +11,33 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true 
 const applyChanges = process.argv.includes('--apply');
 const skipAsaasCancel = process.argv.includes('--skip-asaas-cancel');
 const connectionString = process.env.DATABASE_URL;
+const exactTestEmails = [
+  'teste@fiel.ia',
+  'free@fielchat.com',
+  'premium@fielchat.com',
+  'diegovilson.1999+fielia@gmail.com',
+  'fiel@corinthians.com',
+  'diskcevagelada@gmail.com',
+];
+const testEmailPrefixes = [
+  'asaas_test_',
+  'billing_prod_',
+  'checkout_',
+  'dup_base_',
+  'fielia_manual_',
+  'manual_ok_',
+  'registro_',
+  'sandbox+',
+  'visitante_',
+];
+const testNamePrefixes = [
+  'Codex Smoke',
+  'Duplicidade Base',
+  'Teste Billing',
+  'Validacao',
+  'Validação',
+  'Visitante Teste',
+];
 
 if (!connectionString) {
   throw new Error('Missing DATABASE_URL');
@@ -69,13 +96,13 @@ async function main() {
     where: {
       isAdmin: false,
       OR: [
-        { email: 'teste@fiel.ia' },
-        { email: 'free@fielchat.com' },
-        { email: 'premium@fielchat.com' },
-        { email: 'diegovilson.1999+fielia@gmail.com' },
+        { email: { in: exactTestEmails } },
         { email: { endsWith: '@whatsapp.temp' } },
-        { email: { startsWith: 'billing_prod_' } },
-        { email: { startsWith: 'sandbox+' } },
+        { email: { endsWith: '@test.com' } },
+        { email: { endsWith: '@teste.com' } },
+        { email: { endsWith: '@fielia.local' } },
+        ...testEmailPrefixes.map((prefix) => ({ email: { startsWith: prefix } })),
+        ...testNamePrefixes.map((prefix) => ({ name: { startsWith: prefix } })),
       ],
     },
     select: {

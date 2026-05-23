@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Bebas_Neue } from "next/font/google";
+import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-context";
 
@@ -9,10 +9,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const bebas = Bebas_Neue({
-  weight: "400",
+const heading = Sora({
+  weight: ["600", "700", "800"],
   subsets: ["latin"],
-  variable: "--font-bebas",
+  variable: "--font-heading",
   display: "swap",
 });
 
@@ -56,7 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} ${bebas.variable} antialiased`}>
+      <body className={`${inter.variable} ${heading.variable} antialiased`}>
         <ThemeProvider>
           {children}
         </ThemeProvider>

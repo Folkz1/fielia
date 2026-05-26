@@ -37,15 +37,6 @@ function isPeriod(value: string): value is Period {
   return value === "weekly" || value === "monthly" || value === "alltime";
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "F";
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -74,7 +65,7 @@ function FootballRankingSvg() {
       </defs>
       <rect width="1000" height="300" fill="url(#pitchStripes)" />
       <rect width="1000" height="300" fill="url(#rankingGlow)" />
-      <rect x="36" y="28" width="928" height="244" rx="24" fill="none" stroke="white" strokeOpacity="0.12" strokeWidth="3" />
+      <rect x="36" y="40" width="928" height="220" rx="24" fill="none" stroke="white" strokeOpacity="0.12" strokeWidth="3" />
       <path d="M500 28V272" stroke="white" strokeOpacity="0.12" strokeWidth="3" />
       <circle cx="500" cy="150" r="54" fill="none" stroke="white" strokeOpacity="0.14" strokeWidth="3" />
       <rect x="36" y="82" width="120" height="136" rx="12" fill="none" stroke="white" strokeOpacity="0.1" strokeWidth="3" />
@@ -92,37 +83,59 @@ type RankingAvatarVariant = "gold" | "silver" | "bronze" | "default";
 type RankingAvatarSize = "sm" | "md" | "lg";
 
 const rankingAvatarSizes: Record<RankingAvatarSize, string> = {
-  sm: "h-8 w-8 md:h-10 md:w-10 text-xs md:text-sm",
-  md: "h-16 w-16 md:h-24 md:w-24 text-lg md:text-2xl",
-  lg: "h-20 w-20 md:h-32 md:w-32 text-2xl md:text-4xl",
+  sm: "h-9 w-9 md:h-11 md:w-11 text-[10px] md:text-xs",
+  md: "h-16 w-16 md:h-24 md:w-24 text-sm md:text-base",
+  lg: "h-20 w-20 md:h-32 md:w-32 text-base md:text-xl",
 };
 
-const rankingAvatarStyles: Record<RankingAvatarVariant, { border: string; glow: string; primary: string; secondary: string }> = {
+const rankingAvatarStyles: Record<RankingAvatarVariant, { border: string; glow: string; primary: string; secondary: string; jersey: string }> = {
   gold: {
     border: "border-yellow-300",
     glow: "shadow-[0_0_34px_rgba(250,204,21,0.28)]",
     primary: "#facc15",
     secondary: "#b45309",
+    jersey: "#f59e0b",
   },
   silver: {
     border: "border-slate-300",
     glow: "shadow-[0_0_22px_rgba(203,213,225,0.18)]",
     primary: "#cbd5e1",
     secondary: "#475569",
+    jersey: "#64748b",
   },
   bronze: {
     border: "border-orange-600",
     glow: "shadow-[0_0_22px_rgba(234,88,12,0.18)]",
     primary: "#fb923c",
     secondary: "#7c2d12",
+    jersey: "#ea580c",
   },
   default: {
     border: "border-white/15",
     glow: "shadow-[0_0_18px_rgba(250,204,21,0.1)]",
     primary: "#facc15",
     secondary: "#27272a",
+    jersey: "#d4d4d8",
   },
 };
+
+const avatarRoles = ["GOL", "ZAG", "MEI", "ATA", "FIEL", "CAP"];
+
+function stableUserNumber(name: string) {
+  let hash = 0;
+  for (const char of name) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 997;
+  }
+  return (hash % 98) + 1;
+}
+
+function stableUserRole(name: string) {
+  let hash = 0;
+  for (const char of name) {
+    hash = (hash * 17 + char.charCodeAt(0)) % avatarRoles.length;
+  }
+  return avatarRoles[hash];
+}
 
 function RankingAvatar({
   name,
@@ -137,6 +150,8 @@ function RankingAvatar({
   const uniqueId = useId().replace(/:/g, "");
   const glowId = `avatarGlow-${variant}-${uniqueId}`;
   const stripesId = `avatarStripes-${variant}-${uniqueId}`;
+  const playerNumber = stableUserNumber(name);
+  const role = stableUserRole(name);
 
   return (
     <div
@@ -156,14 +171,21 @@ function RankingAvatar({
         </defs>
         <circle cx="50" cy="50" r="50" fill={`url(#${glowId})`} />
         <circle cx="50" cy="50" r="50" fill={`url(#${stripesId})`} />
-        <path d="M50 10V90M16 50H84" stroke="#ffffff" strokeOpacity="0.13" strokeWidth="3" />
-        <circle cx="50" cy="50" r="24" fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="3" />
-        <path d="M50 20 64 31 59 49H41L36 31 50 20Z" fill="#ffffff" fillOpacity="0.14" />
-        <path d="M36 31 22 42M64 31 78 42M41 49 32 70M59 49 68 70" stroke="#ffffff" strokeOpacity="0.13" strokeWidth="3" />
+        <path d="M50 8V92M15 50H85" stroke="#ffffff" strokeOpacity="0.1" strokeWidth="3" />
+        <circle cx="50" cy="25" r="14" fill="#f4d7bd" />
+        <path d="M36 25c4-13 24-13 28 0-6-5-22-5-28 0Z" fill="#111111" />
+        <path d="M21 92c2-25 17-39 29-39s27 14 29 39H21Z" fill="#111111" />
+        <path d="M31 92c2-20 10-31 19-31s17 11 19 31H31Z" fill={style.jersey} />
+        <path d="M42 61v31M58 61v31" stroke="#111111" strokeOpacity="0.45" strokeWidth="5" />
+        <path d="M31 68c12 7 26 7 38 0" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="3" />
+        <path d="M23 89h54" stroke="#ffffff" strokeOpacity="0.12" strokeWidth="5" />
       </svg>
-      <span className="relative z-10 px-1 text-center font-bold leading-none tracking-normal drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]">
-        {initials(name)}
-      </span>
+      <div className="relative z-10 mt-[26%] flex flex-col items-center leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]">
+        <span className="font-bold tracking-normal">{playerNumber}</span>
+        <span className="mt-0.5 rounded-full bg-black/45 px-1.5 py-0.5 text-[0.52em] font-bold tracking-normal text-white/90">
+          {role}
+        </span>
+      </div>
     </div>
   );
 }
@@ -202,7 +224,7 @@ export default function RankingPage() {
   const rest = users.slice(3);
 
   return (
-    <div className="p-4 md:p-8 space-y-8 animate-fade-in">
+    <div className="w-full max-w-full space-y-8 overflow-x-hidden animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-heading text-white mb-2">Ranking da Fiel</h1>
@@ -233,7 +255,7 @@ export default function RankingPage() {
       </div>
 
       {users.length > 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 px-3 py-10 md:px-8 md:py-14 mb-8 md:mb-12">
+        <div className="relative rounded-2xl border border-white/10 bg-black/40 px-3 py-12 md:px-8 md:py-16 mb-8 md:mb-12 overflow-hidden">
           <FootballRankingSvg />
           <div className="relative grid grid-cols-3 gap-2 md:gap-8 items-end">
             {top3[1] && (
@@ -254,7 +276,7 @@ export default function RankingPage() {
             )}
 
             {top3[0] && (
-              <div className="flex flex-col items-center order-2 -mt-4 md:-mt-12 animate-slide-up">
+              <div className="flex flex-col items-center order-2 -mt-2 md:-mt-4 animate-slide-up">
                 <div className="relative mb-2 md:mb-4">
                   <div className="absolute -top-8 md:-top-12 left-1/2 -translate-x-1/2">
                     <Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-400" />

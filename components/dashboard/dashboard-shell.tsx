@@ -56,7 +56,7 @@ export function DashboardShell({
       />
 
       {/* Main Content - com margin left para desktop */}
-      <main className="lg:ml-64 min-h-screen">
+      <main className="lg:ml-64 min-h-screen max-w-full overflow-x-hidden">
         {/* Header */}
         <header className="h-16 border-b border-white/10 flex items-center justify-between px-4 md:px-8 bg-black/50 backdrop-blur-md sticky top-0 z-30">
           {/* Spacer para o botao hamburger em mobile */}
@@ -115,7 +115,7 @@ export function DashboardShell({
         </header>
 
         {/* Conteudo */}
-        <div className="p-4 md:p-8">{children}</div>
+        <div className="max-w-full overflow-x-hidden p-4 md:p-8">{children}</div>
       </main>
     </div>
   );

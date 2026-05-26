@@ -1,13 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
-import { Send, Loader2, Bot, User, Crown, Lock } from "lucide-react";
+import { Send, Loader2, User, Crown, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+}
+
+function FielChatLogo({ className, sizes = "48px" }: { className: string; sizes?: string }) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-full border border-yellow-400/30 bg-zinc-950 shadow-lg shadow-yellow-950/30 ${className}`}
+    >
+      <Image
+        src="/images/logo-fiel-ia.png"
+        alt="FIEL IA"
+        fill
+        sizes={sizes}
+        className="object-contain p-0.5"
+      />
+    </div>
+  );
 }
 
 // Format bot messages: markdown → HTML safe (no raw HTML, no double-linking)
@@ -193,11 +210,9 @@ export default function ChatPage() {
       {/* Header */}
       <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
-            <Bot className="w-7 h-7 text-white" />
-          </div>
+          <FielChatLogo className="h-12 w-12 flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-white">Chat com a IA Corinthiana</h1>
+            <h1 className="text-2xl font-bold text-white">Chat com a FIEL IA</h1>
             <p className="text-gray-300 text-sm font-medium">
               Converse sobre a história, jogadores, títulos e curiosidades do Timão
             </p>
@@ -211,22 +226,21 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-xl">
-                  <Bot className="w-9 h-9 text-white" />
-                </div>
+                <FielChatLogo className="mx-auto h-16 w-16 shadow-xl" sizes="64px" />
                 <div>
                   <h3 className="text-xl font-bold mb-2 text-white">Olá, Fiel! 🦅</h3>
                   <p className="text-gray-300 max-w-md">
-                    Sou a IA especializada em Corinthians. Pergunte-me sobre a história do clube,
+                    Sou a FIEL IA, especializada em Corinthians. Pergunte-me sobre a história do clube,
                     jogadores lendários, títulos conquistados e muito mais!
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
                   {[
                     { text: "/menu", label: "📋 Ver Menu" },
-                    { text: "1", label: "📰 Notícias" },
-                    { text: "2", label: "❓ Quiz" },
-                    { text: "4", label: "👑 Ranking" },
+                    { text: "fanatico noticias", label: "📰 Notícias" },
+                    { text: "fanatico quiz", label: "❓ Quiz" },
+                    { text: "fanatico ranking", label: "🏆 Ranking" },
+                    { text: "fanatico premium", label: "💎 Premium" },
                     { text: "/historia", label: "📚 História" },
                     { text: "Quando foi fundado?", label: "🗓️ Fundação" },
                   ].map((suggestion) => (
@@ -235,7 +249,11 @@ export default function ChatPage() {
                       onClick={() => {
                         setInput(suggestion.text);
                         // Auto-submit for commands
-                        if (suggestion.text.startsWith('/') || /^[0-9]$/.test(suggestion.text)) {
+                        if (
+                          suggestion.text.startsWith('/') ||
+                          suggestion.text.startsWith('fanatico ') ||
+                          /^[0-9]$/.test(suggestion.text)
+                        ) {
                           setTimeout(() => {
                             if (formRef.current) formRef.current.requestSubmit();
                           }, 100);
@@ -259,9 +277,7 @@ export default function ChatPage() {
                   }`}
                 >
                   {message.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
+                    <FielChatLogo className="h-8 w-8 flex-shrink-0" sizes="32px" />
                   )}
                   <div
                     className={`max-w-[70%] rounded-2xl p-4 ${
@@ -300,9 +316,7 @@ export default function ChatPage() {
               ))}
               {isLoading && (
                 <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
+                  <FielChatLogo className="h-8 w-8 flex-shrink-0" sizes="32px" />
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                     <Loader2 className="w-5 h-5 animate-spin text-white" />
                   </div>
@@ -317,9 +331,10 @@ export default function ChatPage() {
         <div className="flex gap-2 mb-3 flex-wrap">
           {[
             { cmd: '/menu', icon: '📋', label: 'Menu' },
-            { cmd: '1', icon: '📰', label: 'Notícias' },
-            { cmd: '2', icon: '❓', label: 'Quiz' },
-            { cmd: '4', icon: '👑', label: 'Ranking' },
+            { cmd: 'fanatico noticias', icon: '📰', label: 'Notícias' },
+            { cmd: 'fanatico quiz', icon: '❓', label: 'Quiz' },
+            { cmd: 'fanatico ranking', icon: '🏆', label: 'Ranking' },
+            { cmd: 'fanatico premium', icon: '💎', label: 'Premium' },
           ].map((action) => (
             <button
               key={action.cmd}

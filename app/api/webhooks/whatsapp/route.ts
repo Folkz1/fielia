@@ -253,20 +253,39 @@ function getGroupJoinWelcomeCooldownHours() {
 }
 
 function getGroupJoinWelcomeMessage() {
-  return (
-    'Bem-vindo ao grupo free da FIEL IA.\n\n' +
-    'Como funciona:\n' +
-    `- Cadastro e quiz free: ${getAppUrl()}/cadastro-free\n` +
-    `- Link direto do quiz: ${getAppUrl()}/quiz-free\n` +
-    '- Ranking free mostra o Top 10 do quiz mensal.\n' +
-    '- Premium e pago desde o inicio: quiz semanal, ranking completo e IA no privado.\n\n' +
-    'Sem sorteio e sem free trial.\n\n' +
-    'No grupo, chame o bot assim:\n' +
-    '*fanatico noticias*\n' +
-    '*fanatico quiz*\n' +
-    '*fanatico ranking*\n' +
-    '*fanatico premium*'
-  );
+  const appUrl = getAppUrl();
+
+  return [
+    '🔥🦅 Salve, Louco do Bando! Bem-vindo à FIEL IA (Modo Free) 🦅🔥',
+    '',
+    'Quer provar que sabe tudo sobre o Coringão?',
+    'Então se liga em como jogar e subir no ranking:',
+    '',
+    '🚀 Comece por aqui:',
+    '',
+    '1️⃣ Faça seu cadastro:',
+    `${appUrl}/cadastro-free`,
+    '',
+    '2️⃣ Vá direto para o jogo:',
+    `${appUrl}/quiz-free`,
+    '',
+    '🏆 O que você tem no plano Free:',
+    '',
+    'Você disputa o Quiz Mensal e briga para entrar no Top 10 do ranking.',
+    '',
+    '(Nota: Sem sorteios ou free trial. Aqui é na bola e no conhecimento!)',
+    '',
+    '💎 Quer mais? Conheça o Premium:',
+    '',
+    'Quizzes semanais, ranking completo de pontuação e resenha direto com a FIEL IA no privado.',
+    '',
+    '💬 Chame no chat usando:',
+    '',
+    '*fanatico noticias*',
+    '*fanatico quiz*',
+    '*fanatico ranking*',
+    '*fanatico premium*',
+  ].join('\n');
 }
 
 function getGroupParticipantsUpdateData(body: WhatsAppPayload) {

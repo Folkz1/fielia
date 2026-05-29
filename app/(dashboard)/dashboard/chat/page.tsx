@@ -78,6 +78,7 @@ export default function ChatPage() {
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Get current user from API
@@ -99,6 +100,14 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Devolve o foco ao campo de digitação quando a resposta chega (isLoading -> false),
+  // pra não precisar clicar na barra a cada mensagem. Também foca ao abrir o chat.
+  useEffect(() => {
+    if (!isLoading) {
+      inputRef.current?.focus();
+    }
+  }, [isLoading]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -355,11 +364,13 @@ export default function ChatPage() {
         {/* Input Area */}
         <form ref={formRef} onSubmit={handleSubmit} className="flex gap-3">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Digite /menu ou sua mensagem..."
             disabled={isLoading}
+            autoFocus
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-corinthians-gold disabled:opacity-50"
           />
           <Button

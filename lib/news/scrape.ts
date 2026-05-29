@@ -1,5 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
+import { readBodyDecoded } from '@/lib/news/encoding';
 
 type ScrapedArticle = {
   title: string | null;
@@ -51,7 +52,7 @@ export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle 
     });
 
     if (!res.ok) return null;
-    const html = await res.text();
+    const html = await readBodyDecoded(res, 'html');
     if (!html || html.length < 400) return null;
 
     const dom = new JSDOM(html, { url });

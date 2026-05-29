@@ -2,6 +2,7 @@ import Parser from 'rss-parser';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { scrapeArticleFromUrl } from '@/lib/news/scrape';
+import { readBodyDecoded } from '@/lib/news/encoding';
 import { rewriteNewsWithAI } from '@/lib/news/rewrite';
 import { stripHtmlToText } from '@/lib/news/text';
 import { buildNewsFallbackFromSource } from '@/lib/news/fallback';
@@ -166,7 +167,7 @@ export async function syncNewsFromFreshRSS() {
       throw new Error(`FreshRSS error ${res.status}: ${text}`);
     }
 
-    const xml = await res.text();
+    const xml = await readBodyDecoded(res, 'xml');
     const feed = await parser.parseString(xml);
     const items = (feed.items || []) as FeedItem[];
 

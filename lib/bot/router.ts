@@ -5,6 +5,7 @@ import { getUserProfile, formatProfileMessage } from './services/user.service';
 import { startQuiz, processQuizAnswer } from './services/quiz.service';
 import { getChatHistory } from './services/chat-history.service';
 import { isPremiumUser } from '@/lib/premium';
+import { detectLiveIntent } from '@/lib/chat/live-data';
 
 async function getAffiliateCTA(source: string): Promise<string> {
   try {
@@ -235,7 +236,13 @@ export async function routeMessage(userId: string, message: string, platform: st
       return handleProfile(userId);
   }
 
-  if (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3') {
+  // Pergunta sobre jogos do time (próximo jogo, último resultado, placar, classificação)
+  // vai pro chat com IA (dados ao vivo via web search), não pro Game Fiel da plataforma.
+  // "game", "3" e "jogo" genérico continuam indo pro Game Fiel.
+  if (
+    detectLiveIntent(message) !== 'jogos' &&
+    (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3')
+  ) {
     return handleGame();
   }
 

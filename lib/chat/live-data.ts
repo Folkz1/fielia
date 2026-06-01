@@ -78,6 +78,55 @@ export async function fetchElencoAtual(): Promise<string | null> {
   }
 }
 
+const JOGOS_TTL_MS = 2 * 60 * 60 * 1000; // 2h — jogos/resultados mudam mais rápido que o elenco
+function normalizeKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+/**
+ * Busca dados atuais (próximo jogo, último resultado, classificação) via web search
+ * do OpenRouter (server tool, mecanismo Exa). Usa gpt-4o-mini de propósito —
+ * independente do modelo de conversa escolhido pelo cliente, que pode não suportar tools.
+ * Cacheado por pergunta normalizada (TTL 2h) para conter custo (~US$0,011/busca).
+ */
+async function fetchJogosWebSearch(userMessage: string): Promise<string | null> {
+  const cacheKey = 'jogos:' + normalizeKey(userMessage);
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: `Hoje é ${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}. Seus dados internos de treino estão DESATUALIZADOS — você é OBRIGADO a usar a ferramenta de busca web e NÃO responder de memória. Pesquise sobre o Sport Club Corinthians Paulista (futebol) e responda objetivamente, só os fatos, à pergunta: "${userMessage}". Inclua data, horário, adversário, competição e placar quando fizer sentido. Se não achar nada, diga que não encontrou.`,
+        }],
+        tools: [{ type: 'openrouter:web_search' }],
+        max_tokens: 450,
+      }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const content = json?.choices?.[0]?.message?.content?.trim();
+    if (!content || content.length < 30) return null;
+    setCached(cacheKey, content, JOGOS_TTL_MS);
+    return content;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Retorna um bloco de contexto "ao vivo" para a mensagem, ou null se não se aplica.
  * O formato segue o padrão do RAG ([RÓTULO] conteúdo) para concatenar no contexto.
@@ -90,6 +139,11 @@ export async function getLiveContext(message: string): Promise<string | null> {
       return `[ELENCO ATUAL DO CORINTHIANS — fonte: Wikipédia, use estes nomes e descarte qualquer elenco antigo da sua memória]\n${elenco}`;
     }
   }
-  // intent 'jogos' será coberto pelo web search (slice 2).
+  if (intent === 'jogos') {
+    const jogos = await fetchJogosWebSearch(message);
+    if (jogos) {
+      return `[JOGOS E RESULTADOS RECENTES DO CORINTHIANS — fonte: busca web atualizada, use estes dados como verdade]\n${jogos}`;
+    }
+  }
   return null;
 }

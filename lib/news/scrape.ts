@@ -1,6 +1,7 @@
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { readBodyDecoded } from '@/lib/news/encoding';
+import { getProxyDispatcher, hasProxyConfigured } from '@/lib/proxy';
 
 type ScrapedArticle = {
   title: string | null;
@@ -35,24 +36,42 @@ function resolveMaybeUrl(base: string, maybeUrl: string | null) {
   }
 }
 
+const SCRAPE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; FielIA/1.0; +https://fielchat.com)',
+  Accept: 'text/html,application/xhtml+xml',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.7',
+};
+
+// Tenta o fetch direto; se falhar (ex.: ge.globo bloqueia IP de datacenter) e houver
+// proxy residencial configurado, refaz pela saída residencial (Webshare).
+async function fetchArticleHtml(url: string, signal: AbortSignal): Promise<string | null> {
+  try {
+    const res = await fetch(url, { redirect: 'follow', signal, headers: SCRAPE_HEADERS });
+    if (res.ok) return await readBodyDecoded(res, 'html');
+  } catch {
+    // cai para o proxy abaixo
+  }
+  if (hasProxyConfigured()) {
+    try {
+      const dispatcher = await getProxyDispatcher();
+      if (dispatcher) {
+        const proxyFetch = globalThis.fetch as (u: string, init?: Record<string, unknown>) => Promise<Response>;
+        const res = await proxyFetch(url, { redirect: 'follow', signal, headers: SCRAPE_HEADERS, dispatcher });
+        if (res.ok) return await readBodyDecoded(res, 'html');
+      }
+    } catch {
+      // desiste silenciosamente — o chamador trata o null
+    }
+  }
+  return null;
+}
+
 export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
 
   try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; FielIA/1.0; +https://fielchat.com)',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.7',
-      },
-    });
-
-    if (!res.ok) return null;
-    const html = await readBodyDecoded(res, 'html');
+    const html = await fetchArticleHtml(url, controller.signal);
     if (!html || html.length < 400) return null;
 
     const dom = new JSDOM(html, { url });

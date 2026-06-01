@@ -194,14 +194,20 @@ export async function generateCorinthiansResponse(
   const { history, skipRAG } = options || {};
   let { context } = options || {};
 
-  // Buscar contexto RAG automaticamente se nao foi passado e nao foi pulado
+  // Buscar contexto RAG + dados ao vivo (ex: elenco atual) em paralelo
   if (!context && !skipRAG && !userMessage.startsWith("/")) {
     try {
       const { getRAGContext } = await import("@/lib/rag");
-      context = await getRAGContext(userMessage, 3);
+      const { getLiveContext } = await import("@/lib/chat/live-data");
+      const [rag, live] = await Promise.all([
+        getRAGContext(userMessage, 3).catch(() => ""),
+        getLiveContext(userMessage).catch(() => null),
+      ]);
+      // Dados ao vivo primeiro (têm prioridade sobre o RAG estático na fonte de verdade)
+      context = [live, rag].filter(Boolean).join("\n\n---\n\n");
     } catch (error) {
-      console.error("Erro ao buscar contexto RAG:", error);
-      // Continuar sem contexto RAG em caso de erro
+      console.error("Erro ao buscar contexto:", error);
+      // Continuar sem contexto em caso de erro
     }
   }
 

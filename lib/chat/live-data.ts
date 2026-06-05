@@ -11,7 +11,7 @@
 //   um restart é irrelevante.
 // - A busca é paralelizada com o RAG no chamador (não soma latência).
 
-type LiveIntent = 'elenco' | 'jogos' | null;
+type LiveIntent = 'elenco' | 'jogos' | 'odds' | null;
 
 // Conservador de propósito: só dispara em pergunta clara sobre elenco/escalação.
 const ELENCO_RE =
@@ -21,9 +21,14 @@ const ELENCO_RE =
 const JOGOS_RE =
   /\b(pr[óo]ximo jogo|quando (joga|tem jogo)|[úu]ltimo jogo|que horas (joga|[ée] o jogo)|placar d[ao]|resultado d[ao] (jogo|partida)|classifica[çc][aã]o|tabela do brasileir|posi[çc][aã]o na tabela)\b/i;
 
+// Odds/apostas — checado ANTES de JOGOS_RE (mais específico). Conservador de propósito.
+const ODDS_RE =
+  /\b(odds?|cota[çc][aã]o|cota[çc][õo]es|quanto (paga|t[áa] pagando|est[áa] pagando)|apostar?|aposta no|vale a pena apostar|pagando quanto|favorito pra ganhar)\b/i;
+
 export function detectLiveIntent(message: string): LiveIntent {
   if (!message) return null;
   if (ELENCO_RE.test(message)) return 'elenco';
+  if (ODDS_RE.test(message)) return 'odds';
   if (JOGOS_RE.test(message)) return 'jogos';
   return null;
 }
@@ -138,6 +143,12 @@ export async function getLiveContext(message: string): Promise<string | null> {
     if (elenco) {
       return `[ELENCO ATUAL DO CORINTHIANS — fonte: Wikipédia, use estes nomes e descarte qualquer elenco antigo da sua memória]\n${elenco}`;
     }
+  }
+  if (intent === 'odds') {
+    // dynamic import: só carrega o scraper (e o proxy) quando a pergunta é sobre odds
+    const { getOddsContext } = await import('@/lib/odds/scrape');
+    const odds = await getOddsContext();
+    if (odds) return odds;
   }
   if (intent === 'jogos') {
     const jogos = await fetchJogosWebSearch(message);

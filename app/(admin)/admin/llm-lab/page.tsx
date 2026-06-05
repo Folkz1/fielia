@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   FlaskConical, Play, RefreshCw, Plus, Trash2, Crown, Check,
-  AlertTriangle, Coins, Timer, Target, ChevronDown, ChevronRight,
+  AlertTriangle, Coins, Timer, Target, ChevronDown, ChevronRight, History,
 } from "lucide-react";
-import { MODEL_OPTIONS, modelLabel } from "@/lib/models";
+import { MODEL_OPTIONS, modelLabel, modelsByTier, type CostTier } from "@/lib/models";
 
 interface GoldenPrompt {
   id: string;
@@ -39,13 +39,26 @@ interface EvalRun {
   cells: CellResult[];
   aggregates: ModelAggregate[];
 }
+interface HistoryEntry {
+  ranAt: string;
+  models: string[];
+  promptCount: number;
+  systemPromptUsed: boolean;
+  aggregates: ModelAggregate[];
+}
 
-const MAX_MATRIX = 25;
+const MAX_MATRIX = 80;
 const DEFAULT_MODELS = [
   "deepseek/deepseek-v4-flash",
   "openai/gpt-4o-mini",
   "google/gemini-3.1-flash-lite",
 ];
+
+const TIER_META: Record<CostTier, { label: string; cls: string }> = {
+  barato: { label: "💚 barato", cls: "text-green-400" },
+  medio: { label: "💛 médio", cls: "text-yellow-400" },
+  caro: { label: "🔴 caro", cls: "text-red-400" },
+};
 
 function fmtCost(v: number | null): string {
   if (v === null) return "—";
@@ -70,6 +83,7 @@ export default function LlmLabPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [credits, setCredits] = useState<{ totalCredits: number; totalUsage: number; remaining: number } | null>(null);
   const [loadingCredits, setLoadingCredits] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   async function loadCredits() {
     setLoadingCredits(true);
@@ -93,6 +107,7 @@ export default function LlmLabPage() {
         const evalData = await evalRes.json();
         if (Array.isArray(evalData.goldenSet)) setGoldenSet(evalData.goldenSet);
         if (evalData.lastRun) setRun(evalData.lastRun);
+        if (Array.isArray(evalData.history)) setHistory(evalData.history);
         const cfg = await cfgRes.json();
         if (cfg.primary_model) setPrimaryModel(cfg.primary_model);
         // Pre-popula com o system prompt REAL do FIEL.IA: assim o eval compara
@@ -110,6 +125,9 @@ export default function LlmLabPage() {
 
   const matrixSize = selectedModels.length * goldenSet.filter((p) => p.prompt.trim()).length;
   const overLimit = matrixSize > MAX_MATRIX;
+  const expensiveSelected = selectedModels.filter(
+    (v) => MODEL_OPTIONS.find((m) => m.value === v)?.tier === "caro"
+  );
 
   // Ranking: maior cobertura primeiro, desempate por menor latencia.
   const ranked = useMemo(() => {
@@ -127,6 +145,9 @@ export default function LlmLabPage() {
     setSelectedModels((prev) =>
       prev.includes(value) ? prev.filter((m) => m !== value) : [...prev, value]
     );
+  }
+  function selectTiers(...tiers: CostTier[]) {
+    setSelectedModels(modelsByTier(...tiers));
   }
   function updatePrompt(idx: number, patch: Partial<GoldenPrompt>) {
     setGoldenSet((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
@@ -156,7 +177,19 @@ export default function LlmLabPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Falha ao rodar eval");
-      setRun(data as EvalRun);
+      const fresh = data as EvalRun;
+      setRun(fresh);
+      // Acrescenta ao historico local (o backend ja persistiu no site_config).
+      setHistory((prev) => [
+        {
+          ranAt: fresh.ranAt,
+          models: fresh.models,
+          promptCount: fresh.prompts.length,
+          systemPromptUsed: systemPrompt.trim().length > 0,
+          aggregates: fresh.aggregates,
+        },
+        ...prev,
+      ].slice(0, 20));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro inesperado");
     } finally {
@@ -315,7 +348,15 @@ export default function LlmLabPage() {
 
       {/* Modelos + Run */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-        <h2 className="text-lg font-bold mb-4">Modelos a comparar</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 className="text-lg font-bold">Modelos a comparar</h2>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button onClick={() => selectTiers("barato")} className="px-2.5 py-1 rounded bg-green-500/15 text-green-300 hover:bg-green-500/25">💚 Baratos</button>
+            <button onClick={() => selectTiers("barato", "medio")} className="px-2.5 py-1 rounded bg-yellow-500/15 text-yellow-200 hover:bg-yellow-500/25">💚💛 Baratos+Médios</button>
+            <button onClick={() => setSelectedModels(MODEL_OPTIONS.map((m) => m.value))} className="px-2.5 py-1 rounded bg-white/10 text-gray-300 hover:bg-white/20">Todos</button>
+            <button onClick={() => setSelectedModels([])} className="px-2.5 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20">Limpar</button>
+          </div>
+        </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
           {MODEL_OPTIONS.map((m) => {
             const checked = selectedModels.includes(m.value);
@@ -335,7 +376,9 @@ export default function LlmLabPage() {
                   className="accent-orange-500"
                 />
                 <span className="flex-1">{m.label}</span>
-                {m.free && <span className="text-[10px] text-green-400">FREE</span>}
+                <span className={`text-[10px] whitespace-nowrap ${TIER_META[m.tier].cls}`}>
+                  {TIER_META[m.tier].label}
+                </span>
                 {primaryModel === m.value && (
                   <span className="text-[10px] text-orange-400">ATIVO</span>
                 )}
@@ -343,6 +386,17 @@ export default function LlmLabPage() {
             );
           })}
         </div>
+
+        {expensiveSelected.length > 0 && (
+          <div className="mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-300 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              {expensiveSelected.length} modelo(s) <strong>caro(s)</strong> selecionado(s) — esses
+              queimam crédito rápido (Opus/GPT-5.5 ~$25–30 por 1M tokens). Pros testes, prefira
+              💚 Baratos / 💛 Médios.
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <button
@@ -494,6 +548,55 @@ export default function LlmLabPage() {
                           </div>
                         ))}
                     </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Histórico de análises */}
+      {history.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="text-lg font-bold flex items-center gap-2 mb-1">
+            <History className="w-5 h-5 text-orange-400" /> Histórico de análises
+          </h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Últimas {history.length} rodadas salvas — parâmetro pra comparar evolução dos modelos.
+          </p>
+          <div className="space-y-2">
+            {history.map((h, i) => {
+              const best = [...h.aggregates].sort((a, b) => {
+                const sa = a.avgScore ?? -1;
+                const sb = b.avgScore ?? -1;
+                if (sb !== sa) return sb - sa;
+                return a.avgLatencyMs - b.avgLatencyMs;
+              })[0];
+              const totalCost = h.aggregates.reduce((s, a) => s + (a.totalCostUsd ?? 0), 0);
+              return (
+                <div
+                  key={h.ranAt + i}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm border-b border-white/5 pb-2"
+                >
+                  <span className="text-gray-500 text-xs w-36 shrink-0">
+                    {new Date(h.ranAt).toLocaleString("pt-BR")}
+                  </span>
+                  <span className="text-gray-400">
+                    {h.models.length} modelos · {h.promptCount} prompts
+                  </span>
+                  {best && (
+                    <span className="flex items-center gap-1 text-white">
+                      <Crown className="w-3.5 h-3.5 text-orange-400" />
+                      {modelLabel(best.model)}
+                      {best.avgScore !== null && (
+                        <span className="text-gray-400">({best.avgScore}%)</span>
+                      )}
+                    </span>
+                  )}
+                  <span className="text-gray-400 ml-auto">{fmtCost(totalCost || null)}</span>
+                  {h.systemPromptUsed && (
+                    <span className="text-[10px] text-gray-500">c/ system prompt</span>
                   )}
                 </div>
               );

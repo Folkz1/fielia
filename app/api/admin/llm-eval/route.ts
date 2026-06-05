@@ -19,6 +19,9 @@ import { prisma } from "@/lib/prisma";
 
 const GOLDEN_SET_KEY = "llm_golden_set";
 const EVAL_LAST_KEY = "llm_eval_last";
+const EVAL_HISTORY_KEY = "llm_eval_history";
+/** Quantos runs manter no historico (parametro pra analise ao longo do tempo). */
+const HISTORY_MAX = 20;
 
 /** Teto da matriz prompts × modelos por execucao (evita rodadas gigantes). */
 const MAX_MATRIX = 25;
@@ -64,6 +67,15 @@ interface EvalRun {
   models: string[];
   prompts: GoldenPrompt[];
   cells: CellResult[];
+  aggregates: ModelAggregate[];
+}
+
+/** Resumo leve de um run, guardado no historico (sem cells/respostas — so metricas). */
+interface HistoryEntry {
+  ranAt: string;
+  models: string[];
+  promptCount: number;
+  systemPromptUsed: boolean;
   aggregates: ModelAggregate[];
 }
 
@@ -233,11 +245,25 @@ function aggregate(models: string[], cells: CellResult[]): ModelAggregate[] {
   });
 }
 
+async function readHistory(): Promise<HistoryEntry[]> {
+  try {
+    const row = await prisma.siteConfig.findUnique({ where: { key: EVAL_HISTORY_KEY } });
+    const parsed = row?.value ? (JSON.parse(row.value) as HistoryEntry[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
-  const [goldenSet, lastRun] = await Promise.all([readGoldenSet(), readLastRun()]);
-  return NextResponse.json({ goldenSet, lastRun });
+  const [goldenSet, lastRun, history] = await Promise.all([
+    readGoldenSet(),
+    readLastRun(),
+    readHistory(),
+  ]);
+  return NextResponse.json({ goldenSet, lastRun, history });
 }
 
 export async function POST(request: NextRequest) {
@@ -294,12 +320,20 @@ export async function POST(request: NextRequest) {
     aggregates,
   };
 
-  // Persiste o golden set usado + um snapshot ENXUTO do run (respostas truncadas).
+  // Persiste o golden set usado + snapshot ENXUTO do run + acrescenta ao historico.
   try {
     const persistRun: EvalRun = {
       ...run,
       cells: cells.map((c) => ({ ...c, content: c.content.slice(0, PERSIST_CONTENT_CHARS) })),
     };
+    const historyEntry: HistoryEntry = {
+      ranAt: run.ranAt,
+      models: run.models,
+      promptCount: prompts.length,
+      systemPromptUsed: systemPrompt.length > 0,
+      aggregates: run.aggregates,
+    };
+    const newHistory = [historyEntry, ...(await readHistory())].slice(0, HISTORY_MAX);
     await Promise.all([
       prisma.siteConfig.upsert({
         where: { key: GOLDEN_SET_KEY },
@@ -310,6 +344,11 @@ export async function POST(request: NextRequest) {
         where: { key: EVAL_LAST_KEY },
         update: { value: JSON.stringify(persistRun) },
         create: { key: EVAL_LAST_KEY, value: JSON.stringify(persistRun) },
+      }),
+      prisma.siteConfig.upsert({
+        where: { key: EVAL_HISTORY_KEY },
+        update: { value: JSON.stringify(newHistory) },
+        create: { key: EVAL_HISTORY_KEY, value: JSON.stringify(newHistory) },
       }),
     ]);
   } catch (err) {

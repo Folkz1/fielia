@@ -8,11 +8,15 @@
  * Custo entre parenteses no label = USD por 1M tokens (entrada / saida) no OpenRouter.
  * Ranking top-weekly do OpenRouter (maio/2026), validado no catalogo.
  */
+export type CostTier = "barato" | "medio" | "caro";
+
 export interface ModelOption {
   value: string;
   label: string;
   /** Modelos gratuitos/experimentais (derivado do value :free ou do label). */
   free?: boolean;
+  /** Faixa de custo, derivada do preco de saida no label. */
+  tier: CostTier;
 }
 
 export interface ModelGroup {
@@ -54,13 +58,35 @@ export const MODEL_GROUPS: ModelGroup[] = [
   },
 ];
 
-/** Lista achatada (todos os modelos), com flag free derivada. */
+/**
+ * Deriva a faixa de custo pelo preco de SAIDA no label ($entrada/$saida -> saida).
+ * Sem preco no label (free/experimental) => barato.
+ *  - saida <= $1/1M  => barato
+ *  - saida <= $5/1M  => medio
+ *  - saida >  $5/1M  => caro
+ */
+function deriveTier(label: string): CostTier {
+  const m = label.match(/\$([\d.]+)\s*\/\s*\$([\d.]+)/);
+  if (!m) return "barato";
+  const out = parseFloat(m[2]);
+  if (out > 5) return "caro";
+  if (out > 1) return "medio";
+  return "barato";
+}
+
+/** Lista achatada (todos os modelos), com flag free e faixa de custo derivadas. */
 export const MODEL_OPTIONS: ModelOption[] = MODEL_GROUPS.flatMap((g) =>
   g.models.map((m) => ({
     ...m,
     free: m.value.includes(":free") || /grátis|gratis|free/i.test(m.label),
+    tier: deriveTier(m.label),
   }))
 );
+
+/** Valores dos modelos de uma ou mais faixas de custo (atalho de selecao no LLM Lab). */
+export function modelsByTier(...tiers: CostTier[]): string[] {
+  return MODEL_OPTIONS.filter((m) => tiers.includes(m.tier)).map((m) => m.value);
+}
 
 /** Procura o label amigavel de um model id; cai pro proprio id se desconhecido. */
 export function modelLabel(value: string): string {

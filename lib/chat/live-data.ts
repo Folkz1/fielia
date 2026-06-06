@@ -11,7 +11,7 @@
 //   um restart é irrelevante.
 // - A busca é paralelizada com o RAG no chamador (não soma latência).
 
-type LiveIntent = 'elenco' | 'jogos' | 'odds' | null;
+type LiveIntent = 'elenco' | 'jogos' | 'odds' | 'jogos_dia' | null;
 
 // Conservador de propósito: só dispara em pergunta clara sobre elenco/escalação.
 const ELENCO_RE =
@@ -25,9 +25,14 @@ const JOGOS_RE =
 const ODDS_RE =
   /\b(odds?|cota[çc][aã]o|cota[çc][õo]es|quanto (paga|t[áa] pagando|est[áa] pagando)|apostar?|aposta no|vale a pena apostar|pagando quanto|favorito pra ganhar)\b/i;
 
+// Jogos do dia / outras competições (multi-liga). Checado ANTES de odds/jogos do Corinthians.
+const JOGOS_DIA_RE =
+  /\b(jogos de hoje|jogos do dia|quais (s[ãa]o os )?jogos|que jogos|tem jogos? (hoje|hj)|odds dos jogos|jogos com odds|libertadores|premier league|la ?liga|champions|bundesliga|ligue ?1|s[ée]rie a italiana|sul-?americana|copa do mundo|copa am[ée]rica|amist[oó]\w*|mundial de clubes)\b/i;
+
 export function detectLiveIntent(message: string): LiveIntent {
   if (!message) return null;
   if (ELENCO_RE.test(message)) return 'elenco';
+  if (JOGOS_DIA_RE.test(message)) return 'jogos_dia';
   if (ODDS_RE.test(message)) return 'odds';
   if (JOGOS_RE.test(message)) return 'jogos';
   return null;
@@ -143,6 +148,12 @@ export async function getLiveContext(message: string): Promise<string | null> {
     if (elenco) {
       return `[ELENCO ATUAL DO CORINTHIANS — fonte: Wikipédia, use estes nomes e descarte qualquer elenco antigo da sua memória]\n${elenco}`;
     }
+  }
+  if (intent === 'jogos_dia') {
+    // jogos do dia + odds de várias ligas (lê só do cache — nunca trava o chat)
+    const { getJogosDoDiaContext } = await import('@/lib/odds/scrape');
+    const ctx = await getJogosDoDiaContext();
+    if (ctx) return ctx;
   }
   if (intent === 'odds') {
     // dynamic import: só carrega o scraper (e o proxy) quando a pergunta é sobre odds

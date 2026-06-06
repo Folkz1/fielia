@@ -16,6 +16,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
+  // mode=chat: valida a cadeia da IA (detectLiveIntent -> getLiveContext) de dentro do prod
+  if (url.searchParams.get('mode') === 'chat') {
+    const { detectLiveIntent, getLiveContext } = await import('@/lib/chat/live-data');
+    const q = url.searchParams.get('q') || 'quais jogos tem hoje com odds?';
+    const intent = detectLiveIntent(q);
+    const context = await getLiveContext(q);
+    return NextResponse.json({ mode: 'chat', q, intent, context });
+  }
+
   // mode=jogos: valida o painel de jogos do dia (multi-liga) de dentro do prod
   if (url.searchParams.get('mode') === 'jogos') {
     const ligas = await getJogosDoDia(true);

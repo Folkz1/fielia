@@ -58,6 +58,7 @@ export function startScheduler() {
   const quizSchedule = process.env.CRON_WEEKLY_QUIZ_SCHEDULE || '0 8 * * 1';
   const funnelSchedule = process.env.CRON_WHATSAPP_FUNNEL_SCHEDULE || '* * * * *';
   const manualContentSchedule = process.env.CRON_MANUAL_CONTENT_SEND_SCHEDULE || '* * * * *';
+  const oddsSchedule = process.env.CRON_ODDS_SCHEDULE || '*/25 * * * *'; // pré-aquece o cache de jogos do dia (TTL 30min)
 
   if (recurringCronEnabled) {
     cron.schedule(syncSchedule, () => runTaskSafe('news sync', syncNewsFromFreshRSS));
@@ -70,6 +71,13 @@ export function startScheduler() {
     );
     cron.schedule(quizSchedule, () =>
       runTaskSafe('weekly quiz generation', generateWeeklyQuizIfMissing)
+    );
+    // mantém o cache de jogos do dia quente para o chat (grupo + plataforma) ler sem travar
+    cron.schedule(oddsSchedule, () =>
+      runTaskSafe('odds warm cache', async () => {
+        const { getJogosDoDia } = await import('@/lib/odds/scrape');
+        await getJogosDoDia(true);
+      })
     );
   }
 

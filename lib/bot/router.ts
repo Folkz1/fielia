@@ -239,8 +239,9 @@ export async function routeMessage(userId: string, message: string, platform: st
   // Pergunta sobre jogos do time (próximo jogo, último resultado, placar, classificação)
   // vai pro chat com IA (dados ao vivo via web search), não pro Game Fiel da plataforma.
   // "game", "3" e "jogo" genérico continuam indo pro Game Fiel.
+  const liveIntent = detectLiveIntent(message);
   if (
-    detectLiveIntent(message) !== 'jogos' &&
+    !(liveIntent === 'jogos' || liveIntent === 'jogos_dia' || liveIntent === 'odds') &&
     (lowerMsg.includes('jogo') || lowerMsg.includes('game') || lowerMsg === '3')
   ) {
     return handleGame();

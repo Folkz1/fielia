@@ -231,7 +231,7 @@ const LIGAS_ALVO: Array<{ pais: string; id: number; slug: string; nome: string; 
   { pais: 'brasil', id: 89, slug: 'serie-b', nome: 'Brasileirão Série B', prio: 2 },
   { pais: 'america-do-sul', id: 241, slug: 'conmebol-libertadores', nome: 'Libertadores', prio: 3 },
   { pais: 'america-do-sul', id: 288, slug: 'copa-america', nome: 'Copa América', prio: 4 },
-  { pais: 'mundo', id: 72, slug: 'mundial', nome: 'Mundial de Clubes', prio: 5 },
+  { pais: 'mundo', id: 72, slug: 'mundial', nome: 'Copa do Mundo / Mundial', prio: 5 },
   { pais: 'mundo', id: 430, slug: 'amigaveis', nome: 'Amistosos / Seleções', prio: 6 },
   { pais: 'inglaterra', id: 8, slug: 'premier-league', nome: 'Premier League', prio: 7 },
   { pais: 'italia', id: 13, slug: 'serie-a', nome: 'Serie A (Itália)', prio: 8 },
@@ -248,9 +248,11 @@ const MAX_JOGOS = 60; // teto total de fetches de odds por ciclo (≈ todas as l
  * Usa as listagens das competições (têm os jogos futuros com mercado aberto) — NÃO o /livescores,
  * que traz jogos ao vivo/encerrados sem odds pré-jogo.
  */
-export async function getJogosDoDia(force = false): Promise<LigaJogos[]> {
+export async function getJogosDoDia(force = false, cacheOnly = false): Promise<LigaJogos[]> {
   const cached = jogosCache.get('all');
   if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
+  // cacheOnly: usado no caminho do chat — nunca dispara o scrape pesado (o cron mantém quente)
+  if (cacheOnly) return cached?.value ?? [];
 
   try {
     // 1) candidatos: primeiros jogos de cada liga (listagens em paralelo)
@@ -325,4 +327,29 @@ export async function getJogosDoDia(force = false): Promise<LigaJogos[]> {
   } catch {
     return cached?.value ?? [];
   }
+}
+
+/**
+ * Contexto de "jogos do dia + odds" para o chat (grupo WhatsApp + plataforma web).
+ * Lê SOMENTE do cache (cacheOnly) — nunca dispara o scrape pesado no caminho da resposta.
+ * O cron (lib/scheduler.ts) mantém o cache quente em produção.
+ */
+export async function getJogosDoDiaContext(): Promise<string | null> {
+  const ligas = await getJogosDoDia(false, true);
+  if (!ligas.length) return null;
+  const fmt = (odd: string | null, pr?: number) => `${odd ?? '-'}${pr != null ? ` (${pr}%)` : ''}`;
+  const linhas: string[] = [];
+  for (const l of ligas) {
+    linhas.push(`${l.liga}:`);
+    for (const j of l.jogos.slice(0, 6)) {
+      const p = j.probabilidades ?? undefined;
+      linhas.push(
+        `  ${j.mandante} x ${j.visitante} — ${j.mandante}: ${fmt(j.casa, p?.casa)} | Empate: ${fmt(j.empate, p?.empate)} | ${j.visitante}: ${fmt(j.fora, p?.fora)}`,
+      );
+    }
+  }
+  return [
+    `[JOGOS DO DIA + ODDS — fonte: Academia das Apostas (bet365). Use SOMENTE estes dados, não invente valores. % = probabilidade implícita. Apostar é +18: lembre o torcedor de jogar com responsabilidade.]`,
+    ...linhas,
+  ].join('\n');
 }

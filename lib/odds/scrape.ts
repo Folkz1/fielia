@@ -14,7 +14,12 @@
 import { getProxyDispatcher, hasProxyConfigured } from '@/lib/proxy';
 
 const ACADEMIA = 'https://www.academiadasapostas.com';
-const COMP_SERIE_A = 26; // id da Série A na Academia (validado)
+// Competições brasileiras na Academia (ids validados). Tenta A primeiro, depois B —
+// permite o monitor mostrar odds reais mesmo com a Série A em pausa (consultar time da B).
+const COMPETICOES = [
+  { id: 26, serie: 'A' as const, slug: 'serie-a' },
+  { id: 89, serie: 'B' as const, slug: 'serie-b' },
+];
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const HEADERS = {
@@ -29,6 +34,7 @@ export interface OddsJogo {
   mandante: string;
   visitante: string;
   url: string;
+  serie: 'A' | 'B' | null; // competição onde o jogo foi encontrado
   bookie: string | null; // casa de aposta (ex.: bet365)
   casa: string | null; // odd vitória do mandante
   empate: string | null;
@@ -97,34 +103,40 @@ function parseOdds1x2(html: string): Pick<OddsJogo, 'casa' | 'empate' | 'fora' |
   return out;
 }
 
-// Acha a URL do próximo jogo de um time na lista da Série A.
+// Acha a URL do próximo jogo de um time (tenta Série A, depois B).
 async function acharJogoDoTime(
   termo: string,
   signal: AbortSignal,
-): Promise<{ url: string; mandante: string; visitante: string } | null> {
-  const html = await fetchHtml(`${ACADEMIA}/stats/competition/brasil/${COMP_SERIE_A}`, signal);
-  if (!html) return null;
+): Promise<{ url: string; mandante: string; visitante: string; serie: 'A' | 'B' } | null> {
   const alvo = termo.toLowerCase();
-  const re = /\/stats\/match\/brasil\/serie-a\/([a-z0-9-]+)\/([a-z0-9-]+)\/([a-z0-9]+)(?![a-z0-9])/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    const [, t1, t2, id] = m;
-    if (t1.includes(alvo) || t2.includes(alvo)) {
-      return {
-        url: `${ACADEMIA}/stats/match/brasil/serie-a/${t1}/${t2}/${id}`,
-        mandante: titulizar(t1),
-        visitante: titulizar(t2),
-      };
+  for (const comp of COMPETICOES) {
+    const html = await fetchHtml(`${ACADEMIA}/stats/competition/brasil/${comp.id}`, signal);
+    if (!html) continue;
+    const re = new RegExp(
+      `/stats/match/brasil/${comp.slug}/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9]+)(?![a-z0-9])`,
+      'gi',
+    );
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      const [, t1, t2, id] = m;
+      if (t1.includes(alvo) || t2.includes(alvo)) {
+        return {
+          url: `${ACADEMIA}/stats/match/brasil/${comp.slug}/${t1}/${t2}/${id}`,
+          mandante: titulizar(t1),
+          visitante: titulizar(t2),
+          serie: comp.serie,
+        };
+      }
     }
   }
   return null;
 }
 
-/** Odds 1x2 do próximo jogo do time (default: Corinthians). Cacheado 30min. */
-export async function getOddsProximoJogo(time = 'corinthians'): Promise<OddsJogo | null> {
+/** Odds 1x2 do próximo jogo do time (default: Corinthians). Cacheado 30min; force ignora o cache. */
+export async function getOddsProximoJogo(time = 'corinthians', force = false): Promise<OddsJogo | null> {
   const key = `odds:${time}`;
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
@@ -140,6 +152,7 @@ export async function getOddsProximoJogo(time = 'corinthians'): Promise<OddsJogo
       mandante: jogo.mandante,
       visitante: jogo.visitante,
       url: jogo.url,
+      serie: jogo.serie,
       ...parsed,
       temOdds: !!(parsed.casa || parsed.empate || parsed.fora),
     };

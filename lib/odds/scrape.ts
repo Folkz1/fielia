@@ -132,6 +132,27 @@ async function acharJogoDoTime(
   return null;
 }
 
+/**
+ * Probabilidade implícita normalizada (em %) a partir das odds 1x2.
+ * prob_i = (1/odd_i) / Σ(1/odd_j) — o Σ remove a margem da casa (overround), então as 3 somam 100%.
+ * Retorna null se faltar alguma odd.
+ */
+export function probabilidadesImplicitas(
+  j: Pick<OddsJogo, 'casa' | 'empate' | 'fora'>,
+): { casa: number; empate: number; fora: number } | null {
+  const c = parseFloat(j.casa || '');
+  const e = parseFloat(j.empate || '');
+  const f = parseFloat(j.fora || '');
+  if (!c || !e || !f) return null;
+  const ic = 1 / c, ie = 1 / e, iff = 1 / f;
+  const soma = ic + ie + iff;
+  return {
+    casa: Math.round((ic / soma) * 100),
+    empate: Math.round((ie / soma) * 100),
+    fora: Math.round((iff / soma) * 100),
+  };
+}
+
 /** Odds 1x2 do próximo jogo do time (default: Corinthians). Cacheado 30min; force ignora o cache. */
 export async function getOddsProximoJogo(time = 'corinthians', force = false): Promise<OddsJogo | null> {
   const key = `odds:${time}`;

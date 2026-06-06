@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { getPremiumAccess } from "@/lib/premium";
+import { OddsCard } from "@/components/dashboard/odds-card";
 import {
   MessageSquare,
   Trophy,
@@ -162,6 +163,9 @@ export default async function DashboardPage() {
           <h3 className="text-2xl font-bold">{userData?.quizAttempts?.length || 0}</h3>
         </div>
       </div>
+
+      {/* Próximo jogo: odds + probabilidades (carrega assíncrono, não bloqueia o dashboard) */}
+      <OddsCard />
 
       {/* Grid Principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

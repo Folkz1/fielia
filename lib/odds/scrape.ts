@@ -103,11 +103,10 @@ function parseOdds1x2(html: string): Pick<OddsJogo, 'casa' | 'empate' | 'fora' |
   return out;
 }
 
-// Acha a URL do próximo jogo de um time (tenta Série A, depois B).
-async function acharJogoDoTime(
-  termo: string,
-  signal: AbortSignal,
-): Promise<{ url: string; mandante: string; visitante: string; serie: 'A' | 'B' } | null> {
+type JogoRef = { url: string; mandante: string; visitante: string; serie: 'A' | 'B' };
+
+// Lista os jogos de um time (tenta Série A; se não achar, Série B). Sem buscar odds ainda.
+async function listarJogosDoTime(termo: string, signal: AbortSignal): Promise<JogoRef[]> {
   const alvo = termo.toLowerCase();
   for (const comp of COMPETICOES) {
     const html = await fetchHtml(`${ACADEMIA}/stats/competition/brasil/${comp.id}`, signal);
@@ -116,20 +115,24 @@ async function acharJogoDoTime(
       `/stats/match/brasil/${comp.slug}/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9]+)(?![a-z0-9])`,
       'gi',
     );
+    const jogos: JogoRef[] = [];
+    const vistos = new Set<string>();
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
       const [, t1, t2, id] = m;
-      if (t1.includes(alvo) || t2.includes(alvo)) {
-        return {
+      if ((t1.includes(alvo) || t2.includes(alvo)) && !vistos.has(id)) {
+        vistos.add(id);
+        jogos.push({
           url: `${ACADEMIA}/stats/match/brasil/${comp.slug}/${t1}/${t2}/${id}`,
           mandante: titulizar(t1),
           visitante: titulizar(t2),
           serie: comp.serie,
-        };
+        });
       }
     }
+    if (jogos.length) return jogos; // achou nessa série, não precisa procurar na outra
   }
-  return null;
+  return [];
 }
 
 /**
@@ -160,23 +163,24 @@ export async function getOddsProximoJogo(time = 'corinthians', force = false): P
   if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const jogo = await acharJogoDoTime(time, controller.signal);
-    if (!jogo) {
+    const jogos = await listarJogosDoTime(time, controller.signal);
+    if (!jogos.length) {
       cache.set(key, { value: null, expiresAt: Date.now() + ODDS_TTL_MS });
       return null;
     }
-    const html = await fetchHtml(`${jogo.url}/odds`, controller.signal);
-    const parsed = html ? parseOdds1x2(html) : { casa: null, empate: null, fora: null, bookie: null };
-    const value: OddsJogo = {
-      mandante: jogo.mandante,
-      visitante: jogo.visitante,
-      url: jogo.url,
-      serie: jogo.serie,
-      ...parsed,
-      temOdds: !!(parsed.casa || parsed.empate || parsed.fora),
-    };
+    // Busca odds dos primeiros jogos do time EM PARALELO e fica com o 1º que tem mercado aberto.
+    // (Antes pegava só o 1º jogo da lista — que muitas vezes não tem odds. Este é o fix.)
+    const candidatos = jogos.slice(0, 5);
+    const avaliados = await Promise.all(
+      candidatos.map(async (jogo): Promise<OddsJogo> => {
+        const html = await fetchHtml(`${jogo.url}/odds`, controller.signal);
+        const parsed = html ? parseOdds1x2(html) : { casa: null, empate: null, fora: null, bookie: null };
+        return { ...jogo, ...parsed, temOdds: !!(parsed.casa || parsed.empate || parsed.fora) };
+      }),
+    );
+    const value = avaliados.find((j) => j.temOdds) || avaliados[0] || null;
     cache.set(key, { value, expiresAt: Date.now() + ODDS_TTL_MS });
     return value;
   } catch {

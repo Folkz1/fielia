@@ -206,3 +206,123 @@ export async function getOddsContext(time = 'corinthians'): Promise<string | nul
     `Vitória ${j.mandante}: ${j.casa ?? '-'} | Empate: ${j.empate ?? '-'} | Vitória ${j.visitante}: ${j.fora ?? '-'}`,
   ].join('\n');
 }
+
+// ---- Painel "jogos do dia" (multi-liga) ----
+export interface JogoDoDia {
+  liga: string;
+  mandante: string;
+  visitante: string;
+  url: string;
+  bookie: string | null;
+  casa: string | null;
+  empate: string | null;
+  fora: string | null;
+  probabilidades: { casa: number; empate: number; fora: number } | null;
+}
+export interface LigaJogos {
+  liga: string;
+  jogos: JogoDoDia[];
+}
+
+// Ligas acompanhadas (id + slug da competição na Academia, validados). prio = ordem de exibição.
+// O slug filtra os jogos da competição (as listagens linkam jogos de outras competições como ruído).
+const LIGAS_ALVO: Array<{ pais: string; id: number; slug: string; nome: string; prio: number }> = [
+  { pais: 'brasil', id: 26, slug: 'serie-a', nome: 'Brasileirão Série A', prio: 1 },
+  { pais: 'brasil', id: 89, slug: 'serie-b', nome: 'Brasileirão Série B', prio: 2 },
+  { pais: 'america-do-sul', id: 241, slug: 'conmebol-libertadores', nome: 'Libertadores', prio: 3 },
+  { pais: 'america-do-sul', id: 288, slug: 'copa-america', nome: 'Copa América', prio: 4 },
+  { pais: 'mundo', id: 72, slug: 'mundial', nome: 'Mundial de Clubes', prio: 5 },
+  { pais: 'mundo', id: 430, slug: 'amigaveis', nome: 'Amistosos / Seleções', prio: 6 },
+  { pais: 'inglaterra', id: 8, slug: 'premier-league', nome: 'Premier League', prio: 7 },
+  { pais: 'italia', id: 13, slug: 'serie-a', nome: 'Serie A (Itália)', prio: 8 },
+  { pais: 'alemanha', id: 9, slug: 'bundesliga', nome: 'Bundesliga', prio: 9 },
+  { pais: 'franca', id: 16, slug: 'ligue-1', nome: 'Ligue 1', prio: 10 },
+];
+
+const jogosCache = new Map<string, { value: LigaJogos[]; expiresAt: number }>();
+const JOGOS_POR_LIGA = 6; // candidatos por liga (busca odds; fica com os que têm mercado)
+const MAX_JOGOS = 60; // teto total de fetches de odds por ciclo (≈ todas as ligas × JOGOS_POR_LIGA)
+
+/**
+ * Próximos jogos COM odds (bet365) das ligas acompanhadas, agrupados por liga. Cache 30min.
+ * Usa as listagens das competições (têm os jogos futuros com mercado aberto) — NÃO o /livescores,
+ * que traz jogos ao vivo/encerrados sem odds pré-jogo.
+ */
+export async function getJogosDoDia(force = false): Promise<LigaJogos[]> {
+  const cached = jogosCache.get('all');
+  if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
+
+  try {
+    // 1) candidatos: primeiros jogos de cada liga (listagens em paralelo)
+    const listas = await Promise.all(
+      LIGAS_ALVO.map(async (liga) => {
+        let html: string | null = null;
+        try {
+          html = await fetchHtml(`${ACADEMIA}/stats/competition/${liga.pais}/${liga.id}`, AbortSignal.timeout(10000));
+        } catch {
+          /* liga indisponível — ignora */
+        }
+        if (!html) return [];
+        const re = new RegExp(
+          `/stats/match/${liga.pais}/${liga.slug}/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9]+)(?![a-z0-9])`,
+          'gi',
+        );
+        const vistos = new Set<string>();
+        const out: Array<{ liga: (typeof LIGAS_ALVO)[number]; url: string; mandante: string; visitante: string }> = [];
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(html)) !== null && out.length < JOGOS_POR_LIGA) {
+          const [, t1, t2, id] = m;
+          if (vistos.has(id)) continue;
+          vistos.add(id);
+          out.push({
+            liga,
+            url: `${ACADEMIA}/stats/match/${liga.pais}/${liga.slug}/${t1}/${t2}/${id}`,
+            mandante: titulizar(t1),
+            visitante: titulizar(t2),
+          });
+        }
+        return out;
+      }),
+    );
+    const candidatos = listas.flat().slice(0, MAX_JOGOS);
+
+    // 2) odds de cada candidato (paralelo, timeout por fetch). Mantém só os com mercado aberto.
+    const avaliados = await Promise.all(
+      candidatos.map(async (c) => {
+        let p = { casa: null as string | null, empate: null as string | null, fora: null as string | null, bookie: null as string | null };
+        try {
+          const oh = await fetchHtml(`${c.url}/odds`, AbortSignal.timeout(8000));
+          if (oh) p = parseOdds1x2(oh);
+        } catch {
+          /* jogo individual falhou */
+        }
+        return { liga: c.liga, mandante: c.mandante, visitante: c.visitante, url: c.url, ...p };
+      }),
+    );
+    const comOdds = avaliados.filter((j) => j.casa || j.empate || j.fora);
+
+    // 3) agrupa por liga (ordem = prio), com probabilidades
+    const result: LigaJogos[] = [];
+    for (const liga of LIGAS_ALVO) {
+      const jogos = comOdds
+        .filter((j) => j.liga.nome === liga.nome)
+        .map((j): JogoDoDia => ({
+          liga: liga.nome,
+          mandante: j.mandante,
+          visitante: j.visitante,
+          url: j.url,
+          bookie: j.bookie,
+          casa: j.casa,
+          empate: j.empate,
+          fora: j.fora,
+          probabilidades: probabilidadesImplicitas(j),
+        }));
+      if (jogos.length) result.push({ liga: liga.nome, jogos });
+    }
+
+    jogosCache.set('all', { value: result, expiresAt: Date.now() + ODDS_TTL_MS });
+    return result;
+  } catch {
+    return cached?.value ?? [];
+  }
+}

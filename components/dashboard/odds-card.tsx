@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Coins, AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { Coins, AlertCircle, ChevronRight } from "lucide-react";
 
 interface OddsJogo {
   mandante: string;
@@ -104,6 +105,12 @@ export function OddsCard() {
           As casas ainda não abriram as odds deste jogo. As probabilidades aparecem aqui assim que o mercado abrir. ⚽
         </div>
       )}
+      <Link
+        href="/dashboard/jogos"
+        className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-orange-400 hover:underline"
+      >
+        Ver jogos &amp; odds do dia <ChevronRight className="w-4 h-4" />
+      </Link>
     </div>
   );
 }

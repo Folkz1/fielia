@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProxyDispatcher, hasProxyConfigured } from '@/lib/proxy';
-import { getOddsProximoJogo } from '@/lib/odds/scrape';
+import { getOddsProximoJogo, getJogosDoDia } from '@/lib/odds/scrape';
 
 // TEMPORÁRIO (Deploy 1) — valida o scraper DE DENTRO da produção: o datacenter alcança a
 // Academia direto? via proxy? o scraper traz odds? Protegido por token na query. REMOVER no Deploy 2.
@@ -15,6 +15,22 @@ export async function GET(req: NextRequest) {
   if (url.searchParams.get('t') !== DIAG_TOKEN) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
+
+  // mode=jogos: valida o painel de jogos do dia (multi-liga) de dentro do prod
+  if (url.searchParams.get('mode') === 'jogos') {
+    const ligas = await getJogosDoDia(true);
+    return NextResponse.json({
+      mode: 'jogos',
+      totalLigas: ligas.length,
+      totalJogos: ligas.reduce((s, l) => s + l.jogos.length, 0),
+      ligas: ligas.map((l) => ({
+        liga: l.liga,
+        jogos: l.jogos.map((j) => `${j.mandante} x ${j.visitante} | ${j.casa}/${j.empate}/${j.fora} @${j.bookie}`),
+      })),
+      fetchedAt: new Date().toISOString(),
+    });
+  }
+
   const time = (url.searchParams.get('time') || 'corinthians').toLowerCase().slice(0, 40);
 
   // 1) fetch direto (IP do datacenter)

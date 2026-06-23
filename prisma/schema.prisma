@@ -380,3 +380,22 @@ model YouTubeChannel {
 
   @@map("youtube_channels")
 }
+
+model FunnelEvent {
+  id          String   @id @default(cuid())
+  type        String
+  anonId      String
+  userId      String?
+  path        String?
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([anonId, createdAt])
+  @@index([createdAt])
+  @@map("funnel_events")
+}

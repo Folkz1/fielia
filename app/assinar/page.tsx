@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreditCard, User, Mail, Phone, FileText, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { FielLogo } from "@/components/fiel-logo";
+import { track } from "@/lib/track";
 
 function formatCPF(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -35,6 +36,10 @@ export default function AssinarPage() {
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
 
+  useEffect(() => {
+    track("checkout_view");
+  }, []);
+
   function handleCPF(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, cpf: formatCPF(e.target.value) }));
   }
@@ -51,6 +56,7 @@ export default function AssinarPage() {
     }
     setError("");
     setLoading(true);
+    track("checkout_submit");
 
     try {
       const res = await fetch("/api/checkout", {

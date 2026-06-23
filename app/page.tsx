@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { FielLogo } from "@/components/fiel-logo";
+import { track } from "@/lib/track";
 
 /* ─── hooks ─── */
 
@@ -44,6 +45,9 @@ const GROUP_URL = "/grupo";
 /* ─── page ─── */
 
 export default function Home() {
+  useEffect(() => {
+    track("page_view");
+  }, []);
   return (
     <main className="min-h-screen" style={{ background: "#0A0A0A" }}>
       <Navbar />
@@ -183,6 +187,7 @@ function HeroSection() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
           <a
             href={SUBSCRIBE_URL}
+            onClick={() => track("hero_cta_assinar")}
             className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
           >
             Assinar Premium →
@@ -190,6 +195,7 @@ function HeroSection() {
           <Link
             href={GROUP_URL}
             prefetch={false}
+            onClick={() => track("hero_cta_grupo")}
             className="border border-white/40 text-white/80 rounded-full px-9 py-4 text-lg hover:border-white hover:bg-white/10 transition-all"
           >
             Entrar no grupo grátis
@@ -202,6 +208,7 @@ function HeroSection() {
             <a
               key={q}
               href={SUBSCRIBE_URL}
+              onClick={() => track("chip_click", { q })}
               className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 hover:border-orange-500/50 hover:text-white transition-colors"
             >
               {q}

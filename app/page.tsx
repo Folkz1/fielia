@@ -36,24 +36,6 @@ function useIntersectionObserver(threshold = 0.15) {
   return { ref, isVisible };
 }
 
-function useCounterAnimation(target: number, isVisible: boolean, duration = 2000) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    const startTime = performance.now();
-    const step = (currentTime: number) => {
-      const progress = Math.min((currentTime - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [isVisible, target, duration]);
-
-  return count;
-}
-
 /* ─── constants ─── */
 
 const SUBSCRIBE_URL = "/assinar";
@@ -185,37 +167,50 @@ function HeroSection() {
         </p>
 
         <h1 className="font-heading text-[48px] md:text-[88px] leading-none text-white">
-          Você está pronto
+          Pare de caçar
           <br />
-          para saber tudo
+          notícia do Timão.
           <br />
-          sobre o Corinthians?
+          <span className="text-orange-500">Pergunte pra FIEL IA.</span>
         </h1>
 
         <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mt-6 leading-relaxed">
-          Chat com IA especialista no Timão. Notícias verificadas em tempo real.
-          Quiz com ranking competitivo. Memes pra zoar o rival.
-          Tudo no site e no WhatsApp — na palma da sua mão.
+          Chat com IA especialista no Timão que responde na hora: notícias de fontes confiáveis
+          (com status de confirmado, rumor ou não verificado), quiz com ranking e memes pra zoar o rival.
+          No site e no WhatsApp.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-          <Link
-            href={GROUP_URL}
-            prefetch={false}
-            className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
-          >
-            Entrar no grupo grátis →
-          </Link>
           <a
             href={SUBSCRIBE_URL}
-            className="border border-white/40 text-white rounded-full px-9 py-4 text-lg hover:border-white hover:bg-white/10 transition-all"
+            className="bg-orange-600 text-white font-bold rounded-full px-9 py-4 text-lg hover:bg-orange-500 hover:scale-105 hover:shadow-2xl hover:shadow-orange-600/40 transition-all"
           >
             Assinar Premium →
           </a>
+          <Link
+            href={GROUP_URL}
+            prefetch={false}
+            className="border border-white/40 text-white/80 rounded-full px-9 py-4 text-lg hover:border-white hover:bg-white/10 transition-all"
+          >
+            Entrar no grupo grátis
+          </Link>
         </div>
 
-        <p className="text-white/50 text-sm mt-8">
-          ⭐⭐⭐⭐⭐ Mais de 12.000 torcedores fiéis já assinaram
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
+          <span className="w-full text-white/40 text-xs uppercase tracking-wider mb-1">Experimente perguntar</span>
+          {["O Yuri Alberto tá suspenso?", "Qual o próximo jogo do Timão?", "Esse rumor de contratação é confirmado?"].map((q) => (
+            <a
+              key={q}
+              href={SUBSCRIBE_URL}
+              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 hover:border-orange-500/50 hover:text-white transition-colors"
+            >
+              {q}
+            </a>
+          ))}
+        </div>
+
+        <p className="text-white/50 text-sm mt-6">
+          ⭐⭐⭐⭐⭐ Feito para o torcedor fiel do Timão
         </p>
       </div>
 
@@ -272,8 +267,8 @@ function FakeNewsProblem() {
           A FIEL IA resolve isso de uma vez.
         </h3>
         <p className={`text-lg text-white/60 mt-4 fade-up stagger-1 ${v}`}>
-          Notícias verificadas, em tempo real, personalizadas para você.
-          <br />Direto no site ou no WhatsApp. Sem fake news. Sem enrolação.
+          Notícias de fontes confiáveis, personalizadas para você, com status: confirmado, rumor ou não verificado.
+          <br />Direto no site ou no WhatsApp. Menos boato, mais contexto.
         </p>
       </div>
     </section>
@@ -332,7 +327,7 @@ function ProductReveal() {
                     <p className="text-sm text-white/80 mt-1">Corinthians anuncia reforço para o meio-campo</p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
-                    <p className="text-xs text-orange-500 font-semibold">VERIFICADO</p>
+                    <p className="text-xs text-orange-500 font-semibold">CONFIRMADO</p>
                     <p className="text-sm text-white/80 mt-1">Escalação confirmada para o clássico</p>
                   </div>
                 </div>
@@ -360,8 +355,8 @@ function ProductReveal() {
 /* ─── Features ─── */
 
 const features = [
-  { icon: MessageCircle, title: "Pergunte qualquer coisa sobre o Timão.", body: "Histórico, jogadores, títulos, escalações, curiosidades, bastidores — a IA Fiel sabe tudo e responde na hora, em linguagem de torcedor.", badge: "Chat 24/7 · Site e WhatsApp", highlighted: false },
-  { icon: Newspaper, title: "Notícias reais. Verificadas. No momento certo.", body: "Chega de fake news. A FIEL IA filtra, verifica e entrega apenas informações confirmadas — personalizadas com o que você quer acompanhar.", badge: "Verificado em tempo real", highlighted: false },
+  { icon: MessageCircle, title: "Pergunte qualquer coisa sobre o Timão.", body: "Histórico, jogadores, títulos, escalações, curiosidades, bastidores — a IA Fiel manja muito do Timão e responde na hora, em linguagem de torcedor.", badge: "Chat 24/7 · Site e WhatsApp", highlighted: false },
+  { icon: Newspaper, title: "Notícias com fonte. Você sabe o que é confirmado.", body: "Menos boato. A FIEL IA reúne informações de fontes confiáveis e sinaliza o que está confirmado, o que é rumor e o que ainda não foi verificado — do jeito que você quer acompanhar.", badge: "Status: confirmado / rumor / não verificado", highlighted: false },
   { icon: Trophy, title: "Você sabe tudo sobre o Timão?", body: "Agora seu conhecimento pode virar posição no ranking. Responda quizzes sobre o Corinthians, suba de nível e acompanhe sua evolução.", badge: "Ranking premium", highlighted: true, urgency: "Torcedores do Timão já estão subindo no ranking — e você vai ficar de fora?", pills: ["🏆 Ranking", "⚡ Quiz semanal", "📈 Evolução", "🤖 IA Premium"] },
   { icon: Laugh, title: "Crie o meme perfeito em segundos.", body: "Nossa IA gera imagens e memes prontos pra você arrasar no grupo e nas redes. Zoar com estilo é coisa de Fiel.", badge: "IA Generativa", highlighted: false },
 ];
@@ -512,31 +507,20 @@ function HowItWorks() {
 
 const testimonials = [
   { quote: "Subi no ranking no primeiro quiz e agora entro toda semana para tentar bater minha pontuação.", name: "Rodrigo M.", city: "São Paulo - SP" },
-  { quote: "Acabou o negócio de ficar checando se a notícia é verdadeira. A FIEL IA já chega verificada.", name: "Fernanda C.", city: "Santo André – SP" },
+  { quote: "Acabou de ficar caçando se a notícia é boato. A FIEL IA já me mostra a fonte e o status.", name: "Fernanda C.", city: "Santo André – SP" },
   { quote: "Os memes que gerei humilharam meu amigo palmeirense por semanas. Impagável.", name: "Carlos T.", city: "Campinas – SP" },
 ];
 
 function Testimonials() {
   const { ref, isVisible } = useIntersectionObserver();
-  const { ref: statsRef, isVisible: statsVisible } = useIntersectionObserver();
   const v = isVisible ? "visible" : "";
-
-  const assinantes = useCounterAnimation(12847, statsVisible);
-  const pontos = useCounterAnimation(48000, statsVisible);
-  const mensagens = useCounterAnimation(4200000, statsVisible);
-
-  const formatNumber = (n: number) => {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
-    if (n >= 1000) return n.toLocaleString("pt-BR");
-    return n.toString();
-  };
 
   return (
     <section className="py-36 px-6" style={{ background: "#0A0A0A" }} ref={ref}>
       <div className="max-w-5xl mx-auto text-center">
         <p className={`text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6 fade-up ${v}`}>DEPOIMENTOS</p>
         <h2 className={`font-heading text-[36px] md:text-[56px] leading-none text-white mb-16 fade-up stagger-1 ${v}`}>
-          12.000+ torcedores.<br />Uma só paixão.
+          Torcedor fiel.<br />Uma só paixão.
         </h2>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -551,21 +535,20 @@ function Testimonials() {
         </div>
 
         <div
-          ref={statsRef}
           className="border border-white/10 rounded-2xl p-8 mt-12 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10"
           style={{ background: "#111" }}
         >
           <div className="py-4 md:py-0 md:px-6">
-            <p className="font-heading text-[40px] md:text-[56px] text-white">{assinantes.toLocaleString("pt-BR")}</p>
-            <p className="text-sm text-white/50">Assinantes</p>
+            <p className="font-heading text-[28px] md:text-[34px] text-white">Fontes confiáveis</p>
+            <p className="text-sm text-white/50">com status de confirmação</p>
           </div>
           <div className="py-4 md:py-0 md:px-6">
-            <p className="font-heading text-[40px] md:text-[56px] text-white">{pontos.toLocaleString("pt-BR")}</p>
-            <p className="text-sm text-white/50">pontos disputados</p>
+            <p className="font-heading text-[28px] md:text-[34px] text-white">Quiz e ranking</p>
+            <p className="text-sm text-white/50">toda semana</p>
           </div>
           <div className="py-4 md:py-0 md:px-6">
-            <p className="font-heading text-[40px] md:text-[56px] text-white">{formatNumber(mensagens)}</p>
-            <p className="text-sm text-white/50">mensagens trocadas</p>
+            <p className="font-heading text-[28px] md:text-[34px] text-white">Site e WhatsApp</p>
+            <p className="text-sm text-white/50">onde você já está</p>
           </div>
         </div>
       </div>
@@ -577,7 +560,7 @@ function Testimonials() {
 
 const planFeatures = [
   "Chat IA especialista 24/7",
-  "Notícias verificadas e personalizadas em tempo real",
+  "Notícias de fontes confiáveis, com status de confirmação",
   "Quiz semanal, ranking completo e evolução",
   "Gerador de memes com IA",
   "Acesso via site E WhatsApp",
@@ -641,7 +624,7 @@ function Pricing() {
         </p>
 
         <p className="text-orange-500 text-sm font-semibold text-center mt-4">
-          ⚡ Preço de lançamento travado para os primeiros 15.000 assinantes.
+          ⚡ Preço de lançamento por tempo limitado.
         </p>
       </div>
     </section>
@@ -653,8 +636,8 @@ function Pricing() {
 const faqs = [
   { q: "Preciso instalar algum aplicativo?", a: "Não. A FIEL IA funciona direto no navegador e pelo WhatsApp. Sem app, sem complicação." },
   { q: "Como funciona o quiz e o ranking?", a: "Quizzes temáticos toda semana para assinantes premium. Você acumula pontos, acompanha sua evolução e disputa posição no ranking completo." },
-  { q: "As notícias são mesmo verificadas?", a: "Sim. A FIEL IA só entrega notícias de fontes confiáveis, com verificação em tempo real. Chega de perder tempo checando se o que você leu é verdadeiro." },
-  { q: "A IA realmente sabe tudo sobre o Corinthians?", a: "Foi treinada com todo o histórico do clube — títulos, jogadores, estatísticas, curiosidades e polêmicas — e é atualizada em tempo real." },
+  { q: "Como funcionam as notícias?", a: "A FIEL IA reúne informações de fontes confiáveis e sinaliza o status de cada uma — confirmado, rumor ou não verificado. Assim você entende rápido o que já é fato e o que ainda é especulação." },
+  { q: "A IA manja mesmo do Corinthians?", a: "Ela conhece bastante da história do clube — títulos, jogadores, estatísticas, curiosidades e polêmicas — e é atualizada com frequência. Como toda IA, pode errar; por isso sinalizamos o que é informação confirmada." },
   { q: "Posso cancelar quando quiser?", a: "Sim. Cancele a qualquer momento, sem burocracia e sem multa." },
   { q: "O preço de R$ 56,90 é garantido?", a: "Sim. Assinantes do lançamento têm o preço travado mesmo que o plano suba no futuro." },
 ];

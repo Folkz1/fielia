@@ -33,6 +33,7 @@ export default function AssinarPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [accepted, setAccepted] = useState(false);
 
   function handleCPF(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, cpf: formatCPF(e.target.value) }));
@@ -44,6 +45,10 @@ export default function AssinarPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!accepted) {
+      setError("Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.");
+      return;
+    }
     setError("");
     setLoading(true);
 
@@ -175,7 +180,26 @@ export default function AssinarPage() {
                   className="w-full bg-black border border-zinc-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                 />
               </div>
+              <p className="text-zinc-500 text-xs mt-1.5">
+                Usado apenas para a emissão da cobrança via Asaas. Não guardamos dados do seu cartão.
+              </p>
             </div>
+
+            {/* Consentimento — Termos, Privacidade e contato */}
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={accepted}
+                onChange={(e) => setAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-orange-600"
+              />
+              <span className="text-zinc-400 text-xs leading-relaxed">
+                Li e aceito os{" "}
+                <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 underline">Termos de Uso</a>{" "}
+                e a{" "}
+                <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 underline">Política de Privacidade</a>, e autorizo o contato por e-mail e WhatsApp para acesso e suporte.
+              </span>
+            </label>
 
             {/* Error */}
             {error && (
@@ -188,7 +212,7 @@ export default function AssinarPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !accepted}
               className="w-full bg-white text-black font-bold py-3.5 rounded-xl text-base hover:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (

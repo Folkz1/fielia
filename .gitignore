@@ -53,3 +53,6 @@ next-env.d.ts
 nul
 playwright-report/
 test-results/
+
+# arquivos de trabalho / dumps temporarios (dados extraidos, nao versionar)
+tmp/

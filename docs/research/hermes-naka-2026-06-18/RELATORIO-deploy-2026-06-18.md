@@ -1,72 +1,72 @@
-# Relatório — Deploy dos Lotes 1+2 de conversão · Fiel.IA
+# Relatório — Conversão Fiel.IA: Lotes 1, 2 e 3 em produção
 
-**Data:** 2026-06-18 · **Ambiente:** produção (`fielchat.com`) · **Status:** ✅ no ar e validado
+**Sessão/deploys:** 2026-06-23 · **Ambiente:** produção (`fielchat.com`) · **Status:** ✅ no ar e validado
+**Base:** análise de conversão (Naka, 12/06) + roadmap de produto (Naka, 18/06), extraídos do agente Hermes.
 
-> **TL;DR:** os itens **P0 e P1** da análise de conversão e do roadmap que o Naka produziu no Hermes foram implementados e estão **no ar em produção**. Foco: confiança/legal + primeira dobra. Nada de banco/pagamento foi tocado.
-
----
-
-## 1. O que foi pro ar
-
-### Lote 1 — Confiança & Legal (P0)
-| Achado do Naka | O que mudou | Onde |
-|---|---|---|
-| Checkout pede CPF/dados sem consentimento nem termos | **Checkbox de aceite obrigatório** de Termos + Privacidade (com links) + autorização de contato WhatsApp/e-mail; **submit travado** sem aceite | `/assinar` |
-| CPF sem explicação | **Microcopy**: "usado apenas para a cobrança via Asaas; não guardamos dados do cartão" | `/assinar` |
-| Claims absolutos ("verificado em tempo real", "sem fake news", "a IA sabe tudo") = risco legal | Trocados por **linguagem de classificação**: confirmado / rumor / não verificado | landing (hero, problema, features, FAQ, plano, mockup, depoimento) |
-| Números de prova social fabricados (12.000+, 12.847 assinantes, 48k pontos, 4.2M msgs, 15.000) | **Removidos**; contadores viraram **selos qualitativos** (sem número inventado) | landing |
-
-### Lote 2 — Primeira dobra (P1)
-| Achado do Naka | O que mudou | Onde |
-|---|---|---|
-| H1 genérico ("pronto para saber tudo…") | Novo H1: **"Pare de caçar notícia do Timão. Pergunte pra FIEL IA."** | hero |
-| 2 CTAs competindo (grupo grátis × premium) | **CTA primário = Assinar Premium**; grupo grátis vira secundário | hero |
-| Paga antes de ver o produto | **Chips de perguntas-exemplo** (demo): "O Yuri tá suspenso?", "Próximo jogo?", "Esse rumor é confirmado?" | hero |
-| Subtítulo desalinhado | Reescrito ("…responde na hora…") | hero |
-
-> A ordem da landing (dor → demo → benefícios → prova → oferta) já seguia a recomendação do Naka, então não foi preciso reordenar seções.
+> **TL;DR:** os itens **P0/P1** (confiança/legal + primeira dobra) **e a instrumentação de funil** do roadmap do Naka estão no ar em produção, validados. Agora dá pra **medir** o funil — antes não havia nenhuma medição.
 
 ---
 
-## 2. Evidência de validação (produção)
-- `https://fielchat.com/` → **HTTP 200** · `https://fielchat.com/assinar` → **HTTP 200**
-- Textos novos no ar: "Pergunte pra FIEL IA", "Experimente perguntar", "Fontes confiáveis", "por tempo limitado" — todos presentes.
-- Textos antigos: "para saber tudo", "verificadas em tempo real", "sem fake news", "12.000", "15.000 assinantes" — **0 ocorrências**.
-- Checkout: aceite de Termos/Privacidade + microcopy do CPF — presentes.
-- Local antes do deploy: `tsc` limpo, build do CI OK.
+## 1. Lote 1 — Confiança & Legal (P0) ✅
+| Achado do Naka | O que mudou |
+|---|---|
+| Checkout sem consentimento/termos | Checkbox **obrigatório** de Termos + Privacidade (links) + autorização WhatsApp/e-mail; submit travado sem aceite |
+| CPF sem explicação | Microcopy: "só pra cobrança via Asaas; não guardamos cartão" |
+| Claims absolutos ("verificado em tempo real", "sem fake news", "a IA sabe tudo") | → linguagem de classificação: **confirmado / rumor / não verificado** |
+| Números fabricados (12.000+, 12.847, 48k, 4.2M, 15.000) | **Removidos** → selos qualitativos |
+
+## 2. Lote 2 — Primeira dobra (P1) ✅
+| Achado do Naka | O que mudou |
+|---|---|
+| H1 genérico | **"Pare de caçar notícia do Timão. Pergunte pra FIEL IA."** |
+| 2 CTAs competindo | CTA primário = **Assinar**; grupo grátis vira secundário |
+| Paga antes de ver o produto | **Chips de perguntas-exemplo** (demo) na hero |
+
+## 3. Lote 3 — Instrumentação de funil (P0) ✅
+- Tabela **`funnel_events`** criada em produção (migração **cirúrgica** — `CREATE TABLE` isolado).
+- **`/api/track`**: endpoint que grava eventos (best-effort, **sem IP/User-Agent** por privacidade — respeitando o contrato do Naka).
+- Eventos no front: `page_view`, `hero_cta_assinar`, `hero_cta_grupo`, `chip_click`, `checkout_view`, `checkout_submit`.
+- Tracking **próprio** (anonId em localStorage + `sendBeacon`), sem ferramenta externa/terceiro.
+- **Agora dá pra medir:** quantos veem a landing → quantos vão ao checkout → quantos convertem.
+
+> ⚠️ Decisão técnica de segurança: **não** usei `prisma db push` (fluxo padrão), porque o banco tem **drift** — o push tentaria apagar a tabela `whatsapp_webhook_events` e o índice de busca vetorial. Apliquei só o `CREATE TABLE` da tabela nova, isolado, sem risco ao resto.
 
 ---
 
-## 3. Deploy (técnico)
-- **Commits (main):** `c03a38e` (código) · `ca1009b` (docs/extração)
-- **Imagem em produção:** `ghcr.io/folkz1/fielia:sha-ca1009b` (EasyPanel `scrapers/fielia`)
-- **Como foi:** push → CI (GitHub Actions) buildou a imagem → EasyPanel `updateSourceImage` + webhook de deploy.
-- **🔄 Rollback (~30s):** apontar `scrapers/fielia` de volta para `ghcr.io/folkz1/fielia:sha-51670b7` + disparar webhook.
-- **Escopo/guardrails:** só frontend (landing + checkout). Sem migration, sem mexer em pagamento/webhook/banco/Asaas.
+## 4. Validação em produção (objetiva)
+- `fielchat.com/` e `/assinar` → **HTTP 200**.
+- Textos novos no ar ✅ · claims e números antigos → **0 ocorrências** ✅.
+- Checkout: consentimento + microcopy do CPF presentes ✅.
+- `/api/track`: POST real → **204** e evento **gravado** na `funnel_events` (teste E2E feito e limpo) ✅.
+
+## 5. Deploy técnico
+- **Commits (main):** `c03a38e` (Lotes 1+2) · `ca1009b` (docs) · `ccc77c0` (relatório) · `2c5f29c` (Lote 3).
+- **Imagem em produção:** `ghcr.io/folkz1/fielia:sha-2c5f29c`.
+- **Fluxo:** push → CI (GitHub Actions) builda → EasyPanel `updateSourceImage` + webhook.
+- **🔄 Rollback código (~30s):** apontar `scrapers/fielia` → `sha-51670b7` + webhook.
+- **🔄 Rollback Lote 3:** `DROP TABLE funnel_events;` (aditiva, reversível, zero impacto no resto).
 
 ---
 
-## 4. Para o Naka (dono do produto)
+## 6. Para o Naka (dono do produto)
 
-Henry — implementei e subi pra produção os itens **P0 (confiança/legal)** e **P1 (primeira dobra)** da sua **análise de conversão (12/06)** e do seu **roadmap (18/06)**. Já está no ar em `fielchat.com`: checkout com consentimento + explicação do CPF, claims de notícia ajustados pra linguagem de status (confirmado/rumor/não verificado), números fabricados removidos, novo H1 focado em "parar de caçar boato" e CTA priorizando a assinatura.
+Henry — subi pra produção os **P0/P1** da sua análise (12/06) e do seu roadmap (18/06): checkout com consentimento + CPF explicado, claims de notícia em linguagem de status (confirmado/rumor/não verificado), números fabricados removidos, novo H1 e CTA priorizando assinatura. E já **instrumentei o funil** — a partir de agora cada etapa (landing → checkout → conversão) é medida.
 
-**Decisões que tomei pra conseguir subir agora (confirma ou ajusta):**
-- **CTA primário = Assinar** (foco em receita) — grupo grátis virou secundário.
-- **Removi o "12.000+" e os contadores** — não havia dado comprovável; troquei por prova qualitativa. Se você tem o número real, me passa que eu coloco.
-- **Instrumentação = tracking próprio** (sem ferramenta externa) — entra no Lote 3.
-- *Hoje o site tem zero medição de funil* — por isso o Lote 3 é prioridade pra saber o efeito real destas mudanças.
+**Decisões que tomei pra subir agora (confirma ou ajusta):**
+- CTA primário = Assinar (foco receita) — grupo grátis virou secundário.
+- Removi o "12.000+" e contadores (sem dado comprovável). Se tiver o número real, me passa.
+- Instrumentação = tracking próprio, sem ferramenta externa.
 
 **Ainda preciso da sua decisão (5 pontos) pra fechar o roadmap:**
 1. CPF pode sair do formulário e ir só na etapa do Asaas?
-2. Há capacidade operacional pra garantia / trial / preço de entrada (ex.: 1ª semana mais barata)?
-3. WhatsApp já é funcional no premium ou ainda é promessa de roadmap?
-4. Promessa central do produto: notícia confiável, chat especialista ou comunidade gamificada — e em que ordem?
-5. Quais fontes a IA usa (ou deve usar) pra classificar notícia como confirmado / rumor / não verificado?
+2. Capacidade operacional pra garantia / trial / preço de entrada?
+3. WhatsApp já é funcional no premium ou ainda é promessa?
+4. Promessa central do produto: notícia confiável, chat especialista ou comunidade gamificada — em que ordem?
+5. Quais fontes a IA usa (ou deve usar) pra classificar notícia como confirmado/rumor/não verificado?
 
 ---
 
-## 5. Próximos lotes (pendentes)
-- **Lote 3 — Instrumentação:** medir o funil (tabela `FunnelEvent` + `/api/track` + eventos de CTA/checkout/grupo) e criar a **página-ponte `/grupo`**. ⚠️ Exige migration no banco (aprovação do Diego). Sem isso, não dá pra medir o efeito real dos Lotes 1+2.
-- **Lote 4:** checkout em etapas, garantia/trial, sistema de classificação de notícias no core, fontes nas respostas da IA.
+## 7. Próximo — Lote 4 (depende das 5 decisões acima)
+Checkout em etapas, garantia/trial, sistema de classificação de notícias no produto core e fontes nas respostas da IA. Aguarda as respostas do Naka.
 
 **Fontes (no repo):** `docs/research/hermes-naka-2026-06-18/` — transcripts das conversas, documentos do Naka (roadmap + análise) e a síntese com o mapa achado→código.

@@ -52,21 +52,23 @@
 
 Henry — subi pra produção os **P0/P1** da sua análise (12/06) e do seu roadmap (18/06): checkout com consentimento + CPF explicado, claims de notícia em linguagem de status (confirmado/rumor/não verificado), números fabricados removidos, novo H1 e CTA priorizando assinatura. E já **instrumentei o funil** — a partir de agora cada etapa (landing → checkout → conversão) é medida.
 
-**Decisões que tomei pra subir agora (confirma ou ajusta):**
+**Decisões já tomadas (confirma ou ajusta):**
 - CTA primário = Assinar (foco receita) — grupo grátis virou secundário.
 - Removi o "12.000+" e contadores (sem dado comprovável). Se tiver o número real, me passa.
 - Instrumentação = tracking próprio, sem ferramenta externa.
+- **Checkout fica como está**: mantém o consentimento + o CPF no formulário; **sem** redesign "em etapas".
 
-**Ainda preciso da sua decisão (5 pontos) pra fechar o roadmap:**
-1. CPF pode sair do formulário e ir só na etapa do Asaas?
-2. Capacidade operacional pra garantia / trial / preço de entrada?
-3. WhatsApp já é funcional no premium ou ainda é promessa?
-4. Promessa central do produto: notícia confiável, chat especialista ou comunidade gamificada — em que ordem?
-5. Quais fontes a IA usa (ou deve usar) pra classificar notícia como confirmado/rumor/não verificado?
+**Ainda preciso da sua decisão (4 pontos) pra fechar o roadmap:**
+1. Capacidade operacional pra garantia / trial / preço de entrada?
+2. WhatsApp já é funcional no premium ou ainda é promessa?
+3. Promessa central do produto: notícia confiável, chat especialista ou comunidade gamificada — em que ordem?
+4. Quais fontes a IA usa (ou deve usar) pra classificar notícia como confirmado/rumor/não verificado?
 
 ---
 
-## 7. Próximo — Lote 4 (depende das 5 decisões acima)
-Checkout em etapas, garantia/trial, sistema de classificação de notícias no produto core e fontes nas respostas da IA. Aguarda as respostas do Naka.
+## 7. Próximo — Lote 4 (depende das 4 decisões acima)
+Garantia/trial, sistema de classificação de notícias no produto core e fontes nas respostas da IA. Aguarda as respostas do Naka.
+
+> O **checkout não entra no Lote 4** — decisão do Diego de mantê-lo como está (com o consentimento + CPF do Lote 1).
 
 **Fontes (no repo):** `docs/research/hermes-naka-2026-06-18/` — transcripts das conversas, documentos do Naka (roadmap + análise) e a síntese com o mapa achado→código.

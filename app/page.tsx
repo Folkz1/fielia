@@ -11,6 +11,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { FielLogo } from "@/components/fiel-logo";
 import { track } from "@/lib/track";
+import { SmoothScroll } from "@/components/smooth-scroll";
 
 /* ─── hooks ─── */
 
@@ -50,6 +51,7 @@ export default function Home() {
   }, []);
   return (
     <main className="min-h-screen" style={{ background: "#0A0A0A" }}>
+      <SmoothScroll />
       <Navbar />
       <HeroSection />
       <FakeNewsProblem />
@@ -165,12 +167,19 @@ function HeroSection() {
       </div>
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/65 to-black/95" />
 
+      {/* Luzes brilhando */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="hero-orb absolute -top-24 left-[15%] h-72 w-72 rounded-full bg-orange-500/30 blur-3xl" />
+        <div className="hero-orb absolute top-1/4 right-[12%] h-80 w-80 rounded-full bg-orange-600/25 blur-3xl" style={{ animationDelay: "2.5s" }} />
+        <div className="hero-orb absolute bottom-8 left-1/3 h-64 w-64 rounded-full bg-amber-400/20 blur-3xl" style={{ animationDelay: "5s" }} />
+      </div>
+
       <div className="relative z-10 text-center max-w-5xl mx-auto px-6">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6">
           A INTELIGÊNCIA ARTIFICIAL DO TORCEDOR FIEL
         </p>
 
-        <h1 className="font-heading text-[48px] md:text-[88px] leading-none text-white">
+        <h1 className="hero-title-glow font-heading text-[48px] md:text-[88px] leading-none text-white">
           Pare de caçar
           <br />
           notícia do Timão.

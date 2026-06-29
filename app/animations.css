@@ -90,3 +90,45 @@
 html {
   scroll-behavior: smooth;
 }
+
+/* Lenis (smooth scroll com momentum) — coexiste com scroll-behavior */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Hero — luzes brilhando */
+@keyframes hero-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(24px, -28px) scale(1.12); opacity: 0.9; }
+}
+@keyframes hero-title-glow {
+  0%, 100% { text-shadow: 0 0 18px rgba(232, 101, 10, 0.20), 0 0 4px rgba(255, 255, 255, 0.10); }
+  50% { text-shadow: 0 0 38px rgba(232, 101, 10, 0.55), 0 0 9px rgba(255, 255, 255, 0.18); }
+}
+.hero-orb {
+  animation: hero-orb-float 12s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.hero-title-glow {
+  animation: hero-title-glow 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb,
+  .hero-title-glow {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

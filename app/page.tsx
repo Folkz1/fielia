@@ -152,16 +152,45 @@ function Navbar() {
 /* ─── Hero ─── */
 
 function HeroSection() {
+  const imgRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Transição no scroll: a imagem dá zoom e o conteúdo some/sobe conforme rola,
+  // revelando a próxima seção (estilo cinematográfico). rAF + style direto (sem re-render).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const p = Math.min(window.scrollY / (window.innerHeight || 1), 1);
+      if (imgRef.current) imgRef.current.style.transform = `scale(${1 + p * 0.35})`;
+      if (contentRef.current) {
+        contentRef.current.style.opacity = String(Math.max(1 - p * 1.5, 0));
+        contentRef.current.style.transform = `translateY(${p * -70}px)`;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    update();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <section className="relative min-h-screen flex items-center justify-center py-44 overflow-hidden">
-      <div className="absolute inset-0">
+      <div ref={imgRef} className="absolute inset-0 will-change-transform">
         <Image
-          src="/images/hero-video.webp"
+          src="/images/torcida.jpeg"
           alt="Torcida do Corinthians fazendo festa"
           fill
           className="object-cover"
           priority
-          unoptimized
+          quality={75}
           sizes="100vw"
         />
       </div>
@@ -175,7 +204,7 @@ function HeroSection() {
         <div className="hero-orb absolute bottom-4 left-1/3 h-72 w-72 rounded-full bg-amber-400/30 blur-3xl" style={{ animationDelay: "5s" }} />
       </div>
 
-      <div className="relative z-10 text-center max-w-5xl mx-auto px-6">
+      <div ref={contentRef} className="relative z-10 text-center max-w-5xl mx-auto px-6 will-change-transform">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-500 mb-6">
           A INTELIGÊNCIA ARTIFICIAL DO TORCEDOR FIEL
         </p>

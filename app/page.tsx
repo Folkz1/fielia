@@ -167,11 +167,12 @@ function HeroSection() {
       </div>
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/65 to-black/95" />
 
-      {/* Luzes brilhando */}
+      {/* Luzes brilhando — spotlight central + orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="hero-orb absolute -top-24 left-[15%] h-72 w-72 rounded-full bg-orange-500/30 blur-3xl" />
-        <div className="hero-orb absolute top-1/4 right-[12%] h-80 w-80 rounded-full bg-orange-600/25 blur-3xl" style={{ animationDelay: "2.5s" }} />
-        <div className="hero-orb absolute bottom-8 left-1/3 h-64 w-64 rounded-full bg-amber-400/20 blur-3xl" style={{ animationDelay: "5s" }} />
+        <div className="absolute left-1/2 top-1/2 h-[520px] w-[860px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-600/20 blur-[130px]" />
+        <div className="hero-orb absolute -top-20 left-[12%] h-80 w-80 rounded-full bg-orange-500/40 blur-3xl" />
+        <div className="hero-orb absolute top-1/4 right-[10%] h-96 w-96 rounded-full bg-orange-600/35 blur-3xl" style={{ animationDelay: "2.5s" }} />
+        <div className="hero-orb absolute bottom-4 left-1/3 h-72 w-72 rounded-full bg-amber-400/30 blur-3xl" style={{ animationDelay: "5s" }} />
       </div>
 
       <div className="relative z-10 text-center max-w-5xl mx-auto px-6">
@@ -184,7 +185,7 @@ function HeroSection() {
           <br />
           notícia do Timão.
           <br />
-          <span className="text-orange-500">Pergunte pra FIEL IA.</span>
+          <span className="hero-shine">Pergunte pra FIEL IA.</span>
         </h1>
 
         <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mt-6 leading-relaxed">

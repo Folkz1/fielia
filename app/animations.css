@@ -69,11 +69,11 @@
   animation: pulse-slow 3s ease-in-out infinite;
 }
 
-/* Landing page fade-up on scroll */
+/* Landing page fade-up on scroll — reveal com deslize (estilo referencia do Naka) */
 .fade-up {
   opacity: 0;
-  transform: translateY(32px);
-  transition: opacity 700ms ease-out, transform 700ms ease-out;
+  transform: translateY(56px);
+  transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fade-up.visible {
@@ -112,8 +112,13 @@ html.lenis body {
   50% { transform: translate(24px, -28px) scale(1.12); opacity: 0.9; }
 }
 @keyframes hero-title-glow {
-  0%, 100% { text-shadow: 0 0 18px rgba(232, 101, 10, 0.20), 0 0 4px rgba(255, 255, 255, 0.10); }
-  50% { text-shadow: 0 0 38px rgba(232, 101, 10, 0.55), 0 0 9px rgba(255, 255, 255, 0.18); }
+  0%, 100% { text-shadow: 0 0 24px rgba(232, 101, 10, 0.35), 0 0 6px rgba(255, 255, 255, 0.14); }
+  50% { text-shadow: 0 0 52px rgba(232, 101, 10, 0.70), 0 0 15px rgba(255, 220, 170, 0.32); }
+}
+/* Shine — luz varrendo o texto (estilo premium do video do Naka) */
+@keyframes hero-shine {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 .hero-orb {
   animation: hero-orb-float 12s ease-in-out infinite;
@@ -121,6 +126,19 @@ html.lenis body {
 }
 .hero-title-glow {
   animation: hero-title-glow 4.5s ease-in-out infinite;
+}
+.hero-shine {
+  background: linear-gradient(100deg, #f97316 0%, #f97316 36%, #ffffff 50%, #f97316 64%, #f97316 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: hero-shine 2.8s linear infinite;
+  filter: drop-shadow(0 0 32px rgba(249, 115, 22, 0.6));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-shine { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

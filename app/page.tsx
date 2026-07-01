@@ -156,12 +156,12 @@ function HeroSection() {
     <section className="relative min-h-screen flex items-center justify-center py-44 overflow-hidden">
       <div className="absolute inset-0">
         <Image
-          src="/images/torcida.jpeg"
+          src="/images/hero-video.webp"
           alt="Torcida do Corinthians fazendo festa"
           fill
           className="object-cover"
           priority
-          quality={75}
+          unoptimized
           sizes="100vw"
         />
       </div>

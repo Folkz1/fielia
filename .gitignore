@@ -56,3 +56,7 @@ test-results/
 
 # arquivos de trabalho / dumps temporarios (dados extraidos, nao versionar)
 tmp/
+
+# Segredos em skills locais - NUNCA versionar (02/08/2026)
+.claude/
+.agents/
